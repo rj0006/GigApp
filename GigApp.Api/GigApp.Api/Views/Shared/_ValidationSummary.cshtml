@@ -1,0 +1,19 @@
+@*
+    Server-rendered error summary. There is no client-side validation script by
+    design — every rule is enforced on the server, so the two cannot drift.
+*@
+@if (!ViewData.ModelState.IsValid)
+{
+    <div class="alert alert-danger">
+        <ul class="mb-0 ps-3">
+            @foreach (var message in ViewData.ModelState
+                .SelectMany(entry => entry.Value!.Errors)
+                .Select(e => e.ErrorMessage)
+                .Where(m => !string.IsNullOrWhiteSpace(m))
+                .Distinct())
+            {
+                <li>@message</li>
+            }
+        </ul>
+    </div>
+}

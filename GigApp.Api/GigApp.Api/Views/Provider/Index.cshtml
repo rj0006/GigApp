@@ -1,0 +1,282 @@
+@model ProviderDashboardViewModel
+@{
+    ViewData["Portal"] = "Partner";
+    ViewData["LogoutPath"] = "/provider/logout";
+    var profile = Model.Profile;
+}
+
+<h1 class="h4">Hello, @Model.Name</h1>
+
+@if (profile is null)
+{
+    <div class="alert alert-danger">
+        No partner profile is attached to this account. Please contact an administrator.
+    </div>
+}
+else
+{
+    @if (!profile.IsVerified)
+    {
+        <div class="alert alert-info">
+            <strong>Verification pending.</strong>
+            @(profile.HasCompleteKyc
+                ? "Your documents are with an administrator for review. You cannot accept work until they are approved."
+                : "Your KYC is incomplete. Upload the missing documents below to start the review.")
+        </div>
+    }
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="card h-100"><div class="card-body py-3">
+                <div class="h6 mb-0">@profile.SkillCategoryName</div>
+                <div class="text-secondary text-uppercase" style="font-size:.68rem">Skill category</div>
+            </div></div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100"><div class="card-body py-3">
+                <span class="badge @(profile.IsVerified ? "text-bg-success" : "text-bg-warning")">
+                    @(profile.IsVerified ? "Verified" : "Unverified")
+                </span>
+                <div class="text-secondary text-uppercase mt-1" style="font-size:.68rem">KYC status</div>
+            </div></div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100"><div class="card-body py-3">
+                <span class="badge @(profile.IsAvailable ? "text-bg-success" : "text-bg-secondary")">
+                    @(profile.IsAvailable ? "On duty" : "Off duty")
+                </span>
+                <div class="text-secondary text-uppercase mt-1" style="font-size:.68rem">Availability</div>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h2 class="h6 mb-3">Profile</h2>
+
+            <form method="post" asp-action="ToggleAvailability" class="mb-3">
+                @* String, not bool — see Views/Admin/Categories.cshtml. *@
+                <input type="hidden" name="isAvailable" value="@(profile.IsAvailable ? "false" : "true")" />
+                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                    @(profile.IsAvailable ? "Go off duty" : "Go on duty")
+                </button>
+            </form>
+
+            <form method="post" asp-action="UpdateSkill" class="gig-form row g-3 mb-3">
+                <div class="col-md-8">
+                    <label for="SkillPicker" class="form-label required">Skill category</label>
+                    <input id="SkillPicker" class="form-control"
+                           data-master="skill-category" data-target="skillCategoryId"
+                           data-alert="skill category" value="@profile.SkillCategoryName" />
+                    <input type="hidden" id="skillCategoryId" name="skillCategoryId"
+                           value="@profile.SkillCategoryId" />
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-sm btn-primary">Update skill</button>
+                </div>
+            </form>
+
+            <h3 class="h6 mt-4">KYC documents</h3>
+            <partial name="_KycReview" model="profile" />
+
+            @* enctype is required — without it only file names reach the server. *@
+            <form method="post" asp-action="SubmitKyc" enctype="multipart/form-data"
+                  class="gig-form row g-3 mt-1">
+                <div class="col-12">
+                    <div class="form-text mb-0">
+                        Upload only what you want to replace. Any upload returns your account to
+                        pending review. JPG, PNG or WEBP, up to 5 MB each.
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <label for="Selfie" class="form-label">Replace selfie</label>
+                    <input id="Selfie" name="Selfie" type="file" class="form-control form-control-sm"
+                           accept=".jpg,.jpeg,.png,.webp" />
+                </div>
+                <div class="col-md-4">
+                    <label for="AadhaarFront" class="form-label">Replace Aadhaar front</label>
+                    <input id="AadhaarFront" name="AadhaarFront" type="file" class="form-control form-control-sm"
+                           accept=".jpg,.jpeg,.png,.webp" />
+                </div>
+                <div class="col-md-4">
+                    <label for="AadhaarBack" class="form-label">Replace Aadhaar back</label>
+                    <input id="AadhaarBack" name="AadhaarBack" type="file" class="form-control form-control-sm"
+                           accept=".jpg,.jpeg,.png,.webp" />
+                </div>
+
+                <div class="col-md-6">
+                    <label for="AadhaarNumber" class="form-label">Aadhaar number</label>
+                    <input id="AadhaarNumber" name="AadhaarNumber" class="form-control form-control-sm"
+                           inputmode="numeric" maxlength="12" value="@profile.AadhaarNumber"
+                           placeholder="12 digits" />
+                </div>
+
+                <div class="col-12">
+                    <button type="submit" class="btn btn-sm btn-primary">Submit for review</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h2 class="h6 mb-3">Available work</h2>
+
+            @if (!profile.IsVerified)
+            {
+                <p class="text-center text-secondary py-4 mb-0">Open tasks appear here once your account is verified.</p>
+            }
+            else if (Model.AvailableTasks.Count == 0)
+            {
+                <p class="text-center text-secondary py-4 mb-0">
+                    Nothing new in your category right now. Anything you have already bid on is under
+                    <strong>My bids</strong>.
+                </p>
+            }
+            else
+            {
+                <p class="text-secondary small">
+                    You place a bid with your own amount — the customer decides. The job only becomes
+                    yours once they accept.
+                </p>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr><th>#</th><th>Category</th><th>Description</th><th>Address</th><th>Budget</th><th>Customer</th><th class="text-end"></th></tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var task in Model.AvailableTasks)
+                        {
+                            <tr>
+                                <td class="text-secondary">@task.Id</td>
+                                <td><span class="badge text-bg-light border">@task.CategoryName</span></td>
+                                <td class="small">@task.Description</td>
+                                <td class="small text-secondary">@task.Address</td>
+                                <td>₹@task.Budget.ToString("N0")</td>
+                                <td>@(task.CustomerName ?? "—")</td>
+                                <td class="text-end">
+                                    <button type="button" class="btn btn-sm btn-primary"
+                                            data-bs-toggle="modal" data-bs-target="#bid-modal-@task.Id">
+                                        Place bid
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+
+                @foreach (var task in Model.AvailableTasks)
+                {
+                    <div class="modal fade" id="bid-modal-@task.Id" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <form method="post" asp-action="PlaceBid" asp-route-id="@task.Id" class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Bid on task #@task.Id</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body gig-form">
+                                    <p class="small text-secondary mb-3">
+                                        @task.Description<br />
+                                        <span class="text-body">@task.Address</span> ·
+                                        customer's budget <strong>₹@task.Budget.ToString("N0")</strong>
+                                    </p>
+                                    <div class="mb-3">
+                                        <label for="amount-@task.Id" class="form-label required">Your amount (₹)</label>
+                                        <input id="amount-@task.Id" name="Amount" type="number" min="1" step="50"
+                                               class="form-control" required value="@task.Budget.ToString("0")" />
+                                        <div class="form-text">You can ask for more or less than the budget.</div>
+                                    </div>
+                                    <div>
+                                        <label for="note-@task.Id" class="form-label">Message to the customer</label>
+                                        <textarea id="note-@task.Id" name="Note" class="form-control" rows="2"
+                                                  maxlength="500" placeholder="Why you are a good fit"></textarea>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="submit" class="btn btn-sm btn-primary">Send bid</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h2 class="h6 mb-3">
+                My bids
+                @if (Model.CountersAwaitingReply > 0)
+                {
+                    <span class="badge text-bg-warning">@Model.CountersAwaitingReply need a reply</span>
+                }
+            </h2>
+            <partial name="_MyBids" model="Model.MyBids" />
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <h2 class="h6 mb-1">My jobs</h2>
+            <p class="text-secondary small">Only tasks the customer has assigned to you.</p>
+
+            @if (Model.MyJobs.Count == 0)
+            {
+                <p class="text-center text-secondary py-4 mb-0">You have not accepted any tasks yet.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr><th>#</th><th>Category</th><th>Address</th><th>Agreed</th><th>Status</th><th>Customer</th><th class="text-end">Actions</th></tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var job in Model.MyJobs)
+                        {
+                            <tr>
+                                <td class="text-secondary">@job.Id</td>
+                                <td><span class="badge text-bg-light border">@job.CategoryName</span></td>
+                                <td class="small text-secondary">@job.Address</td>
+                                <td class="fw-semibold">₹@job.EffectiveAmount.ToString("N0")</td>
+                                <td><span class="badge badge-@job.Status text-white">@job.StatusLabel</span></td>
+                                <td>@(job.CustomerName ?? "—")</td>
+                                <td>
+                                    <div class="row-actions justify-end">
+                                        @if (GigTaskStatus.CanTransition(job.Status, GigTaskStatus.InProgress))
+                                        {
+                                            <form method="post" asp-action="UpdateStatus" asp-route-id="@job.Id">
+                                                <input type="hidden" name="status" value="@GigTaskStatus.InProgress" />
+                                                <button type="submit" class="btn btn-sm btn-primary">Start</button>
+                                            </form>
+                                        }
+                                        @if (GigTaskStatus.CanTransition(job.Status, GigTaskStatus.Completed))
+                                        {
+                                            <form method="post" asp-action="UpdateStatus" asp-route-id="@job.Id">
+                                                <input type="hidden" name="status" value="@GigTaskStatus.Completed" />
+                                                <button type="submit" class="btn btn-sm btn-success">Complete</button>
+                                            </form>
+                                        }
+                                        @if (GigTaskStatus.CanTransition(job.Status, GigTaskStatus.Cancelled))
+                                        {
+                                            <form method="post" asp-action="UpdateStatus" asp-route-id="@job.Id"
+                                                  data-confirm="Cancel task #@job.Id?">
+                                                <input type="hidden" name="status" value="@GigTaskStatus.Cancelled" />
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">Cancel</button>
+                                            </form>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+}

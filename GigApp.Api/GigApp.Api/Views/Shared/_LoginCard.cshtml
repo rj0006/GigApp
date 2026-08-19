@@ -1,0 +1,34 @@
+@model LoginViewModel
+@*
+    Shared sign-in card for all three portals. Only the heading, subtitle and
+    footer differ, so they come in via ViewData instead of three copies.
+      ViewData["LoginHeading"]  ViewData["LoginSubtitle"]  ViewData["LoginFooter"]
+*@
+<div class="card form-card-narrow mx-auto">
+    <div class="card-body p-4">
+        <h1 class="h5 mb-1">@ViewData["LoginHeading"]</h1>
+        <p class="text-secondary small">@ViewData["LoginSubtitle"]</p>
+
+        <partial name="_ValidationSummary" />
+
+        <form method="post" asp-action="Login" class="gig-form">
+            <input type="hidden" asp-for="ReturnUrl" />
+
+            <div class="mb-3">
+                <label asp-for="Identifier" class="form-label required"></label>
+                <input asp-for="Identifier" class="form-control" autocomplete="username"
+                       autofocus placeholder="9876543210" />
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Password" class="form-label required"></label>
+                <input asp-for="Password" type="password" class="form-control"
+                       autocomplete="current-password" />
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">Sign in</button>
+        </form>
+
+        <p class="small text-secondary mt-3 mb-0">@Html.Raw(ViewData["LoginFooter"])</p>
+    </div>
+</div>

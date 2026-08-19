@@ -1,0 +1,43 @@
+@model AdminPartnersViewModel
+@{
+    Layout = "_AdminLayout";
+}
+
+<h1 class="h4">Partners</h1>
+<p class="text-secondary small">All registered service providers.</p>
+
+<div class="card">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end mb-3" data-auto-submit>
+            <div class="col-sm-4 col-md-3">
+                <label class="form-label" for="search">Search</label>
+                <input class="form-control form-control-sm" id="search" name="search"
+                       value="@Model.Partners.Search" placeholder="Name or mobile" />
+            </div>
+            <div class="col-sm-3 col-md-2">
+                <label class="form-label" for="verified">Status</label>
+                <select class="form-select form-select-sm" id="verified" name="verified">
+                    <option value="" selected="@(Model.VerifiedFilter is null)">All</option>
+                    <option value="true" selected="@(Model.VerifiedFilter == true)">Verified</option>
+                    <option value="false" selected="@(Model.VerifiedFilter == false)">Pending</option>
+                </select>
+            </div>
+            <div class="col-sm-3 col-md-3">
+                <label class="form-label" for="categoryId">Skill</label>
+                <select class="form-select form-select-sm" id="categoryId" name="categoryId">
+                    <option value="" selected="@(Model.CategoryFilter is null)">All</option>
+                    @foreach (var option in Model.Categories)
+                    {
+                        <option value="@option.Id" selected="@(Model.CategoryFilter == option.Id)">@option.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+                <a class="btn btn-sm btn-outline-secondary" href="/admin/users/partners">Reset</a>
+            </div>
+        </form>
+
+        <partial name="_PartnerTable" model="Model" />
+    </div>
+</div>

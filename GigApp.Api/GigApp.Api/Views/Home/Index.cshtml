@@ -1,0 +1,43 @@
+@{
+    var showDevCredentials = ViewData["ShowDevCredentials"] is true;
+}
+
+<h1 class="h3">GigApp</h1>
+<p class="text-secondary">Local services marketplace — customers post tasks, partners accept them.</p>
+
+<div class="row g-3 mt-2">
+    @foreach (var portal in new[] {
+        ("Customer", "/customer/login", "Post a task, track its progress, and see who accepted it."),
+        ("Partner",  "/provider/login", "Browse open work, accept jobs, and manage your KYC status."),
+        ("Admin",    "/admin/login",    "Review partner verification and monitor platform activity.") })
+    {
+        <div class="col-md-4">
+            <a class="card h-100 text-decoration-none" href="@portal.Item2">
+                <div class="card-body">
+                    <h2 class="h5 text-primary">@portal.Item1</h2>
+                    <p class="text-secondary small mb-0">@portal.Item3</p>
+                </div>
+            </a>
+        </div>
+    }
+</div>
+
+@if (showDevCredentials)
+{
+    <div class="card mt-4">
+        <div class="card-body">
+            <h2 class="h6">Development accounts</h2>
+            <p class="text-secondary small">Seeded on startup. Sign in with either the mobile number or the email.</p>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead><tr><th>Role</th><th>Mobile</th><th>Email</th><th>Password</th></tr></thead>
+                    <tbody>
+                        <tr><td>Admin</td><td class="mono">8683846689</td><td class="mono">rahuljangra807@@gmail.com</td><td class="mono">Gigapp@@123</td></tr>
+                        <tr><td>Customer</td><td class="mono">7879838798</td><td class="mono">amit@@gmail.com</td><td class="mono">Gigapp@@123</td></tr>
+                        <tr><td>Partner</td><td class="mono">7459867732</td><td class="mono">shivam@@gmail.com</td><td class="mono">Gigapp@@123</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}

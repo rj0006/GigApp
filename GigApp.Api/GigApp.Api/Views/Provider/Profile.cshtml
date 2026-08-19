@@ -1,0 +1,13 @@
+@model ProfilePageViewModel
+@{
+    ViewData["Portal"] = "Partner";
+    ViewData["LogoutPath"] = "/provider/logout";
+}
+
+<h1 class="h4">My profile</h1>
+<p class="text-secondary small">
+    Your own account details, photo and password. Skill category and KYC documents
+    are managed from the <a href="/provider">dashboard</a>.
+</p>
+
+<partial name="_ProfileBody" model="Model" />

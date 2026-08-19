@@ -1,0 +1,46 @@
+namespace GigApp.Api.Models
+{
+    public class GigTask
+    {
+        public int Id { get; set; }
+
+        // Who posted this task
+        public int CustomerId { get; set; }
+        public User? Customer { get; set; }
+
+        // Who accepted it (nullable — no one has accepted yet when created)
+        public int? PartnerId { get; set; }
+        public Partner? Partner { get; set; }
+
+        /// <summary>What kind of work this is — same master a partner's skill comes from.</summary>
+        public int CategoryId { get; set; }
+        public SkillCategory? Category { get; set; }
+
+        public string Description { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+
+        /// <summary>
+        /// What the customer expects to pay. Indicative only — partners bid
+        /// against it, and the settled figure is <see cref="AgreedAmount"/>.
+        /// Never use this for earnings or reporting.
+        /// </summary>
+        public decimal Budget { get; set; }
+
+        /// <summary>
+        /// The price actually agreed, taken from the winning bid. Null until a
+        /// bid is accepted.
+        /// </summary>
+        public decimal? AgreedAmount { get; set; }
+
+        public int? AcceptedBidId { get; set; }
+
+        public ICollection<TaskBid> Bids { get; set; } = new List<TaskBid>();
+
+        public string Status { get; set; } = GigTaskStatus.Pending;
+        // pending -> accepted -> in_progress -> completed -> cancelled
+
+        public DateTime? PreferredDateTime { get; set; } // customer's requested time
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? CompletedAt { get; set; }
+    }
+}

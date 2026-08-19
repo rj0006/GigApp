@@ -1,0 +1,118 @@
+@model AdminCategoriesViewModel
+@{
+    Layout = "_AdminLayout";
+    // Do not name this `page` — Razor parses `@page` in markup as a directive.
+    var list = Model.Categories;
+}
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+    <h1 class="h4 mb-0">Skill categories</h1>
+    <a class="btn btn-primary btn-sm ms-auto" href="/admin/masters/categories/new">
+        + New category
+    </a>
+</div>
+<p class="text-secondary small">
+    Every category picker draws from this master — both partner skills and customer tasks.
+</p>
+
+<div class="card">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end mb-3">
+            <div class="col-sm-5 col-md-4">
+                <label class="form-label" for="Search">Search</label>
+                <input class="form-control form-control-sm" id="Search" name="search"
+                       value="@Model.Search" placeholder="Category name" />
+            </div>
+            <div class="col-auto">
+                <input type="hidden" name="showInactive" value="@(Model.ShowInactive ? "true" : "false")" />
+                <button type="submit" class="btn btn-sm btn-primary">Search</button>
+            </div>
+            <div class="col-auto ms-sm-auto">
+                <div class="btn-group btn-group-sm" role="group">
+                    <a class="btn @(Model.ShowInactive ? "btn-outline-secondary" : "btn-secondary")"
+                       href="/admin/masters/categories">Active only</a>
+                    <a class="btn @(Model.ShowInactive ? "btn-secondary" : "btn-outline-secondary")"
+                       href="/admin/masters/categories?showInactive=true">Show all</a>
+                </div>
+            </div>
+        </form>
+
+        @if (list.TotalCount == 0)
+        {
+            <p class="text-center text-secondary py-4 mb-0">
+                No categories found.
+                <a href="/admin/masters/categories/new">Add the first one</a>.
+            </p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Order</th><th>Name</th><th>Description</th>
+                            <th>In use</th><th>Status</th><th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var category in list.Items)
+                    {
+                        <tr>
+                            <td class="text-secondary small">@category.DisplayOrder</td>
+                            <td class="fw-semibold">@category.Name</td>
+                            <td class="small text-secondary">@(category.Description ?? "—")</td>
+                            <td class="small">
+                                @if (category.IsInUse)
+                                {
+                                    <span class="badge text-bg-light border">@category.PartnerCount partner</span>
+                                    <span class="badge text-bg-light border">@category.TaskCount task</span>
+                                }
+                                else
+                                {
+                                    <span class="text-secondary">Unused</span>
+                                }
+                            </td>
+                            <td>
+                                <span class="badge @(category.IsActive ? "text-bg-success" : "text-bg-warning")">
+                                    @(category.IsActive ? "Active" : "Inactive")
+                                </span>
+                            </td>
+                            <td>
+                                <div class="row-actions justify-end">
+                                    <a class="btn btn-sm btn-outline-secondary"
+                                       href="/admin/masters/categories/@category.Id/edit">Edit</a>
+
+                                    <form method="post" asp-action="ToggleCategory" asp-route-id="@category.Id">
+                                        @* String, not bool — Razor renders a bool attribute as
+                                           value="value", which fails to bind. *@
+                                        <input type="hidden" name="isActive"
+                                               value="@(category.IsActive ? "false" : "true")" />
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                            @(category.IsActive ? "Deactivate" : "Activate")
+                                        </button>
+                                    </form>
+
+                                    @if (!category.IsInUse)
+                                    {
+                                        <form method="post" asp-action="DeleteCategory" asp-route-id="@category.Id"
+                                              data-confirm="Delete '@category.Name'? This cannot be undone.">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                        </form>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+
+            <partial name="_Pagination" model="PagerModel.From(list, Context)" />
+        }
+    </div>
+</div>
+
+<p class="small text-secondary mt-3">
+    A category already in use cannot be deleted — deactivate it instead. Deactivating removes it from
+    new selections while existing partners and tasks continue to work normally.
+</p>

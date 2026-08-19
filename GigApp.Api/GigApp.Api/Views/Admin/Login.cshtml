@@ -1,0 +1,9 @@
+@model LoginViewModel
+@{
+    ViewData["Portal"] = "Admin";
+    ViewData["LoginHeading"] = "Admin sign in";
+    ViewData["LoginSubtitle"] = "Restricted to platform administrators.";
+    @* No registration link — admin accounts are seeded or promoted, never self-served. *@
+    ViewData["LoginFooter"] = "Admin accounts are created by an existing administrator.";
+}
+<partial name="_LoginCard" model="Model" />

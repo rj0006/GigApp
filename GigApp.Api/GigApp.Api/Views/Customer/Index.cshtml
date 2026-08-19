@@ -1,0 +1,135 @@
+@model CustomerDashboardViewModel
+@{
+    ViewData["Portal"] = "Customer";
+    ViewData["LogoutPath"] = "/customer/logout";
+}
+
+<h1 class="h4">Hello, @Model.Name</h1>
+<p class="text-secondary small">Post a task and a verified partner will pick it up.</p>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h2 class="h6 mb-3">Post a new task</h2>
+
+        <form method="post" asp-action="CreateTask" class="gig-form row g-3">
+            @* Master-backed autocomplete — global.js wires it from these data-* attributes. *@
+            <div class="col-md-6">
+                <label for="CategoryPicker" class="form-label required">Category</label>
+                <input id="CategoryPicker" class="form-control" placeholder="Start typing to choose"
+                       data-master="skill-category" data-target="CategoryId" data-alert="category" />
+                <input type="hidden" id="CategoryId" name="CategoryId" value="" />
+            </div>
+
+            <div class="col-md-6">
+                <label for="Budget" class="form-label required">Budget (₹)</label>
+                <input id="Budget" name="Budget" type="number" min="0" step="50"
+                       class="form-control" required value="500" />
+            </div>
+
+            <div class="col-12">
+                <label for="Description" class="form-label required">What needs doing?</label>
+                <textarea id="Description" name="Description" class="form-control" rows="3" required
+                          minlength="5" placeholder="Deep clean a 2BHK flat, including kitchen and balcony"></textarea>
+            </div>
+
+            <div class="col-md-6">
+                <label for="Address" class="form-label required">Address</label>
+                <input id="Address" name="Address" class="form-control" required
+                       minlength="5" placeholder="Sector 14, Gurugram" />
+            </div>
+
+            <div class="col-md-6">
+                <label for="PreferredDateTime" class="form-label">Preferred date &amp; time</label>
+                <input id="PreferredDateTime" name="PreferredDateTime" type="datetime-local" class="form-control" />
+            </div>
+
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">Post task</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h2 class="h6 mb-3">My tasks</h2>
+
+        @if (Model.Tasks.Count == 0)
+        {
+            <p class="text-center text-secondary py-4 mb-0">No tasks yet. Post your first one above.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr><th>#</th><th>Category</th><th>Description</th><th>Amount</th><th>Status</th><th>Bids</th><th>Partner</th><th class="text-end"></th></tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var task in Model.Tasks)
+                    {
+                        <tr>
+                            <td class="text-secondary">@task.Id</td>
+                            <td><span class="badge text-bg-light border">@task.CategoryName</span></td>
+                            <td class="small">@task.Description</td>
+                            <td>
+                                <span class="fw-semibold">₹@task.EffectiveAmount.ToString("N0")</span>
+                                @if (task.AgreedAmount is not null && task.AgreedAmount != task.Budget)
+                                {
+                                    <div class="small text-secondary">budget ₹@task.Budget.ToString("N0")</div>
+                                }
+                            </td>
+                            <td><span class="badge badge-@task.Status text-white">@task.StatusLabel</span></td>
+                            <td>
+                                @if (task.Status == GigTaskStatus.Pending)
+                                {
+                                    var bidCount = Model.BidsFor(task.Id).Count;
+                                    <button type="button" class="btn btn-sm @(bidCount > 0 ? "btn-primary" : "btn-outline-secondary")"
+                                            data-bs-toggle="modal" data-bs-target="#bids-modal-@task.Id">
+                                        @bidCount bid@(bidCount == 1 ? "" : "s")
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="text-secondary">—</span>
+                                }
+                            </td>
+                            <td>
+                                @if (task.PartnerId is not null && task.PartnerName is not null)
+                                {
+                                    @* Opens the partner card rendered below the table. *@
+                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none"
+                                            data-bs-toggle="modal" data-bs-target="#partner-modal-@task.PartnerId"
+                                            title="View partner details">@task.PartnerName</button>
+                                }
+                                else
+                                {
+                                    <span class="text-secondary">—</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                @if (GigTaskStatus.CanTransition(task.Status, GigTaskStatus.Cancelled))
+                                {
+                                    <form method="post" asp-action="CancelTask" asp-route-id="@task.Id"
+                                          data-confirm="Cancel task #@task.Id?">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Cancel</button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@* One card per distinct partner, not per task row. *@
+@foreach (var partner in Model.Partners)
+{
+    <partial name="_PartnerInfoModal" model="partner" />
+}
+
+@* Bid lists for tasks still open for bidding. *@
+<partial name="_TaskBidsModal" model="Model" />

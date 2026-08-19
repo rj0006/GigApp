@@ -1,0 +1,83 @@
+@model AdminTasksViewModel
+@{
+    Layout = "_AdminLayout";
+    // Do not name this `page` — Razor parses `@page` in markup as a directive.
+    var list = Model.Tasks;
+}
+
+<h1 class="h4">Tasks</h1>
+<p class="text-secondary small"><strong>@list.TotalCount</strong> task(s) in total.</p>
+
+<div class="card">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end mb-3">
+            <div class="col-sm-4 col-md-3">
+                <label class="form-label" for="search">Search</label>
+                <input class="form-control form-control-sm" id="search" name="search"
+                       value="@list.Search" placeholder="Description or address" />
+            </div>
+            <div class="col-sm-3 col-md-2">
+                <label class="form-label" for="status">Status</label>
+                <select class="form-select form-select-sm" id="status" name="status">
+                    <option value="" selected="@string.IsNullOrEmpty(Model.StatusFilter)">All</option>
+                    @foreach (var status in GigTaskStatus.All)
+                    {
+                        <option value="@status" selected="@(Model.StatusFilter == status)">
+                            @status.Replace('_', ' ')
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-sm-3 col-md-3">
+                <label class="form-label" for="categoryId">Category</label>
+                <select class="form-select form-select-sm" id="categoryId" name="categoryId">
+                    <option value="" selected="@(Model.CategoryFilter is null)">All</option>
+                    @foreach (var option in Model.Categories)
+                    {
+                        <option value="@option.Id" selected="@(Model.CategoryFilter == option.Id)">@option.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+                <a class="btn btn-sm btn-outline-secondary" href="/admin/tasks">Reset</a>
+            </div>
+        </form>
+
+        @if (list.TotalCount == 0)
+        {
+            <p class="text-center text-secondary py-4 mb-0">No tasks match this filter.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>#</th><th>Category</th><th>Description</th><th>Address</th>
+                            <th>Customer</th><th>Partner</th><th>Budget</th><th>Status</th><th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var task in list.Items)
+                    {
+                        <tr>
+                            <td class="text-secondary">@task.Id</td>
+                            <td><span class="badge text-bg-light border">@task.CategoryName</span></td>
+                            <td class="small">@task.Description</td>
+                            <td class="small text-secondary">@task.Address</td>
+                            <td>@(task.CustomerName ?? "—")</td>
+                            <td>@(task.PartnerName ?? "—")</td>
+                            <td>₹@task.Budget.ToString("N0")</td>
+                            <td><span class="badge badge-@task.Status text-white">@task.StatusLabel</span></td>
+                            <td class="small text-secondary">@task.CreatedAt.ToString("dd MMM, HH:mm")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+
+            <partial name="_Pagination" model="PagerModel.From(list, Context)" />
+        }
+    </div>
+</div>

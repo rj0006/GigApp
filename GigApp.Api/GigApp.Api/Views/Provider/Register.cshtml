@@ -1,0 +1,106 @@
+@model RegisterPartnerViewModel
+@{
+    ViewData["Portal"] = "Partner";
+    var selectedName = Model.Categories.FirstOrDefault(c => c.Id == Model.SkillCategoryId)?.Name;
+}
+
+<div class="card form-card-narrow mx-auto">
+    <div class="card-body p-4">
+        <h1 class="h5 mb-1">Join as a partner</h1>
+        <p class="text-secondary small">
+            You can sign in straight away, but an administrator must verify your KYC document
+            before you can accept work.
+        </p>
+
+        <partial name="_ValidationSummary" />
+
+        @* enctype is required — without it only file names reach the server. *@
+        <form method="post" asp-action="Register" enctype="multipart/form-data" class="gig-form row g-3">
+            <div class="col-12">
+                <label asp-for="Name" class="form-label required"></label>
+                <input asp-for="Name" class="form-control" autocomplete="name" autofocus />
+            </div>
+
+            <div class="col-12">
+                <label asp-for="Phone" class="form-label required"></label>
+                <input asp-for="Phone" type="tel" class="form-control"
+                       autocomplete="tel" placeholder="9876543210" />
+            </div>
+
+            <div class="col-12">
+                <label asp-for="Email" class="form-label"></label>
+                <input asp-for="Email" type="email" class="form-control" autocomplete="email" />
+            </div>
+
+            @*
+                This page is anonymous, so it cannot call the authorized masters
+                API. The options are server-rendered instead and global.js
+                filters them locally — the master API stays behind auth.
+            *@
+            <div class="col-12">
+                <label for="SkillPicker" class="form-label required">Skill category</label>
+                <input id="SkillPicker" class="form-control" placeholder="Start typing to choose"
+                       data-options="skill-options" data-target="SkillCategoryId"
+                       data-alert="skill category" value="@selectedName" />
+                <input type="hidden" asp-for="SkillCategoryId" />
+                <datalist id="skill-options">
+                    @foreach (var option in Model.Categories)
+                    {
+                        <option value="@option.Name" data-id="@option.Id"></option>
+                    }
+                </datalist>
+            </div>
+
+            <div class="col-12">
+                <hr class="my-1" />
+                <h2 class="h6 mb-0">KYC verification</h2>
+                <p class="text-secondary small mb-0">
+                    An administrator checks these against each other before approving your account.
+                    JPG, PNG or WEBP, up to 5 MB each.
+                </p>
+            </div>
+
+            <div class="col-12">
+                <label asp-for="Selfie" class="form-label required"></label>
+                <input asp-for="Selfie" type="file" class="form-control" accept=".jpg,.jpeg,.png,.webp" />
+                <div class="form-text">A clear photo of your face, matching your Aadhaar card.</div>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="AadhaarFront" class="form-label required"></label>
+                <input asp-for="AadhaarFront" type="file" class="form-control" accept=".jpg,.jpeg,.png,.webp" />
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="AadhaarBack" class="form-label required"></label>
+                <input asp-for="AadhaarBack" type="file" class="form-control" accept=".jpg,.jpeg,.png,.webp" />
+            </div>
+
+            <div class="col-12">
+                <label asp-for="AadhaarNumber" class="form-label required"></label>
+                <input asp-for="AadhaarNumber" class="form-control" inputmode="numeric"
+                       maxlength="12" placeholder="12 digits" />
+            </div>
+
+            <div class="col-12"><hr class="my-1" /></div>
+            <div class="col-12">
+                <label asp-for="Password" class="form-label required"></label>
+                <input asp-for="Password" type="password" class="form-control" autocomplete="new-password" />
+                <div class="form-text">@ValidationPatterns.PasswordMessage</div>
+            </div>
+
+            <div class="col-12">
+                <label asp-for="ConfirmPassword" class="form-label required"></label>
+                <input asp-for="ConfirmPassword" type="password" class="form-control" autocomplete="new-password" />
+            </div>
+
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary w-100">Create partner account</button>
+            </div>
+        </form>
+
+        <p class="small text-secondary mt-3 mb-0">
+            Already registered? <a asp-action="Login">Sign in</a>
+        </p>
+    </div>
+</div>

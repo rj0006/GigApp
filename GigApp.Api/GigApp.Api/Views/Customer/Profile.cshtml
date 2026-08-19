@@ -1,0 +1,10 @@
+@model ProfilePageViewModel
+@{
+    ViewData["Portal"] = "Customer";
+    ViewData["LogoutPath"] = "/customer/logout";
+}
+
+<h1 class="h4">My profile</h1>
+<p class="text-secondary small">Your own account details, photo and password.</p>
+
+<partial name="_ProfileBody" model="Model" />

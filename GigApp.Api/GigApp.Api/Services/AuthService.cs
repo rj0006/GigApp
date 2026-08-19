@@ -1,0 +1,219 @@
+using GigApp.Api.Data;
+using GigApp.Api.Dtos;
+using GigApp.Api.Models;
+using GigApp.Api.Services.Files;
+using Microsoft.EntityFrameworkCore;
+
+namespace GigApp.Api.Services
+{
+    public interface IAuthService
+    {
+        Task<AuthResult> RegisterCustomerAsync(RegisterCustomerRequest request, CancellationToken ct = default);
+        Task<AuthResult> RegisterPartnerAsync(RegisterPartnerRequest request, CancellationToken ct = default);
+        Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken ct = default);
+    }
+
+    public class AuthService : IAuthService
+    {
+        private readonly AppDbContext _context;
+        private readonly ITokenService _tokenService;
+        private readonly IFileStorageService _storage;
+        private readonly ILogger<AuthService> _logger;
+
+        public AuthService(
+            AppDbContext context,
+            ITokenService tokenService,
+            IFileStorageService storage,
+            ILogger<AuthService> logger)
+        {
+            _context = context;
+            _tokenService = tokenService;
+            _storage = storage;
+            _logger = logger;
+        }
+
+        public Task<AuthResult> RegisterCustomerAsync(RegisterCustomerRequest request, CancellationToken ct = default) =>
+            RegisterAsync(request, UserRoles.Customer, partnerProfile: null, ct);
+
+        public async Task<AuthResult> RegisterPartnerAsync(RegisterPartnerRequest request, CancellationToken ct = default)
+        {
+            // A partner's skill must come from the master, and an inactive
+            // category should not be selectable for a brand-new account.
+            var categoryExists = await _context.SkillCategories
+                .AnyAsync(c => c.Id == request.SkillCategoryId && c.IsActive, ct);
+
+            if (!categoryExists)
+                return AuthResult.Fail("Choose a valid skill category.");
+
+            // Store the three KYC images first. Track what landed on disk so a
+            // later failure does not leave orphaned files behind.
+            var stored = new List<string>();
+
+            var selfie = await SaveKycAsync(request.Selfie, stored, ct);
+            if (selfie.Error is not null) return await FailAndCleanUpAsync(selfie.Error, stored);
+
+            var aadhaarFront = await SaveKycAsync(request.AadhaarFront, stored, ct);
+            if (aadhaarFront.Error is not null) return await FailAndCleanUpAsync(aadhaarFront.Error, stored);
+
+            var aadhaarBack = await SaveKycAsync(request.AadhaarBack, stored, ct);
+            if (aadhaarBack.Error is not null) return await FailAndCleanUpAsync(aadhaarBack.Error, stored);
+
+            var result = await RegisterAsync(request, UserRoles.Partner, new Partner
+            {
+                SkillCategoryId = request.SkillCategoryId,
+                SelfieFileName = selfie.FileName,
+                AadhaarFrontFileName = aadhaarFront.FileName,
+                AadhaarBackFileName = aadhaarBack.FileName,
+                AadhaarNumber = request.AadhaarNumber.Trim(),
+                IsVerified = false,   // an admin must approve KYC before this partner can work
+                IsAvailable = true,
+            }, ct);
+
+            // Duplicate phone, duplicate email, database error — drop the uploads.
+            if (!result.Succeeded) CleanUp(stored);
+
+            return result;
+        }
+
+        private async Task<(string? FileName, string? Error)> SaveKycAsync(
+            IFormFile? file, List<string> stored, CancellationToken ct)
+        {
+            var saved = await _storage.SaveAsync(file, FileCategory.KycDocument, ct);
+
+            if (!saved.Succeeded) return (null, saved.Error);
+
+            stored.Add(saved.FileName!);
+            return (saved.FileName, null);
+        }
+
+        private Task<AuthResult> FailAndCleanUpAsync(string error, List<string> stored)
+        {
+            CleanUp(stored);
+            return Task.FromResult(AuthResult.Fail(error));
+        }
+
+        private void CleanUp(IEnumerable<string> fileNames)
+        {
+            foreach (var name in fileNames)
+                _storage.Delete(name, FileCategory.KycDocument);
+        }
+
+        private async Task<AuthResult> RegisterAsync(
+            RegisterCustomerRequest request,
+            string role,
+            Partner? partnerProfile,
+            CancellationToken ct)
+        {
+            var email = NormalizeEmail(request.Email);
+            var phone = request.Phone.Trim();
+
+            if (await _context.Users.AnyAsync(u => u.Phone == phone, ct))
+                return AuthResult.Fail("An account with this phone number already exists.");
+
+            if (email is not null && await _context.Users.AnyAsync(u => u.Email == email, ct))
+                return AuthResult.Fail("An account with this email already exists.");
+
+            var user = new User
+            {
+                Name = request.Name.Trim(),
+                Phone = phone,
+                Email = email,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+                Role = role,
+                CreatedAt = DateTime.UtcNow,
+            };
+
+            if (partnerProfile is not null)
+            {
+                partnerProfile.CreatedAt = DateTime.UtcNow;
+                user.PartnerProfile = partnerProfile;
+            }
+
+            _context.Users.Add(user);
+
+            try
+            {
+                // The uniqueness checks above race; the unique indexes are what
+                // actually guarantee it, so a concurrent signup surfaces here.
+                await _context.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            {
+                return AuthResult.Fail("An account with this email or phone number already exists.");
+            }
+
+            _logger.LogInformation("Registered {Role} account {UserId}", role, user.Id);
+            return AuthResult.Ok(BuildResponse(user));
+        }
+
+        public async Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken ct = default)
+        {
+            var identifier = request.Identifier.Trim();
+            var query = _context.Users.Include(u => u.PartnerProfile);
+
+            // An '@' is the only thing separating the two identifier forms; phone
+            // numbers never contain one.
+            var user = identifier.Contains('@')
+                ? await query.FirstOrDefaultAsync(u => u.Email == identifier.ToLowerInvariant(), ct)
+                : await query.FirstOrDefaultAsync(u => u.Phone == identifier, ct);
+
+            // Same message whether the account is missing or the password is
+            // wrong — do not leak which.
+            if (user is null || !VerifyPassword(request.Password, user.PasswordHash))
+            {
+                _logger.LogWarning("Failed login attempt for {Identifier}", identifier);
+                return AuthResult.Fail("Invalid credentials.");
+            }
+
+            return AuthResult.Ok(BuildResponse(user));
+        }
+
+        private AuthResponse BuildResponse(User user)
+        {
+            var (token, expiresAtUtc) = _tokenService.CreateToken(user);
+            return new AuthResponse
+            {
+                Token = token,
+                ExpiresAtUtc = expiresAtUtc,
+                User = UserDto.From(user),
+            };
+        }
+
+        private static bool VerifyPassword(string password, string hash)
+        {
+            // Accounts seeded before auth existed carry an empty hash; BCrypt
+            // throws on a malformed salt, so reject them explicitly instead.
+            if (string.IsNullOrEmpty(hash)) return false;
+
+            try
+            {
+                return BCrypt.Net.BCrypt.Verify(password, hash);
+            }
+            catch (BCrypt.Net.SaltParseException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>Lowercases and trims; blank or absent becomes null so the
+        /// unique index treats it as "no email" rather than an empty string.</summary>
+        private static string? NormalizeEmail(string? email) =>
+            string.IsNullOrWhiteSpace(email) ? null : email.Trim().ToLowerInvariant();
+
+        private static bool IsUniqueViolation(DbUpdateException ex) =>
+            ex.InnerException is Npgsql.PostgresException { SqlState: "23505" };
+    }
+
+    public class AuthResult
+    {
+        public bool Succeeded { get; private init; }
+        public string? Error { get; private init; }
+        public AuthResponse? Response { get; private init; }
+
+        public static AuthResult Ok(AuthResponse response) =>
+            new() { Succeeded = true, Response = response };
+
+        public static AuthResult Fail(string error) =>
+            new() { Succeeded = false, Error = error };
+    }
+}

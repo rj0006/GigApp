@@ -1,0 +1,179 @@
+/* ===========================================================================
+   GigApp — thin layer on top of Bootstrap 5.
+   Use Bootstrap utilities first; only add here what Bootstrap cannot express.
+   =========================================================================== */
+
+:root {
+    --gig-sidebar-width: 236px;
+    --gig-accent: #4f46e5;
+    --gig-accent-soft: #eef2ff;
+}
+
+body {
+    font-size: 0.925rem;
+    background: var(--bs-body-bg);
+}
+
+/* ------------------------------------------------------------ admin shell */
+.admin-shell { display: flex; min-height: 100vh; }
+
+.sidebar-toggle { display: none; }   /* CSS-only mobile drawer */
+
+.sidebar {
+    width: var(--gig-sidebar-width);
+    flex-shrink: 0;
+    background: var(--bs-body-bg);
+    border-right: 1px solid var(--bs-border-color);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+}
+
+.sidebar-brand {
+    padding: 0.9rem 1.1rem;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.nav-group {
+    padding: 1rem 1.1rem 0.35rem;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+
+.sidebar .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.45rem 1.1rem;
+    color: var(--bs-body-color);
+    border-left: 3px solid transparent;
+    border-radius: 0;
+    font-size: 0.875rem;
+}
+
+.sidebar .nav-link:hover { background: var(--gig-accent-soft); }
+
+.sidebar .nav-link.active {
+    background: var(--gig-accent-soft);
+    color: var(--gig-accent);
+    border-left-color: var(--gig-accent);
+    font-weight: 600;
+}
+
+.nav-icon { width: 1rem; text-align: center; opacity: 0.7; font-size: 0.8rem; }
+
+.admin-main { flex: 1; min-width: 0; }
+
+.admin-header {
+    background: var(--bs-body-bg);
+    border-bottom: 1px solid var(--bs-border-color);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+
+@media (max-width: 991.98px) {
+    .sidebar {
+        position: fixed;
+        z-index: 1045;
+        transform: translateX(-100%);
+        transition: transform 0.18s ease;
+    }
+    .sidebar-toggle:checked ~ .sidebar {
+        transform: translateX(0);
+        box-shadow: 0 0 2rem rgba(0, 0, 0, 0.25);
+    }
+}
+
+/* --------------------------------------------------- jQuery UI autocomplete
+   jQuery UI ships its own theme which fights Bootstrap, so it is not loaded.
+   These rules make the widget look like a Bootstrap dropdown instead.        */
+.ui-autocomplete {
+    position: absolute;
+    list-style: none;
+    margin: 0.125rem 0 0;
+    padding: 0.25rem 0;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    cursor: pointer;
+}
+
+.ui-autocomplete .ui-menu-item div {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--bs-body-color);
+}
+
+.ui-autocomplete .ui-menu-item div.ui-state-active,
+.ui-autocomplete .ui-menu-item div:hover {
+    background: var(--gig-accent-soft);
+    color: var(--gig-accent);
+    border: 0;
+    margin: 0;
+}
+
+.ac-hint { font-size: 0.72rem; line-height: 1.2; }
+.ui-helper-hidden-accessible { display: none; }
+
+/* ----------------------------------------------------------------- tables */
+.table > :not(caption) > * > * { padding: 0.55rem 0.65rem; }
+.table thead th {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--bs-secondary-color);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.mono { font-family: var(--bs-font-monospace); font-size: 0.8rem; }
+
+/* Status badges keyed off the task status string. */
+.badge-pending     { background-color: #b45309 !important; }
+.badge-accepted,
+.badge-in_progress { background-color: #4f46e5 !important; }
+.badge-completed   { background-color: #047857 !important; }
+.badge-cancelled   { background-color: #b91c1c !important; }
+
+/* --------------------------------------------------------- action buttons
+   Each row action posts to a different endpoint, so every button sits in its
+   own <form>. Bootstrap's .btn-group styles only direct .btn children, so a
+   group would render with broken radii and spacing here. Use a plain flex row
+   instead and let each button keep its own shape.                            */
+.row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    align-items: center;
+}
+
+.row-actions.justify-end { justify-content: flex-end; }
+.row-actions form { margin: 0; display: inline-flex; }
+.row-actions .btn { white-space: nowrap; }
+
+/* Filter bars: keep the submit/reset pair together on one line. */
+.toolbar-actions { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+
+/* ----------------------------------------------------------------- forms */
+/* Standard form layout — see docs/REUSABLE.md. Every form uses .gig-form. */
+.gig-form .form-label {
+    font-weight: 600;
+    font-size: 0.8rem;
+    margin-bottom: 0.25rem;
+}
+
+.gig-form .form-text { font-size: 0.75rem; }
+
+.gig-form .required::after {
+    content: " *";
+    color: var(--bs-danger);
+}
+
+.form-card { max-width: 720px; }
+.form-card-narrow { max-width: 420px; }

@@ -1,0 +1,85 @@
+@model AdminUsersViewModel
+@{
+    Layout = "_AdminLayout";
+    var isPartnerList = Model.Role == UserRoles.Partner;
+    // Do not name this `page` — Razor parses `@page` in markup as a directive.
+    var list = Model.Users;
+}
+
+<h1 class="h4">@Model.Heading</h1>
+<p class="text-secondary small">
+    <strong>@list.TotalCount</strong> account(s) with the <code>@Model.Role</code> role.
+</p>
+
+<div class="card">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end mb-3">
+            <div class="col-sm-5 col-md-4">
+                <label class="form-label" for="search">Search</label>
+                <input class="form-control form-control-sm" id="search" name="search"
+                       value="@Model.Search" placeholder="Name, mobile or email" />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-primary">Search</button>
+                @if (!string.IsNullOrWhiteSpace(Model.Search))
+                {
+                    <a class="btn btn-sm btn-outline-secondary" href="@Context.Request.Path">Clear</a>
+                }
+            </div>
+        </form>
+
+        @if (list.TotalCount == 0)
+        {
+            <p class="text-center text-secondary py-4 mb-0">No accounts match.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>#</th><th>Name</th><th>Mobile</th><th>Email</th><th>Phone verified</th>
+                            @if (isPartnerList) { <th>Skill</th> }
+                            <th>Registered</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var user in list.Items)
+                    {
+                        <tr>
+                            <td class="text-secondary">@user.Id</td>
+                            <td class="fw-semibold">@user.Name</td>
+                            <td class="mono">@user.Phone</td>
+                            <td class="small">@(user.Email ?? "—")</td>
+                            <td>
+                                <span class="badge @(user.IsPhoneVerified ? "text-bg-success" : "text-bg-warning")">
+                                    @(user.IsPhoneVerified ? "Verified" : "Unverified")
+                                </span>
+                            </td>
+                            @if (isPartnerList)
+                            {
+                                <td>
+                                    <span class="badge text-bg-light border">
+                                        @(user.PartnerProfile?.SkillCategoryName ?? "—")
+                                    </span>
+                                </td>
+                            }
+                            <td class="small text-secondary">@user.CreatedAt.ToString("dd MMM yyyy")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+
+            <partial name="_Pagination" model="PagerModel.From(list, Context)" />
+        }
+    </div>
+</div>
+
+@if (Model.Role == UserRoles.Admin)
+{
+    <p class="small text-secondary mt-3">
+        There is no public admin registration by design. New administrators are seeded or
+        created by an existing administrator.
+    </p>
+}

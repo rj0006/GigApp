@@ -1,0 +1,38 @@
+# ---------------------------------------------------------------- build output
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+.vs/
+.vscode/
+*.swp
+
+# ------------------------------------------------------------- local secrets
+# appsettings.Development.json IS committed here by choice — the repository is
+# private. If it ever becomes public, add it back to this list and rotate both
+# the JWT signing key and the database password, because git history keeps them.
+*.secrets.json
+
+# ------------------------------------------------------------- user uploads
+# KYC images are identity documents and profile photos are personal data —
+# neither belongs in version control.
+GigApp.Api/GigApp.Api/App_Data/
+GigApp.Api/GigApp.Api/wwwroot/uploads/
+
+# ------------------------------------------------------------------- Flutter
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/build/
+**/.pub-cache/
+**/.pub/
+**/ios/Pods/
+**/ios/.symlinks/
+**/android/.gradle/
+**/android/local.properties
+*.iml
+
+# ----------------------------------------------------------------------- misc
+*.log
+.DS_Store
+Thumbs.db

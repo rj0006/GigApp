@@ -1,0 +1,8 @@
+@model LoginViewModel
+@{
+    ViewData["Portal"] = "Partner";
+    ViewData["LoginHeading"] = "Partner sign in";
+    ViewData["LoginSubtitle"] = "Use the mobile number or email on your account.";
+    ViewData["LoginFooter"] = "Want to offer services? <a href=\"/provider/register\">Join as a partner</a>";
+}
+<partial name="_LoginCard" model="Model" />

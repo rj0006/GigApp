@@ -1,0 +1,74 @@
+@model AdminPartnersViewModel
+@{
+    Layout = "_AdminLayout";
+    var list = Model.Partners;
+}
+
+<h1 class="h4">Partner approvals</h1>
+<p class="text-secondary small">
+    Partners waiting for KYC review. Open a row to check the selfie against the Aadhaar card
+    before deciding. A partner can neither browse nor accept work until approved.
+</p>
+
+<div class="card">
+    <div class="card-body">
+        @if (list.TotalCount == 0)
+        {
+            <p class="text-center text-secondary py-4 mb-0">Nothing waiting. Every partner is verified.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>#</th><th>Name</th><th>Mobile</th><th>Skill</th>
+                            <th>Aadhaar</th><th>Documents</th><th>Registered</th>
+                            <th class="text-end">Review</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var partner in list.Items)
+                    {
+                        <tr>
+                            <td class="text-secondary">@partner.Id</td>
+                            <td>
+                                <div class="fw-semibold">@partner.Name</div>
+                                @if (!string.IsNullOrEmpty(partner.Email))
+                                {
+                                    <div class="small text-secondary">@partner.Email</div>
+                                }
+                            </td>
+                            <td class="mono">@partner.Phone</td>
+                            <td><span class="badge text-bg-light border">@partner.SkillCategoryName</span></td>
+                            <td class="mono small">@(partner.MaskedAadhaar ?? "—")</td>
+                            <td>
+                                <span class="badge @(partner.HasCompleteKyc ? "text-bg-info" : "text-bg-warning")">
+                                    @(partner.HasCompleteKyc ? "Complete" : "Incomplete")
+                                </span>
+                            </td>
+                            <td class="small text-secondary">@partner.CreatedAt.ToString("dd MMM yyyy")</td>
+                            <td class="text-end">
+                                @* Opens the per-row modal below. *@
+                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                        data-bs-toggle="modal" data-bs-target="#kyc-modal-@partner.Id"
+                                        title="View details">
+                                    &#128065; View
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+
+            <partial name="_Pagination" model="PagerModel.From(list, Context)" />
+        }
+    </div>
+</div>
+
+@* One modal per row on this page — the page is paged, so the count stays small. *@
+@foreach (var partner in list.Items)
+{
+    <partial name="_KycModal" model="partner" />
+}

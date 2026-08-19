@@ -1,0 +1,90 @@
+@model PartnerDto
+@{
+    // Where the browser returns after Approve/Reject.
+    var returnTo = Context.Request.Path + Context.Request.QueryString;
+    var modalId = $"kyc-modal-{Model.Id}";
+}
+<div class="modal fade" id="@modalId" tabindex="-1" aria-labelledby="@(modalId)-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="@(modalId)-title">
+                    @Model.Name
+                    <span class="badge @(Model.IsVerified ? "text-bg-success" : "text-bg-warning") ms-1">
+                        @(Model.IsVerified ? "Verified" : "Pending")
+                    </span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body">
+                <dl class="row mb-3 small">
+                    <dt class="col-sm-4">Partner ID</dt>
+                    <dd class="col-sm-8">@Model.Id</dd>
+
+                    <dt class="col-sm-4">Mobile</dt>
+                    <dd class="col-sm-8 mono">@Model.Phone</dd>
+
+                    <dt class="col-sm-4">Email</dt>
+                    <dd class="col-sm-8">@(Model.Email ?? "—")</dd>
+
+                    <dt class="col-sm-4">Phone verified</dt>
+                    <dd class="col-sm-8">@(Model.IsPhoneVerified ? "Yes" : "No")</dd>
+
+                    <dt class="col-sm-4">Skill category</dt>
+                    <dd class="col-sm-8">@Model.SkillCategoryName</dd>
+
+                    <dt class="col-sm-4">Availability</dt>
+                    <dd class="col-sm-8">@(Model.IsAvailable ? "On duty" : "Off duty")</dd>
+
+                    <dt class="col-sm-4">Registered</dt>
+                    <dd class="col-sm-8">@Model.CreatedAt.ToString("dd MMM yyyy, HH:mm") UTC</dd>
+                </dl>
+
+                <h6 class="small fw-semibold">KYC documents</h6>
+                <p class="text-secondary small">
+                    Check that the selfie matches the photo on the Aadhaar card, and that the
+                    number below matches the card. Click any image to open it full size.
+                </p>
+
+                <partial name="_KycReview" model="Model" />
+
+                @if (!Model.HasCompleteKyc)
+                {
+                    <div class="alert alert-warning small mt-3 mb-0">
+                        Documents are incomplete, so this partner cannot be approved yet.
+                    </div>
+                }
+            </div>
+
+            <div class="modal-footer flex-wrap gap-2">
+                <form method="post" action="/admin/approvals/@Model.Id/verify" class="w-100">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="returnTo" value="@returnTo" />
+
+                    <div class="mb-2">
+                        <label for="reason-@Model.Id" class="form-label small mb-1">
+                            Reason <span class="text-secondary">(required to reject)</span>
+                        </label>
+                        <input id="reason-@Model.Id" name="reason" class="form-control form-control-sm"
+                               maxlength="1000" placeholder="e.g. Selfie does not match the Aadhaar photo" />
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 justify-content-end">
+                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                data-bs-dismiss="modal">Cancel</button>
+
+                        @* String, not bool — Razor renders a bool attribute as value="value". *@
+                        <button type="submit" name="isVerified" value="false"
+                                class="btn btn-sm btn-outline-danger">Reject</button>
+
+                        <button type="submit" name="isVerified" value="true"
+                                class="btn btn-sm btn-success" @(Model.HasCompleteKyc ? "" : "disabled")>
+                            Approve
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

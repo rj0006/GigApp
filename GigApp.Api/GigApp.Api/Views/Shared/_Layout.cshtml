@@ -1,0 +1,68 @@
+@{
+    var portal = ViewData["Portal"] as string;
+    var logoutAction = ViewData["LogoutPath"] as string;
+    var displayName = User.Identity?.IsAuthenticated == true ? User.Identity.Name : null;
+
+    // Signed-in users should land on their own dashboard, not the public page.
+    var brandHref = ViewData["PortalHome"] as string ?? "/";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] · GigApp</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="bg-body-tertiary">
+    <nav class="navbar navbar-expand bg-body border-bottom">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="@brandHref">Gig<span class="text-primary">App</span></a>
+            @if (portal is not null)
+            {
+                <span class="badge text-bg-primary-subtle text-primary-emphasis">@portal</span>
+            }
+            <div class="ms-auto d-flex align-items-center gap-2">
+                @if (displayName is not null)
+                {
+                    @if (portal is not null)
+                    {
+                        <a class="btn btn-outline-secondary btn-sm"
+                           href="/@portal.ToLowerInvariant().Replace("partner", "provider")/profile">
+                            @displayName
+                        </a>
+                    }
+                    else
+                    {
+                        <span class="small text-secondary d-none d-sm-inline">@displayName</span>
+                    }
+
+                    @if (logoutAction is not null)
+                    {
+                        <form method="post" action="@logoutAction">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-outline-secondary btn-sm">Sign out</button>
+                        </form>
+                    }
+                }
+            </div>
+        </div>
+    </nav>
+
+    <main class="container py-4">
+        <partial name="_Flash" />
+        @RenderBody()
+    </main>
+
+    <footer class="container pb-5 pt-2 small text-secondary">
+        GigApp · <a href="/swagger">API reference</a>
+    </footer>
+
+    <script src="~/lib/jquery/jquery.min.js"></script>
+    <script src="~/lib/jquery-ui/jquery-ui.min.js"></script>
+    <script src="~/lib/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/global.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

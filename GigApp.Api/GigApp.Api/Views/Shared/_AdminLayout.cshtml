@@ -1,0 +1,107 @@
+@{
+    var displayName = User.Identity?.IsAuthenticated == true ? User.Identity.Name : null;
+    var pendingKyc = ViewData["PendingKycCount"] as int? ?? 0;
+
+    // Current path drives the active menu item.
+    var path = (Context.Request.Path.Value ?? "/admin").ToLowerInvariant().TrimEnd('/');
+    if (path.Length == 0) path = "/admin";
+
+    Func<string, bool, string> nav = (href, exact) =>
+        (exact ? path == href.ToLowerInvariant() : path.StartsWith(href.ToLowerInvariant()))
+            ? "nav-link active" : "nav-link";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] · GigApp Admin</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="bg-body-tertiary">
+    <input type="checkbox" id="sidebar-toggle" class="sidebar-toggle" />
+
+    <div class="admin-shell">
+        <aside class="sidebar">
+            <div class="sidebar-brand d-flex align-items-center gap-2 flex-wrap">
+                <a href="@(ViewData["PortalHome"] as string ?? "/admin")"
+                   class="fw-bold text-decoration-none text-body">Gig<span class="text-primary">App</span></a>
+                <span class="badge text-bg-primary-subtle text-primary-emphasis">Admin</span>
+            </div>
+
+            <nav class="nav flex-column pb-4">
+                <a class="@nav("/admin", true)" href="/admin">
+                    <span class="nav-icon">▦</span> Dashboard
+                </a>
+
+                <div class="nav-group">Masters</div>
+                <a class="@nav("/admin/masters/categories", false)" href="/admin/masters/categories">
+                    <span class="nav-icon">☰</span> Skill categories
+                </a>
+
+                <div class="nav-group">Approvals</div>
+                <a class="@nav("/admin/approvals", false)" href="/admin/approvals">
+                    <span class="nav-icon">✓</span> Partner KYC
+                    @if (pendingKyc > 0)
+                    {
+                        <span class="badge rounded-pill text-bg-warning ms-auto">@pendingKyc</span>
+                    }
+                </a>
+
+                <div class="nav-group">User management</div>
+                <a class="@nav("/admin/users/customers", false)" href="/admin/users/customers">
+                    <span class="nav-icon">◔</span> Customers
+                </a>
+                <a class="@nav("/admin/users/partners", false)" href="/admin/users/partners">
+                    <span class="nav-icon">◑</span> Partners
+                </a>
+                <a class="@nav("/admin/users/admins", false)" href="/admin/users/admins">
+                    <span class="nav-icon">◕</span> Administrators
+                </a>
+
+                <div class="nav-group">Account</div>
+                <a class="@nav("/admin/profile", false)" href="/admin/profile">
+                    <span class="nav-icon">&#9787;</span> My profile
+                </a>
+
+                <div class="nav-group">Operations</div>
+                <a class="@nav("/admin/tasks", false)" href="/admin/tasks">
+                    <span class="nav-icon">▤</span> Tasks
+                </a>
+                <a class="nav-link" href="/swagger" target="_blank" rel="noopener">
+                    <span class="nav-icon">↗</span> API reference
+                </a>
+            </nav>
+        </aside>
+
+        <div class="admin-main">
+            <header class="admin-header d-flex align-items-center gap-3 px-3 px-lg-4 py-2">
+                <label for="sidebar-toggle" class="btn btn-sm btn-outline-secondary d-lg-none mb-0">☰</label>
+                <h1 class="h6 mb-0">@ViewData["Title"]</h1>
+                <div class="ms-auto d-flex align-items-center gap-2">
+                    @if (displayName is not null)
+                    {
+                        <a class="btn btn-outline-secondary btn-sm" href="/admin/profile">@displayName</a>
+                        <form method="post" action="/admin/logout">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-outline-secondary btn-sm">Sign out</button>
+                        </form>
+                    }
+                </div>
+            </header>
+
+            <main class="p-3 p-lg-4">
+                <partial name="_Flash" />
+                @RenderBody()
+            </main>
+        </div>
+    </div>
+
+    <script src="~/lib/jquery/jquery.min.js"></script>
+    <script src="~/lib/jquery-ui/jquery-ui.min.js"></script>
+    <script src="~/lib/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/global.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
