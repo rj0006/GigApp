@@ -20,10 +20,21 @@
                 <input type="hidden" id="CategoryId" name="CategoryId" value="" />
             </div>
 
-            <div class="col-md-6">
+            <div class="col-md-3">
                 <label for="Budget" class="form-label required">Budget (₹)</label>
                 <input id="Budget" name="Budget" type="number" min="0" step="50"
                        class="form-control" required value="500" />
+                <div class="form-text">Partners bid against this.</div>
+            </div>
+
+            <div class="col-md-3">
+                <label for="Urgency" class="form-label required">How soon?</label>
+                <select id="Urgency" name="Urgency" class="form-select" required>
+                    <option value="@TaskUrgency.Urgent">Urgent — today</option>
+                    <option value="@TaskUrgency.Normal" selected>Normal — in a few days</option>
+                    <option value="@TaskUrgency.Flexible">Flexible — no rush</option>
+                </select>
+                <div class="form-text">Urgent tasks show first to partners.</div>
             </div>
 
             <div class="col-12">
@@ -70,7 +81,15 @@
                     {
                         <tr>
                             <td class="text-secondary">@task.Id</td>
-                            <td><span class="badge text-bg-light border">@task.CategoryName</span></td>
+                            <td>
+                                <span class="badge text-bg-light border">@task.CategoryName</span>
+                                @if (task.Urgency != TaskUrgency.Normal)
+                                {
+                                    <div class="mt-1">
+                                        <span class="badge @task.UrgencyBadgeClass">@task.UrgencyLabel</span>
+                                    </div>
+                                }
+                            </td>
                             <td class="small">@task.Description</td>
                             <td>
                                 <span class="fw-semibold">₹@task.EffectiveAmount.ToString("N0")</span>

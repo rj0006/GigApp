@@ -185,10 +185,17 @@ namespace GigApp.Api.Controllers
                 return Redirect(DashboardPath);
             }
 
+            if (!TaskUrgency.IsValid(newTask.Urgency))
+            {
+                TempData["Error"] = "Choose a valid urgency.";
+                return Redirect(DashboardPath);
+            }
+
             var task = new GigTask
             {
                 CustomerId = User.GetRequiredUserId(),
                 CategoryId = newTask.CategoryId,
+                Urgency = newTask.Urgency,
                 Description = newTask.Description.Trim(),
                 Address = newTask.Address.Trim(),
                 Budget = newTask.Budget,

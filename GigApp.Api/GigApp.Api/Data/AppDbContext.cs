@@ -139,6 +139,8 @@ namespace GigApp.Api.Data
                 e.Property(t => t.Description).HasMaxLength(2000).IsRequired();
                 e.Property(t => t.Address).HasMaxLength(500).IsRequired();
                 e.Property(t => t.Status).HasMaxLength(20).IsRequired();
+                e.Property(t => t.Urgency).HasMaxLength(10).IsRequired();
+                e.Property(t => t.BookingMode).HasMaxLength(10).IsRequired();
                 e.Property(t => t.Budget).HasPrecision(10, 2);
                 e.Property(t => t.AgreedAmount).HasPrecision(10, 2);
 
@@ -161,9 +163,23 @@ namespace GigApp.Api.Data
                 // The "available tasks" feed filters on Status and sorts by CreatedAt.
                 e.HasIndex(t => new { t.Status, t.CreatedAt });
 
-                e.ToTable(t => t.HasCheckConstraint(
-                    "CK_GigTasks_Status",
-                    "\"Status\" IN ('pending','accepted','in_progress','completed','cancelled')"));
+                // Urgent work should surface first on the partner's board.
+                e.HasIndex(t => new { t.Status, t.Urgency });
+
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint(
+                        "CK_GigTasks_Status",
+                        "\"Status\" IN ('pending','accepted','in_progress','completed','cancelled')");
+
+                    t.HasCheckConstraint(
+                        "CK_GigTasks_Urgency",
+                        "\"Urgency\" IN ('urgent','normal','flexible')");
+
+                    t.HasCheckConstraint(
+                        "CK_GigTasks_BookingMode",
+                        "\"BookingMode\" IN ('bidding','instant')");
+                });
             });
         }
     }

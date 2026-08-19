@@ -19,6 +19,10 @@ namespace GigApp.Api.Dtos
         [Range(0.0, 10_000_000.0)]
         public decimal Budget { get; set; }
 
+        /// <summary>urgent | normal | flexible. Defaults to normal when omitted.</summary>
+        [Display(Name = "How soon?")]
+        public string Urgency { get; set; } = TaskUrgency.Normal;
+
         public DateTime? PreferredDateTime { get; set; }
     }
 
@@ -45,6 +49,14 @@ namespace GigApp.Api.Dtos
         public decimal EffectiveAmount => AgreedAmount ?? Budget;
 
         public string Status { get; set; } = string.Empty;
+
+        public string Urgency { get; set; } = TaskUrgency.Normal;
+        public string UrgencyLabel => TaskUrgency.Label(Urgency);
+        public string UrgencyBadgeClass => TaskUrgency.BadgeClass(Urgency);
+        public bool IsUrgent => Urgency == TaskUrgency.Urgent;
+
+        public string BookingMode { get; set; } = TaskBookingMode.Bidding;
+
         public DateTime? PreferredDateTime { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? CompletedAt { get; set; }
@@ -72,6 +84,8 @@ namespace GigApp.Api.Dtos
             Budget = task.Budget,
             AgreedAmount = task.AgreedAmount,
             Status = task.Status,
+            Urgency = task.Urgency,
+            BookingMode = task.BookingMode,
             PreferredDateTime = task.PreferredDateTime,
             CreatedAt = task.CreatedAt,
             CompletedAt = task.CompletedAt,

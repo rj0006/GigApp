@@ -162,13 +162,17 @@ namespace GigApp.Api.Controllers
                         .Select(b => b.GigTaskId)
                         .ToHashSet();
 
+                    // Urgent work first, then newest — a same-day job is no use
+                    // to anyone sitting three pages down.
                     var available = await _context.GigTasks
                         .AsNoTracking()
                         .Include(t => t.Customer)
                         .Include(t => t.Category)
                         .Where(t => t.Status == GigTaskStatus.Pending
                                  && t.CategoryId == partner.SkillCategoryId)
-                        .OrderByDescending(t => t.CreatedAt)
+                        .OrderBy(t => t.Urgency == TaskUrgency.Urgent ? 0
+                                    : t.Urgency == TaskUrgency.Normal ? 1 : 2)
+                        .ThenByDescending(t => t.CreatedAt)
                         .ToListAsync(ct);
 
                     model.AvailableTasks = available

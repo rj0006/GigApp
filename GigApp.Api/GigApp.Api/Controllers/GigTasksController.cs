@@ -34,11 +34,15 @@ namespace GigApp.Api.Controllers
             if (!categoryIsSelectable)
                 return BadRequest(new ProblemDetails { Title = "Choose a valid category.", Status = 400 });
 
+            if (!TaskUrgency.IsValid(request.Urgency))
+                return BadRequest(new ProblemDetails { Title = "Choose a valid urgency.", Status = 400 });
+
             // CustomerId comes from the token, never the request body.
             var task = new GigTask
             {
                 CustomerId = User.GetRequiredUserId(),
                 CategoryId = request.CategoryId,
+                Urgency = request.Urgency,
                 Description = request.Description.Trim(),
                 Address = request.Address.Trim(),
                 Budget = request.Budget,
@@ -81,7 +85,9 @@ namespace GigApp.Api.Controllers
                 query = query.Where(t => t.CategoryId == categoryId);
 
             var tasks = await query
-                .OrderByDescending(t => t.CreatedAt)
+                .OrderBy(t => t.Urgency == TaskUrgency.Urgent ? 0
+                            : t.Urgency == TaskUrgency.Normal ? 1 : 2)
+                .ThenByDescending(t => t.CreatedAt)
                 .ToListAsync(ct);
 
             return Ok(tasks.Select(GigTaskDto.From));

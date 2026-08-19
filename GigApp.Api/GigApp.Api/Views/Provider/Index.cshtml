@@ -148,9 +148,17 @@ else
                         <tbody>
                         @foreach (var task in Model.AvailableTasks)
                         {
-                            <tr>
+                            <tr class="@(task.IsUrgent ? "table-danger" : "")">
                                 <td class="text-secondary">@task.Id</td>
-                                <td><span class="badge text-bg-light border">@task.CategoryName</span></td>
+                                <td>
+                                    <span class="badge text-bg-light border">@task.CategoryName</span>
+                                    @if (task.Urgency != TaskUrgency.Normal)
+                                    {
+                                        <div class="mt-1">
+                                            <span class="badge @task.UrgencyBadgeClass">@task.UrgencyLabel</span>
+                                        </div>
+                                    }
+                                </td>
                                 <td class="small">@task.Description</td>
                                 <td class="small text-secondary">@task.Address</td>
                                 <td>₹@task.Budget.ToString("N0")</td>

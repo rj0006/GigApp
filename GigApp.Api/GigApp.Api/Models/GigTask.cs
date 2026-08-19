@@ -36,6 +36,16 @@ namespace GigApp.Api.Models
 
         public ICollection<TaskBid> Bids { get; set; } = new List<TaskBid>();
 
+        /// <summary>How soon this is needed — see <see cref="TaskUrgency"/>.</summary>
+        public string Urgency { get; set; } = TaskUrgency.Normal;
+
+        /// <summary>
+        /// How the partner is chosen — see <see cref="TaskBookingMode"/>.
+        /// Everything is bidding today; instant needs catalogue pricing and
+        /// partner location before it can be switched on.
+        /// </summary>
+        public string BookingMode { get; set; } = TaskBookingMode.Bidding;
+
         public string Status { get; set; } = GigTaskStatus.Pending;
         // pending -> accepted -> in_progress -> completed -> cancelled
 
