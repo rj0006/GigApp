@@ -1,0 +1,154 @@
+@model AdminPriceInsightsViewModel
+@{
+    Layout = "_AdminLayout";
+}
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+    <h1 class="h4 mb-0">Price insights</h1>
+    <a class="btn btn-outline-secondary btn-sm ms-auto" href="/admin/masters/services">Back to services</a>
+</div>
+<p class="text-secondary small">
+    What completed work says each service is really worth. Built from the amount actually
+    settled on, not what partners asked for — asks are inflated for negotiation, so they
+    would overstate the rate.
+</p>
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-4">
+        <div class="card h-100"><div class="card-body py-3">
+            <div class="h4 mb-0">@Model.TotalCompleted</div>
+            <div class="text-secondary text-uppercase" style="font-size:.68rem">Completed jobs priced</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-4">
+        <div class="card h-100"><div class="card-body py-3">
+            <div class="h4 mb-0">@Model.WithEnoughData</div>
+            <div class="text-secondary text-uppercase" style="font-size:.68rem">Services ready to price</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-4">
+        <div class="card h-100"><div class="card-body py-3">
+            <div class="h4 mb-0">@Model.NeedingSplit</div>
+            <div class="text-secondary text-uppercase" style="font-size:.68rem">Too varied to price</div>
+        </div></div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        @if (Model.Insights.Count == 0)
+        {
+            <p class="text-center text-secondary py-4 mb-0">No services defined yet.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Category</th><th>Service</th><th>Completed</th>
+                            <th>Median</th><th>Range (p25–p75)</th><th>Current payout</th>
+                            <th class="text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var row in Model.Insights)
+                    {
+                        <tr class="@(row.CompletedCount == 0 ? "text-secondary" : "")">
+                            <td><span class="badge text-bg-light border">@row.CategoryName</span></td>
+                            <td>
+                                <div class="fw-semibold">@row.ServiceItemName</div>
+                                @if (row.HasEnoughData && row.IsTooVaried)
+                                {
+                                    <span class="badge text-bg-warning">Split this — prices vary @row.SpreadRatio&times;</span>
+                                }
+                            </td>
+                            <td>
+                                @row.CompletedCount
+                                @if (row.CompletedCount > 0 && !row.HasEnoughData)
+                                {
+                                    <div class="small text-secondary">
+                                        need @(PriceInsightDto.MinimumSampleSize - row.CompletedCount) more
+                                    </div>
+                                }
+                            </td>
+                            <td>
+                                @if (row.MedianAmount is not null)
+                                {
+                                    <span class="fw-semibold">₹@row.MedianAmount.Value.ToString("N0")</span>
+                                }
+                                else
+                                {
+                                    <span class="text-secondary">—</span>
+                                }
+                            </td>
+                            <td class="small">
+                                @if (row.LowerQuartile is not null && row.UpperQuartile is not null)
+                                {
+                                    <span>₹@row.LowerQuartile.Value.ToString("N0") – ₹@row.UpperQuartile.Value.ToString("N0")</span>
+                                }
+                                else
+                                {
+                                    <span class="text-secondary">—</span>
+                                }
+                            </td>
+                            <td>
+                                @if (row.CurrentPayout is not null)
+                                {
+                                    <span>₹@row.CurrentPayout.Value.ToString("N0")</span>
+                                }
+                                else
+                                {
+                                    <span class="text-secondary small">Not set</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                @if (row.HasEnoughData)
+                                {
+                                    <form method="post" asp-action="ApplyMedianPayout" asp-route-id="@row.ServiceItemId"
+                                          data-confirm="Set '@row.ServiceItemName' payout to ₹@row.MedianAmount?.ToString("N0")?">
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">Use median</button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <span class="small text-secondary">Not enough data</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-body small">
+        <h2 class="h6">How to read this</h2>
+        <ul class="mb-0 ps-3">
+            <li>
+                <strong>Median, not average.</strong> One unusually large job drags an average
+                far away from what people actually pay.
+            </li>
+            <li>
+                <strong>The range matters as much as the median.</strong> A tight range means the
+                work is consistent and safe to fix a price on. A wide one means the service covers
+                jobs of very different sizes and should be split before it is priced.
+            </li>
+            <li>
+                <strong>@PriceInsightDto.MinimumSampleSize completed jobs minimum.</strong> Below
+                that the median is noise, so "Use median" is not offered.
+            </li>
+            <li>
+                <strong>This is the partner payout.</strong> The customer price is this plus your
+                commission.
+            </li>
+            <li>
+                <strong>Recompute periodically.</strong> Early partners may bid low to win work, so
+                prices discovered now will drift as supply matures.
+            </li>
+        </ul>
+    </div>
+</div>

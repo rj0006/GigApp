@@ -1,0 +1,139 @@
+@model AdminServiceItemsViewModel
+@{
+    Layout = "_AdminLayout";
+    // Do not name this `page` — Razor parses `@page` in markup as a directive.
+    var list = Model.Items;
+}
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+    <h1 class="h4 mb-0">Services</h1>
+    <a class="btn btn-primary btn-sm ms-auto" href="/admin/masters/services/new">+ New service</a>
+    <a class="btn btn-outline-secondary btn-sm" href="/admin/masters/pricing">Price insights</a>
+</div>
+<p class="text-secondary small">
+    The specific jobs customers book. A category is too broad to price — Plumbing covers a
+    ₹200 washer change and a ₹15,000 re-pipe — so prices and rate data attach here instead.
+</p>
+
+<div class="card">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end mb-3">
+            <div class="col-sm-4 col-md-3">
+                <label class="form-label" for="search">Search</label>
+                <input class="form-control form-control-sm" id="search" name="search"
+                       value="@list.Search" placeholder="Service name" />
+            </div>
+            <div class="col-sm-4 col-md-3">
+                <label class="form-label" for="categoryId">Category</label>
+                <select class="form-select form-select-sm" id="categoryId" name="categoryId">
+                    <option value="" selected="@(Model.CategoryFilter is null)">All</option>
+                    @foreach (var option in Model.Categories)
+                    {
+                        <option value="@option.Id" selected="@(Model.CategoryFilter == option.Id)">@option.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto">
+                <input type="hidden" name="showInactive" value="@(Model.ShowInactive ? "true" : "false")" />
+                <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+                <a class="btn btn-sm btn-outline-secondary" href="/admin/masters/services">Reset</a>
+            </div>
+            <div class="col-auto ms-sm-auto">
+                <div class="btn-group btn-group-sm" role="group">
+                    <a class="btn @(Model.ShowInactive ? "btn-outline-secondary" : "btn-secondary")"
+                       href="/admin/masters/services">Active only</a>
+                    <a class="btn @(Model.ShowInactive ? "btn-secondary" : "btn-outline-secondary")"
+                       href="/admin/masters/services?showInactive=true">Show all</a>
+                </div>
+            </div>
+        </form>
+
+        @if (list.TotalCount == 0)
+        {
+            <p class="text-center text-secondary py-4 mb-0">
+                No services found. <a href="/admin/masters/services/new">Add the first one</a>.
+            </p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Category</th><th>Service</th><th>Payout</th>
+                            <th>Instant</th><th>Tasks</th><th>Status</th><th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var item in list.Items)
+                    {
+                        <tr>
+                            <td><span class="badge text-bg-light border">@item.CategoryName</span></td>
+                            <td>
+                                <div class="fw-semibold">@item.Name</div>
+                                @if (!string.IsNullOrWhiteSpace(item.Description))
+                                {
+                                    <div class="small text-secondary">@item.Description</div>
+                                }
+                            </td>
+                            <td>
+                                @if (item.BasePayout is not null)
+                                {
+                                    <span class="fw-semibold">₹@item.BasePayout.Value.ToString("N0")</span>
+                                }
+                                else
+                                {
+                                    <span class="text-secondary small">Not set</span>
+                                }
+                            </td>
+                            <td>
+                                <span class="badge @(item.AllowsInstantBooking ? "text-bg-success" : "text-bg-light border text-body")">
+                                    @(item.AllowsInstantBooking ? "Yes" : "No")
+                                </span>
+                            </td>
+                            <td class="small text-secondary">@item.TaskCount</td>
+                            <td>
+                                <span class="badge @(item.IsActive ? "text-bg-success" : "text-bg-warning")">
+                                    @(item.IsActive ? "Active" : "Inactive")
+                                </span>
+                            </td>
+                            <td>
+                                <div class="row-actions justify-end">
+                                    <a class="btn btn-sm btn-outline-secondary"
+                                       href="/admin/masters/services/@item.Id/edit">Edit</a>
+
+                                    <form method="post" asp-action="ToggleService" asp-route-id="@item.Id">
+                                        @* String, not bool — Razor renders a bool attribute as
+                                           value="value", which fails to bind. *@
+                                        <input type="hidden" name="isActive"
+                                               value="@(item.IsActive ? "false" : "true")" />
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                            @(item.IsActive ? "Deactivate" : "Activate")
+                                        </button>
+                                    </form>
+
+                                    @if (!item.IsInUse)
+                                    {
+                                        <form method="post" asp-action="DeleteService" asp-route-id="@item.Id"
+                                              data-confirm="Delete '@item.Name'? This cannot be undone.">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                        </form>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+
+            <partial name="_Pagination" model="PagerModel.From(list, Context)" />
+        }
+    </div>
+</div>
+
+<p class="small text-secondary mt-3">
+    Payout is what the <strong>partner</strong> is paid, not what the customer is charged —
+    the customer price is this plus commission. Keeping them apart means changing commission
+    later does not mean repricing every service.
+</p>

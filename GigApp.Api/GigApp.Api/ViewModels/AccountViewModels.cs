@@ -163,6 +163,39 @@ namespace GigApp.Api.ViewModels
         public string? Search { get; set; }
     }
 
+    public class AdminServiceItemsViewModel
+    {
+        public PagedResult<ServiceItemDto> Items { get; set; } = new();
+        public IReadOnlyList<SkillCategoryOptionDto> Categories { get; set; } =
+            Array.Empty<SkillCategoryOptionDto>();
+        public int? CategoryFilter { get; set; }
+        public bool ShowInactive { get; set; }
+    }
+
+    public class ServiceItemFormViewModel
+    {
+        public int? Id { get; set; }
+        public SaveServiceItemRequest Form { get; set; } = new();
+
+        public IReadOnlyList<SkillCategoryOptionDto> Categories { get; set; } =
+            Array.Empty<SkillCategoryOptionDto>();
+
+        public bool IsEdit => Id is not null;
+        public string Heading => IsEdit ? "Edit service" : "New service";
+
+        /// <summary>Set on edit so the form can warn before deactivating something in use.</summary>
+        public int TaskCount { get; set; }
+    }
+
+    public class AdminPriceInsightsViewModel
+    {
+        public IReadOnlyList<PriceInsightDto> Insights { get; set; } = Array.Empty<PriceInsightDto>();
+
+        public int WithEnoughData => Insights.Count(i => i.HasEnoughData);
+        public int NeedingSplit => Insights.Count(i => i.HasEnoughData && i.IsTooVaried);
+        public int TotalCompleted => Insights.Sum(i => i.CompletedCount);
+    }
+
     public class SkillCategoryFormViewModel
     {
         public int? Id { get; set; }

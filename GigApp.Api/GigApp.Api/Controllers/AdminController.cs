@@ -2,6 +2,7 @@ using GigApp.Api.Data;
 using GigApp.Api.Dtos;
 using GigApp.Api.Models;
 using GigApp.Api.Services;
+using GigApp.Api.Services.Pricing;
 using GigApp.Api.Services.Profile;
 using GigApp.Api.Services.Tracking;
 using GigApp.Api.ViewModels;
@@ -20,20 +21,25 @@ namespace GigApp.Api.Controllers
     public class AdminController : PortalControllerBase
     {
         private const string CategoriesPath = "/admin/masters/categories";
+        private const string ServicesPath = "/admin/masters/services";
+        private const string PricingPath = "/admin/masters/pricing";
         private const string ApprovalsPath = "/admin/approvals";
 
         private readonly AppDbContext _context;
         private readonly ICategoryLookup _categories;
+        private readonly IPriceInsightService _priceInsights;
 
         public AdminController(
             IAuthService authService,
             IProfileService profileService,
             AppDbContext context,
-            ICategoryLookup categories)
+            ICategoryLookup categories,
+            IPriceInsightService priceInsights)
             : base(authService, profileService)
         {
             _context = context;
             _categories = categories;
+            _priceInsights = priceInsights;
         }
 
         protected override string PortalSlug => "admin";
@@ -351,6 +357,313 @@ namespace GigApp.Api.Controllers
             return Redirect(CategoriesPath);
         }
 
+        // ---------------------------------------------- masters: service items
+
+        [HttpGet("masters/services")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        public async Task<IActionResult> Services(
+            [FromQuery] PageRequest paging,
+            int? categoryId,
+            bool showInactive = false,
+            CancellationToken ct = default)
+        {
+            ViewData["Title"] = "Services";
+
+            var query = _context.ServiceItems.AsNoTracking().Include(s => s.SkillCategory).AsQueryable();
+
+            if (!showInactive) query = query.Where(s => s.IsActive);
+            if (categoryId is not null) query = query.Where(s => s.SkillCategoryId == categoryId);
+
+            if (!string.IsNullOrWhiteSpace(paging.Search))
+            {
+                var term = paging.Search.Trim().ToLower();
+                query = query.Where(s => s.Name.ToLower().Contains(term));
+            }
+
+            var page = await query
+                .OrderBy(s => s.SkillCategory!.DisplayOrder).ThenBy(s => s.SkillCategory!.Name)
+                .ThenBy(s => s.DisplayOrder).ThenBy(s => s.Name)
+                .Select(s => new ServiceItemDto
+                {
+                    Id = s.Id,
+                    SkillCategoryId = s.SkillCategoryId,
+                    CategoryName = s.SkillCategory!.Name,
+                    Name = s.Name,
+                    Description = s.Description,
+                    BasePayout = s.BasePayout,
+                    AllowsInstantBooking = s.AllowsInstantBooking,
+                    IsActive = s.IsActive,
+                    DisplayOrder = s.DisplayOrder,
+                    CreatedAt = s.CreatedAt,
+                    UpdatedAt = s.UpdatedAt,
+                    TaskCount = s.Tasks.Count,
+                })
+                .ToPagedResultAsync(paging, ct);
+
+            return View(new AdminServiceItemsViewModel
+            {
+                Items = page,
+                Categories = await _categories.GetActiveOptionsAsync(ct),
+                CategoryFilter = categoryId,
+                ShowInactive = showInactive,
+            });
+        }
+
+        [HttpGet("masters/services/new")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        public async Task<IActionResult> NewService(int? categoryId, CancellationToken ct)
+        {
+            ViewData["Title"] = "New service";
+
+            return View("ServiceForm", new ServiceItemFormViewModel
+            {
+                Form = new SaveServiceItemRequest
+                {
+                    IsActive = true,
+                    SkillCategoryId = categoryId ?? 0,
+                    DisplayOrder = await NextServiceOrderAsync(categoryId, ct),
+                },
+                Categories = await _categories.GetActiveOptionsAsync(ct),
+            });
+        }
+
+        [HttpPost("masters/services/new")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("ServiceItem")]
+        public async Task<IActionResult> NewService(SaveServiceItemRequest form, CancellationToken ct)
+        {
+            ViewData["Title"] = "New service";
+
+            var model = new ServiceItemFormViewModel
+            {
+                Form = form,
+                Categories = await _categories.GetActiveOptionsAsync(ct),
+            };
+
+            var error = await ValidateServiceAsync(form, excludingId: null, ct);
+            if (error is not null) ModelState.AddModelError(string.Empty, error);
+            if (!ModelState.IsValid) return View("ServiceForm", model);
+
+            var item = new ServiceItem
+            {
+                SkillCategoryId = form.SkillCategoryId,
+                Name = form.Name.Trim(),
+                Description = Normalize(form.Description),
+                BasePayout = form.BasePayout,
+                AllowsInstantBooking = form.AllowsInstantBooking && form.BasePayout is > 0,
+                IsActive = form.IsActive,
+                DisplayOrder = form.DisplayOrder,
+                CreatedAt = DateTime.UtcNow,
+            };
+
+            _context.ServiceItems.Add(item);
+            await _context.SaveChangesAsync(ct);
+
+            TrackDoc(item.Id, ServiceItemDto.From(item));
+            TempData["Success"] = $"Service '{item.Name}' created.";
+            return Redirect(ServicesPath);
+        }
+
+        [HttpGet("masters/services/{id:int}/edit")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        public async Task<IActionResult> EditService(int id, CancellationToken ct)
+        {
+            ViewData["Title"] = "Edit service";
+
+            var item = await _context.ServiceItems.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == id, ct);
+
+            if (item is null)
+            {
+                TempData["Error"] = "Service not found.";
+                return Redirect(ServicesPath);
+            }
+
+            return View("ServiceForm", new ServiceItemFormViewModel
+            {
+                Id = item.Id,
+                Form = new SaveServiceItemRequest
+                {
+                    SkillCategoryId = item.SkillCategoryId,
+                    Name = item.Name,
+                    Description = item.Description,
+                    BasePayout = item.BasePayout,
+                    AllowsInstantBooking = item.AllowsInstantBooking,
+                    IsActive = item.IsActive,
+                    DisplayOrder = item.DisplayOrder,
+                },
+                Categories = await _categories.GetOptionsIncludingAsync(item.SkillCategoryId, ct),
+                TaskCount = await _context.GigTasks.CountAsync(t => t.ServiceItemId == id, ct),
+            });
+        }
+
+        [HttpPost("masters/services/{id:int}/edit")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("ServiceItem")]
+        public async Task<IActionResult> EditService(int id, SaveServiceItemRequest form, CancellationToken ct)
+        {
+            ViewData["Title"] = "Edit service";
+
+            var model = new ServiceItemFormViewModel
+            {
+                Id = id,
+                Form = form,
+                Categories = await _categories.GetOptionsIncludingAsync(form.SkillCategoryId, ct),
+            };
+
+            var error = await ValidateServiceAsync(form, excludingId: id, ct);
+            if (error is not null) ModelState.AddModelError(string.Empty, error);
+            if (!ModelState.IsValid) return View("ServiceForm", model);
+
+            var item = await _context.ServiceItems.FirstOrDefaultAsync(s => s.Id == id, ct);
+            if (item is null)
+            {
+                TempData["Error"] = "Service not found.";
+                return Redirect(ServicesPath);
+            }
+
+            item.SkillCategoryId = form.SkillCategoryId;
+            item.Name = form.Name.Trim();
+            item.Description = Normalize(form.Description);
+            item.BasePayout = form.BasePayout;
+            item.AllowsInstantBooking = form.AllowsInstantBooking && form.BasePayout is > 0;
+            item.IsActive = form.IsActive;
+            item.DisplayOrder = form.DisplayOrder;
+            item.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync(ct);
+
+            TrackDoc(item.Id, ServiceItemDto.From(item));
+            TempData["Success"] = $"Service '{item.Name}' updated.";
+            return Redirect(ServicesPath);
+        }
+
+        [HttpPost("masters/services/{id:int}/toggle")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("ServiceItem")]
+        [TrackEntry(TrackingEntryType.Update)]
+        public async Task<IActionResult> ToggleService(int id, bool isActive, CancellationToken ct)
+        {
+            if (!ModelState.IsValid)
+            {
+                TempData["Error"] = "That request could not be read. Reload the page and try again.";
+                return Redirect(ServicesPath);
+            }
+
+            var item = await _context.ServiceItems.FirstOrDefaultAsync(s => s.Id == id, ct);
+
+            if (item is null)
+            {
+                TempData["Error"] = "Service not found.";
+            }
+            else
+            {
+                item.IsActive = isActive;
+                item.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync(ct);
+
+                TrackDoc(item.Id, ServiceItemDto.From(item));
+                TempData["Success"] = isActive
+                    ? $"'{item.Name}' is selectable again."
+                    : $"'{item.Name}' deactivated. Existing tasks keep it.";
+            }
+
+            return Redirect(ServicesPath);
+        }
+
+        [HttpPost("masters/services/{id:int}/delete")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("ServiceItem")]
+        public async Task<IActionResult> DeleteService(int id, CancellationToken ct)
+        {
+            var item = await _context.ServiceItems.FirstOrDefaultAsync(s => s.Id == id, ct);
+
+            if (item is null)
+            {
+                TempData["Error"] = "Service not found.";
+                return Redirect(ServicesPath);
+            }
+
+            var taskCount = await _context.GigTasks.CountAsync(t => t.ServiceItemId == id, ct);
+
+            if (taskCount > 0)
+            {
+                TempData["Error"] =
+                    $"'{item.Name}' is used by {taskCount} task(s). Deactivate it instead of deleting it.";
+            }
+            else
+            {
+                _context.ServiceItems.Remove(item);
+                await _context.SaveChangesAsync(ct);
+                TempData["Success"] = $"Service '{item.Name}' deleted.";
+            }
+
+            return Redirect(ServicesPath);
+        }
+
+        // ------------------------------------------------- masters: pricing
+
+        [HttpGet("masters/pricing")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        public async Task<IActionResult> Pricing(CancellationToken ct)
+        {
+            ViewData["Title"] = "Price insights";
+
+            return View(new AdminPriceInsightsViewModel
+            {
+                Insights = await _priceInsights.GetAsync(ct),
+            });
+        }
+
+        [HttpPost("masters/pricing/{id:int}/apply")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("ServiceItem")]
+        [TrackEntry(TrackingEntryType.Update)]
+        public async Task<IActionResult> ApplyMedianPayout(int id, CancellationToken ct)
+        {
+            var insight = await _priceInsights.GetForItemAsync(id, ct);
+
+            if (insight?.MedianAmount is null)
+            {
+                TempData["Error"] = "There is no completed work to price this from yet.";
+                return Redirect(PricingPath);
+            }
+
+            // Refuse below the sample threshold — a median over a handful of
+            // jobs is noise, and locking a price to it would be worse than
+            // leaving it unset.
+            if (!insight.HasEnoughData)
+            {
+                TempData["Error"] =
+                    $"Only {insight.CompletedCount} completed job(s). At least "
+                  + $"{PriceInsightDto.MinimumSampleSize} are needed before this median means anything.";
+
+                return Redirect(PricingPath);
+            }
+
+            var item = await _context.ServiceItems.FirstOrDefaultAsync(s => s.Id == id, ct);
+            if (item is null)
+            {
+                TempData["Error"] = "Service not found.";
+                return Redirect(PricingPath);
+            }
+
+            item.BasePayout = insight.MedianAmount;
+            item.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync(ct);
+
+            TrackDoc(item.Id, ServiceItemDto.From(item));
+            TempData["Success"] =
+                $"'{item.Name}' payout set to ₹{insight.MedianAmount:N0} from {insight.CompletedCount} completed job(s).";
+
+            return Redirect(PricingPath);
+        }
+
         // -------------------------------------------------------- approvals
 
         [HttpGet("approvals")]
@@ -541,6 +854,38 @@ namespace GigApp.Api.Controllers
                 Users = page.Map(UserDto.From),
                 Search = paging.Search,
             });
+        }
+
+        /// <summary>Returns the problem with this service, or null when it is fine.</summary>
+        private async Task<string?> ValidateServiceAsync(
+            SaveServiceItemRequest form, int? excludingId, CancellationToken ct)
+        {
+            if (!await _categories.IsSelectableAsync(form.SkillCategoryId, ct))
+                return "Choose an active category.";
+
+            var name = form.Name.Trim().ToLower();
+
+            var duplicate = await _context.ServiceItems.AnyAsync(
+                s => s.SkillCategoryId == form.SkillCategoryId
+                  && s.Name.ToLower() == name
+                  && (excludingId == null || s.Id != excludingId), ct);
+
+            if (duplicate)
+                return $"'{form.Name.Trim()}' already exists in that category.";
+
+            // Instant booking means charging a set amount, so there has to be one.
+            if (form.AllowsInstantBooking && form.BasePayout is null or <= 0)
+                return "Set a partner payout before allowing instant booking.";
+
+            return null;
+        }
+
+        private async Task<int> NextServiceOrderAsync(int? categoryId, CancellationToken ct)
+        {
+            if (categoryId is null) return 0;
+
+            var query = _context.ServiceItems.Where(s => s.SkillCategoryId == categoryId);
+            return await query.AnyAsync(ct) ? await query.MaxAsync(s => s.DisplayOrder, ct) + 1 : 0;
         }
 
         private Task<bool> NameExistsAsync(string name, int? excludingId, CancellationToken ct) =>
