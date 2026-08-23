@@ -14,6 +14,7 @@ namespace GigApp.Api.Data
         public DbSet<TrackingLog> TrackingLogs => Set<TrackingLog>();
         public DbSet<TaskBid> TaskBids => Set<TaskBid>();
         public DbSet<ServiceItem> ServiceItems => Set<ServiceItem>();
+        public DbSet<Address> Addresses => Set<Address>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -37,6 +38,34 @@ namespace GigApp.Api.Data
                 e.ToTable(t => t.HasCheckConstraint(
                     "CK_Users_Role",
                     "\"Role\" IN ('customer','partner','admin')"));
+            });
+
+            modelBuilder.Entity<Address>(e =>
+            {
+                e.Property(a => a.Label).HasMaxLength(20).IsRequired();
+                e.Property(a => a.Line1).HasMaxLength(200).IsRequired();
+                e.Property(a => a.Line2).HasMaxLength(200);
+                e.Property(a => a.HouseNumber).HasMaxLength(50);
+                e.Property(a => a.Landmark).HasMaxLength(150);
+                e.Property(a => a.City).HasMaxLength(80).IsRequired();
+                e.Property(a => a.State).HasMaxLength(80);
+                e.Property(a => a.Pincode).HasMaxLength(6).IsRequired();
+
+                e.HasOne(a => a.User)
+                 .WithMany()
+                 .HasForeignKey(a => a.UserId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                // The address picker only ever wants a user's live addresses.
+                e.HasIndex(a => new { a.UserId, a.IsDeleted });
+
+                e.Ignore(a => a.HasCoordinates);
+
+                e.ToTable(t => t.HasCheckConstraint(
+                    "CK_Addresses_Coordinates",
+                    // Either both or neither — half a pin is not a location.
+                    "(\"Latitude\" IS NULL AND \"Longitude\" IS NULL) "
+                  + "OR (\"Latitude\" BETWEEN -90 AND 90 AND \"Longitude\" BETWEEN -180 AND 180)"));
             });
 
             modelBuilder.Entity<ServiceItem>(e =>
@@ -134,6 +163,10 @@ namespace GigApp.Api.Data
 
                 // Restrict, not Cascade — a category in use must be deactivated
                 // rather than deleted out from under its partners.
+                e.Property(p => p.BaseCity).HasMaxLength(80);
+                e.Property(p => p.BasePincode).HasMaxLength(6);
+                e.Ignore(p => p.HasServiceArea);
+
                 e.HasOne(p => p.SkillCategory)
                  .WithMany(c => c.Partners)
                  .HasForeignKey(p => p.SkillCategoryId)
@@ -169,6 +202,13 @@ namespace GigApp.Api.Data
                 e.HasOne(t => t.ServiceItem)
                  .WithMany(s => s.Tasks)
                  .HasForeignKey(t => t.ServiceItemId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                // Restrict, not Cascade — deleting an address must never take
+                // the customer's task history with it. Addresses soft-delete.
+                e.HasOne(t => t.BookingAddress)
+                 .WithMany(a => a.Tasks)
+                 .HasForeignKey(t => t.AddressId)
                  .OnDelete(DeleteBehavior.Restrict);
 
                 // Price discovery groups completed work by service item.

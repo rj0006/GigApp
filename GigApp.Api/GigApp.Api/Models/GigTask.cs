@@ -25,7 +25,27 @@ namespace GigApp.Api.Models
         public ServiceItem? ServiceItem { get; set; }
 
         public string Description { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Where the work happens. Kept as free text alongside the saved address
+        /// so historic tasks stay readable and so a snapshot survives even if the
+        /// customer later edits or deletes that address.
+        /// </summary>
         public string Address { get; set; } = string.Empty;
+
+        /// <summary>
+        /// The saved address chosen at booking. Null for tasks created before
+        /// addresses existed. Its coordinates are what distance matching uses.
+        /// </summary>
+        public int? AddressId { get; set; }
+        public Address? BookingAddress { get; set; }
+
+        /// <summary>
+        /// Copied from the address at booking time. Held here as well so that
+        /// moving a pin later does not silently relocate finished work.
+        /// </summary>
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
 
         /// <summary>
         /// What the customer expects to pay. Indicative only — partners bid

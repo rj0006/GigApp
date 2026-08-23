@@ -21,6 +21,21 @@ namespace GigApp.Api.Models
         /// <summary>Partner's own on/off toggle for receiving work.</summary>
         public bool IsAvailable { get; set; } = true;
 
+        // ------------------------------------------------------ service area
+        // Where this partner works from and how far they will travel. Both are
+        // needed before any job can be matched by distance.
+
+        public double? BaseLatitude { get; set; }
+        public double? BaseLongitude { get; set; }
+
+        /// <summary>How far the partner is willing to travel, in kilometres.</summary>
+        public int ServiceRadiusKm { get; set; } = 10;
+
+        public string? BaseCity { get; set; }
+        public string? BasePincode { get; set; }
+
+        public bool HasServiceArea => BaseLatitude is not null && BaseLongitude is not null;
+
         // ------------------------------------------------------------- KYC
         // Stored file names only ("guid.jpg"), never a path or URL. All three
         // live outside wwwroot and are served by FilesController after an
