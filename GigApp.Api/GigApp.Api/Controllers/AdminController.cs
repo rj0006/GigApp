@@ -3,6 +3,7 @@ using GigApp.Api.Dtos;
 using GigApp.Api.Models;
 using GigApp.Api.Services;
 using GigApp.Api.Services.Pricing;
+using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Profile;
 using GigApp.Api.Services.Tracking;
 using GigApp.Api.ViewModels;
@@ -32,10 +33,11 @@ namespace GigApp.Api.Controllers
         public AdminController(
             IAuthService authService,
             IProfileService profileService,
+            IAddressService addressService,
             AppDbContext context,
             ICategoryLookup categories,
             IPriceInsightService priceInsights)
-            : base(authService, profileService)
+            : base(authService, profileService, addressService)
         {
             _context = context;
             _categories = categories;

@@ -231,6 +231,53 @@
 
     /* -------------------------------------------------------------- helpers */
 
+    /**
+     * "Use my current location" buttons.
+     *
+     * Fills a pair of hidden lat/lon fields from the browser's geolocation.
+     * Both are written together or neither is — the server rejects half a pin,
+     * because an address with only a latitude looks mappable but is not.
+     *
+     *   <button data-capture-location data-lat="Latitude" data-lon="Longitude"
+     *           data-status="pinStatus">Use my location</button>
+     */
+    function wireLocationCapture() {
+        $(document).on('click', '[data-capture-location]', function (e) {
+            e.preventDefault();
+
+            var $btn = $(this);
+            var $lat = $('#' + $btn.data('lat'));
+            var $lon = $('#' + $btn.data('lon'));
+            var $status = $btn.data('status') ? $('#' + $btn.data('status')) : $();
+
+            if (!navigator.geolocation) {
+                showToast('Error', 'This browser cannot share a location.', 'bg-danger');
+                return;
+            }
+
+            $btn.prop('disabled', true);
+            $status.text('Finding your location…').removeClass('text-danger text-success');
+
+            navigator.geolocation.getCurrentPosition(
+                function (pos) {
+                    $lat.val(pos.coords.latitude.toFixed(6));
+                    $lon.val(pos.coords.longitude.toFixed(6));
+                    $status.text('Location captured (accurate to about '
+                        + Math.round(pos.coords.accuracy) + ' m)').addClass('text-success');
+                    $btn.prop('disabled', false);
+                },
+                function (err) {
+                    // Leave both fields untouched — a partial pin is worse than none.
+                    $status.text(err.code === err.PERMISSION_DENIED
+                        ? 'Location permission was denied. You can still save the address without a pin.'
+                        : 'Could not get your location. You can still save the address without a pin.')
+                        .addClass('text-danger');
+                    $btn.prop('disabled', false);
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+        });
+    }
+
     /** Confirm before a destructive submit. Use data-confirm="Are you sure?". */
     function wireConfirms() {
         $(document).on('submit', 'form[data-confirm]', function (e) {
@@ -276,6 +323,7 @@
         wireConfirms();
         wireAutoSubmit();
         wireDeclarativePickers();
+        wireLocationCapture();
     });
 
 })(window, jQuery);

@@ -2,6 +2,7 @@ using GigApp.Api.Data;
 using GigApp.Api.Dtos;
 using GigApp.Api.Models;
 using GigApp.Api.Services;
+using GigApp.Api.Services.Addresses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,15 +16,18 @@ namespace GigApp.Api.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IServiceItemLookup _serviceItems;
+        private readonly IAddressService _addresses;
         private readonly ILogger<GigTasksController> _logger;
 
         public GigTasksController(
             AppDbContext context,
             IServiceItemLookup serviceItems,
+            IAddressService addresses,
             ILogger<GigTasksController> logger)
         {
             _context = context;
             _serviceItems = serviceItems;
+            _addresses = addresses;
             _logger = logger;
         }
 
@@ -50,15 +54,28 @@ namespace GigApp.Api.Controllers
                     Status = 400,
                 });
 
+            var customerId = User.GetRequiredUserId();
+
+            // Ownership is checked here, not taken on trust from the payload.
+            var address = await _addresses.FindOwnedAsync(customerId, request.AddressId, ct);
+            if (address is null)
+                return BadRequest(new ProblemDetails { Title = "Choose one of your saved addresses.", Status = 400 });
+
             // CustomerId comes from the token, never the request body.
             var task = new GigTask
             {
-                CustomerId = User.GetRequiredUserId(),
+                CustomerId = customerId,
                 CategoryId = request.CategoryId,
                 ServiceItemId = request.ServiceItemId,
                 Urgency = request.Urgency,
                 Description = request.Description.Trim(),
-                Address = request.Address.Trim(),
+
+                // Snapshot the address. Editing or deleting it later must not
+                // silently relocate work that has already happened.
+                AddressId = address.Id,
+                Address = address.ToSingleLine(),
+                Latitude = address.Latitude,
+                Longitude = address.Longitude,
                 Budget = request.Budget,
                 PreferredDateTime = request.PreferredDateTime.ToUtc(),
                 Status = GigTaskStatus.Pending,

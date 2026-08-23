@@ -1,6 +1,7 @@
 using GigApp.Api.Dtos;
 using GigApp.Api.Models;
 using GigApp.Api.Services;
+using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Profile;
 using GigApp.Api.Services.Tracking;
 using GigApp.Api.ViewModels;
@@ -20,14 +21,20 @@ namespace GigApp.Api.Controllers
     {
         protected readonly IAuthService AuthService;
         protected readonly IProfileService ProfileService;
+        protected readonly IAddressService AddressService;
 
-        protected PortalControllerBase(IAuthService authService, IProfileService profileService)
+        protected PortalControllerBase(
+            IAuthService authService,
+            IProfileService profileService,
+            IAddressService addressService)
         {
             AuthService = authService;
             ProfileService = profileService;
+            AddressService = addressService;
         }
 
         protected string ProfilePath => $"/{PortalSlug}/profile";
+        protected string AddressesPath => $"/{PortalSlug}/addresses";
 
         /// <summary>
         /// Every portal view needs its own home link, so the navbar brand points
@@ -126,6 +133,91 @@ namespace GigApp.Api.Controllers
             TrackDoc(result.User!.Id, result.User);
             TempData["Success"] = "Password changed. Use the new one next time you sign in.";
             return Redirect(ProfilePath);
+        }
+
+        // ---------------------------------------------------------- addresses
+        // Declared here for the same reason as profile: one implementation,
+        // reachable as /customer/addresses and /provider/addresses.
+
+        [HttpGet("addresses")]
+        [Authorize]
+        public async Task<IActionResult> Addresses(CancellationToken ct)
+        {
+            ViewData["Title"] = "My addresses";
+
+            return View("Addresses", new AddressBookViewModel
+            {
+                Addresses = await AddressService.ListAsync(User.GetRequiredUserId(), ct),
+            });
+        }
+
+        [HttpPost("addresses")]
+        [Authorize]
+        [ValidateAntiForgeryToken]
+        [TrackForm("Address")]
+        public async Task<IActionResult> CreateAddress(SaveAddressRequest form, CancellationToken ct)
+        {
+            if (!ModelState.IsValid) return AddressError(FirstError());
+
+            var result = await AddressService.CreateAsync(User.GetRequiredUserId(), form, ct);
+            if (!result.Succeeded) return AddressError(result.Error);
+
+            TrackDoc(result.Address!.Id, result.Address);
+            TempData["Success"] = $"'{result.Address.Label}' address saved.";
+            return Redirect(AddressesPath);
+        }
+
+        [HttpPost("addresses/{id:int}/edit")]
+        [Authorize]
+        [ValidateAntiForgeryToken]
+        [TrackForm("Address")]
+        [TrackEntry(TrackingEntryType.Update)]
+        public async Task<IActionResult> UpdateAddress(int id, SaveAddressRequest form, CancellationToken ct)
+        {
+            if (!ModelState.IsValid) return AddressError(FirstError());
+
+            var result = await AddressService.UpdateAsync(User.GetRequiredUserId(), id, form, ct);
+            if (!result.Succeeded) return AddressError(result.Error);
+
+            TrackDoc(id, result.Address);
+            TempData["Success"] = "Address updated.";
+            return Redirect(AddressesPath);
+        }
+
+        [HttpPost("addresses/{id:int}/default")]
+        [Authorize]
+        [ValidateAntiForgeryToken]
+        [TrackForm("Address")]
+        [TrackEntry(TrackingEntryType.Update)]
+        public async Task<IActionResult> SetDefaultAddress(int id, CancellationToken ct)
+        {
+            var result = await AddressService.SetDefaultAsync(User.GetRequiredUserId(), id, ct);
+            if (!result.Succeeded) return AddressError(result.Error);
+
+            TrackDoc(id, result.Address);
+            TempData["Success"] = $"'{result.Address!.Label}' is now your default address.";
+            return Redirect(AddressesPath);
+        }
+
+        [HttpPost("addresses/{id:int}/delete")]
+        [Authorize]
+        [ValidateAntiForgeryToken]
+        [TrackForm("Address")]
+        [TrackEntry(TrackingEntryType.Delete)]
+        public async Task<IActionResult> DeleteAddress(int id, CancellationToken ct)
+        {
+            var result = await AddressService.DeleteAsync(User.GetRequiredUserId(), id, ct);
+            if (!result.Succeeded) return AddressError(result.Error);
+
+            TrackDoc(id, result.Address);
+            TempData["Success"] = "Address removed.";
+            return Redirect(AddressesPath);
+        }
+
+        private IActionResult AddressError(string? message)
+        {
+            TempData["Error"] = message ?? "Could not save that address.";
+            return Redirect(AddressesPath);
         }
 
         private IActionResult ProfileError(string? message)

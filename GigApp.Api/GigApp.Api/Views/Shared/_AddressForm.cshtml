@@ -1,0 +1,110 @@
+@model AddressDto
+@{
+    // A null model is the "add new" form; otherwise this edits an existing one.
+    var isEdit = Model is not null;
+    var id = isEdit ? Model!.Id.ToString() : "new";
+    var slug = ViewData["PortalSlug"] as string ?? "customer";
+    var action = isEdit ? $"/{slug}/addresses/{Model!.Id}/edit" : $"/{slug}/addresses";
+}
+
+<form method="post" action="@action" class="gig-form row g-3">
+    @Html.AntiForgeryToken()
+
+    <div class="col-md-4">
+        <label for="Label-@id" class="form-label required">Label</label>
+        <select id="Label-@id" name="Label" class="form-select" required>
+            @foreach (var label in AddressLabel.All)
+            {
+                <option value="@label" selected="@(Model?.Label == label)">@label</option>
+            }
+        </select>
+    </div>
+
+    <div class="col-md-4">
+        <label for="HouseNumber-@id" class="form-label">Flat or house number</label>
+        <input id="HouseNumber-@id" name="HouseNumber" class="form-control"
+               maxlength="50" value="@Model?.HouseNumber" placeholder="A-101" />
+    </div>
+
+    <div class="col-md-4">
+        <label for="Pincode-@id" class="form-label required">Pincode</label>
+        <input id="Pincode-@id" name="Pincode" class="form-control" inputmode="numeric"
+               maxlength="6" required value="@Model?.Pincode" placeholder="122001" />
+    </div>
+
+    <div class="col-12">
+        <label for="Line1-@id" class="form-label required">Address</label>
+        <input id="Line1-@id" name="Line1" class="form-control" required
+               maxlength="200" value="@Model?.Line1" placeholder="Building or street" />
+    </div>
+
+    <div class="col-md-6">
+        <label for="Line2-@id" class="form-label">Area or sector</label>
+        <input id="Line2-@id" name="Line2" class="form-control"
+               maxlength="200" value="@Model?.Line2" />
+    </div>
+
+    <div class="col-md-6">
+        <label for="Landmark-@id" class="form-label">Landmark</label>
+        <input id="Landmark-@id" name="Landmark" class="form-control"
+               maxlength="150" value="@Model?.Landmark" placeholder="Near the metro station" />
+        <div class="form-text">Often how the partner actually finds the place.</div>
+    </div>
+
+    <div class="col-md-6">
+        <label for="City-@id" class="form-label required">City</label>
+        <input id="City-@id" name="City" class="form-control" required
+               maxlength="80" value="@Model?.City" />
+    </div>
+
+    <div class="col-md-6">
+        <label for="State-@id" class="form-label">State</label>
+        <input id="State-@id" name="State" class="form-control"
+               maxlength="80" value="@Model?.State" />
+    </div>
+
+    @*
+        Coordinates are written as a pair by the geolocation helper, never typed —
+        the server rejects a half pin.
+    *@
+    <div class="col-12">
+        <div class="border rounded p-2 bg-body-tertiary">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <button type="button" class="btn btn-sm btn-outline-primary"
+                        data-capture-location
+                        data-lat="Latitude-@id" data-lon="Longitude-@id"
+                        data-status="pinStatus-@id">
+                    &#128205; Use my current location
+                </button>
+
+                <span id="pinStatus-@id" class="small text-secondary">
+                    @if (Model?.HasCoordinates == true)
+                    {
+                        <text>Pinned at @Model.Latitude?.ToString("F5"), @Model.Longitude?.ToString("F5")</text>
+                    }
+                    else
+                    {
+                        <text>No pin saved. Without one this address cannot be matched by distance.</text>
+                    }
+                </span>
+            </div>
+
+            <input type="hidden" id="Latitude-@id" name="Latitude" value="@Model?.Latitude" />
+            <input type="hidden" id="Longitude-@id" name="Longitude" value="@Model?.Longitude" />
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="IsDefault-@id" name="IsDefault"
+                   value="true" checked="@(Model?.IsDefault == true)" />
+            <label class="form-check-label" for="IsDefault-@id">Use as my default address</label>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <button type="submit" class="btn btn-primary">
+            @(isEdit ? "Save changes" : "Save address")
+        </button>
+    </div>
+</form>

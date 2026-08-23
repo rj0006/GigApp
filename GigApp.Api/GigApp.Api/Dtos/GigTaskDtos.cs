@@ -19,8 +19,14 @@ namespace GigApp.Api.Dtos
         [Required, StringLength(2000, MinimumLength = 5)]
         public string Description { get; set; } = string.Empty;
 
-        [Required, StringLength(500, MinimumLength = 5)]
-        public string Address { get; set; } = string.Empty;
+        /// <summary>
+        /// A saved address. The server copies its text and coordinates onto the
+        /// task, so callers never send an address as free text.
+        /// </summary>
+        [Required(ErrorMessage = "Choose where the work is needed.")]
+        [Range(1, int.MaxValue, ErrorMessage = "Choose where the work is needed.")]
+        [Display(Name = "Address")]
+        public int AddressId { get; set; }
 
         [Range(0.0, 10_000_000.0)]
         public decimal Budget { get; set; }
@@ -71,6 +77,13 @@ namespace GigApp.Api.Dtos
         public DateTime CreatedAt { get; set; }
         public DateTime? CompletedAt { get; set; }
 
+        public int? AddressId { get; set; }
+
+        /// <summary>Snapshotted at booking, so it survives the address being edited.</summary>
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
+        public bool HasCoordinates => Latitude is not null && Longitude is not null;
+
         public int CustomerId { get; set; }
         public string? CustomerName { get; set; }
 
@@ -101,6 +114,9 @@ namespace GigApp.Api.Dtos
             PreferredDateTime = task.PreferredDateTime,
             CreatedAt = task.CreatedAt,
             CompletedAt = task.CompletedAt,
+            AddressId = task.AddressId,
+            Latitude = task.Latitude,
+            Longitude = task.Longitude,
             CustomerId = task.CustomerId,
             CustomerName = task.Customer?.Name,
             PartnerId = task.PartnerId,

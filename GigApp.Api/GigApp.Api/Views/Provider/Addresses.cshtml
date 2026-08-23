@@ -1,0 +1,8 @@
+@model AddressBookViewModel
+@{
+    ViewData["Portal"] = "Partner";
+    ViewData["LogoutPath"] = "/provider/logout";
+    ViewData["PortalSlug"] = "provider";
+}
+
+<partial name="_AddressBook" model="Model" />

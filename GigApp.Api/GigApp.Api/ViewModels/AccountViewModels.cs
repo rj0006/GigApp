@@ -93,6 +93,9 @@ namespace GigApp.Api.ViewModels
         public IReadOnlyDictionary<int, IReadOnlyList<BidDto>> BidsByTask { get; set; } =
             new Dictionary<int, IReadOnlyList<BidDto>>();
 
+        /// <summary>Saved addresses for the booking picker.</summary>
+        public IReadOnlyList<AddressDto> Addresses { get; set; } = Array.Empty<AddressDto>();
+
         public IReadOnlyList<BidDto> BidsFor(int taskId) =>
             BidsByTask.TryGetValue(taskId, out var bids) ? bids : Array.Empty<BidDto>();
     }

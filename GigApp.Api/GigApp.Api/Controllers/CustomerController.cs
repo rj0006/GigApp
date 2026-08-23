@@ -3,6 +3,7 @@ using GigApp.Api.Dtos;
 using GigApp.Api.Models;
 using GigApp.Api.Services;
 using GigApp.Api.Services.Bidding;
+using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Profile;
 using GigApp.Api.Services.Tracking;
 using GigApp.Api.ViewModels;
@@ -23,11 +24,12 @@ namespace GigApp.Api.Controllers
         public CustomerController(
             IAuthService authService,
             IProfileService profileService,
+            IAddressService addressService,
             AppDbContext context,
             ICategoryLookup categories,
             IServiceItemLookup serviceItems,
             IBidService bids)
-            : base(authService, profileService)
+            : base(authService, profileService, addressService)
         {
             _context = context;
             _categories = categories;
@@ -174,6 +176,7 @@ namespace GigApp.Api.Controllers
                     .Select(p => PartnerPublicDto.From(p, completedCounts.GetValueOrDefault(p.Id)))
                     .ToList(),
                 BidsByTask = bidsByTask,
+                Addresses = await AddressService.ListAsync(userId, ct),
             });
         }
 
@@ -210,14 +213,30 @@ namespace GigApp.Api.Controllers
                 return Redirect(DashboardPath);
             }
 
+            var customerId = User.GetRequiredUserId();
+
+            // Ownership is checked here, not taken on trust from the form.
+            var address = await AddressService.FindOwnedAsync(customerId, newTask.AddressId, ct);
+            if (address is null)
+            {
+                TempData["Error"] = "Choose one of your saved addresses.";
+                return Redirect(DashboardPath);
+            }
+
             var task = new GigTask
             {
-                CustomerId = User.GetRequiredUserId(),
+                CustomerId = customerId,
                 CategoryId = newTask.CategoryId,
                 ServiceItemId = newTask.ServiceItemId,
                 Urgency = newTask.Urgency,
                 Description = newTask.Description.Trim(),
-                Address = newTask.Address.Trim(),
+
+                // Snapshot the address so editing it later cannot relocate
+                // work that has already happened.
+                AddressId = address.Id,
+                Address = address.ToSingleLine(),
+                Latitude = address.Latitude,
+                Longitude = address.Longitude,
                 Budget = newTask.Budget,
                 PreferredDateTime = newTask.PreferredDateTime.ToUtc(),
                 Status = GigTaskStatus.Pending,

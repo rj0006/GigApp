@@ -12,4 +12,12 @@ namespace GigApp.Api.ViewModels
         /// <summary>Newest first, rebuilt from the audit trail.</summary>
         public IReadOnlyList<ProfileChangeDto> History { get; set; } = Array.Empty<ProfileChangeDto>();
     }
+
+    public class AddressBookViewModel
+    {
+        public IReadOnlyList<AddressDto> Addresses { get; set; } = Array.Empty<AddressDto>();
+
+        /// <summary>Addresses without a pin cannot be used for distance matching.</summary>
+        public int WithoutCoordinates => Addresses.Count(a => !a.HasCoordinates);
+    }
 }

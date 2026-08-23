@@ -57,9 +57,28 @@
             </div>
 
             <div class="col-md-6">
-                <label for="Address" class="form-label required">Address</label>
-                <input id="Address" name="Address" class="form-control" required
-                       minlength="5" placeholder="Sector 14, Gurugram" />
+                <label for="AddressId" class="form-label required">Where is it needed?</label>
+                @if (Model.Addresses.Count == 0)
+                {
+                    <div class="alert alert-warning small mb-0">
+                        You have no saved addresses.
+                        <a href="/customer/addresses">Add one</a> before posting a task.
+                    </div>
+                }
+                else
+                {
+                    <select id="AddressId" name="AddressId" class="form-select" required>
+                        @foreach (var address in Model.Addresses)
+                        {
+                            <option value="@address.Id" selected="@address.IsDefault">
+                                @address.Label — @address.SingleLine@(address.HasCoordinates ? "" : "  (no pin)")
+                            </option>
+                        }
+                    </select>
+                    <div class="form-text">
+                        <a href="/customer/addresses">Manage addresses</a>
+                    </div>
+                }
             </div>
 
             <div class="col-md-6">
