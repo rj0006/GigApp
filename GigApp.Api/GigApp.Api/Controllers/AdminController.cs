@@ -6,6 +6,7 @@ using GigApp.Api.Services.Pricing;
 using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Profile;
 using GigApp.Api.Services.Tracking;
+using GigApp.Api.Services.UserAdmin;
 using GigApp.Api.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -29,6 +30,7 @@ namespace GigApp.Api.Controllers
         private readonly AppDbContext _context;
         private readonly ICategoryLookup _categories;
         private readonly IPriceInsightService _priceInsights;
+        private readonly IUserAdminService _userAdmin;
 
         public AdminController(
             IAuthService authService,
@@ -36,16 +38,23 @@ namespace GigApp.Api.Controllers
             IAddressService addressService,
             AppDbContext context,
             ICategoryLookup categories,
-            IPriceInsightService priceInsights)
+            IPriceInsightService priceInsights,
+            IUserAdminService userAdmin)
             : base(authService, profileService, addressService)
         {
             _context = context;
             _categories = categories;
             _priceInsights = priceInsights;
+            _userAdmin = userAdmin;
         }
 
         protected override string PortalSlug => "admin";
         protected override string RequiredRole => UserRoles.Admin;
+
+        // A super admin has strictly more rights than an admin, so both sign in
+        // here. Only the super-admin-only screens check the difference.
+        protected override bool AcceptsRole(string? role) => UserRoles.IsAdminRole(role);
+        protected override bool PrincipalAccepted => User.IsAdmin();
 
         /// <summary>
         /// The sidebar shows a pending-KYC badge on every page, so the count is
@@ -54,10 +63,13 @@ namespace GigApp.Api.Controllers
         public override async Task OnActionExecutionAsync(
             ActionExecutingContext context, ActionExecutionDelegate next)
         {
-            if (User.IsInRole(UserRoles.Admin))
+            if (User.IsAdmin())
             {
                 ViewData["PendingKycCount"] =
                     await _context.Partners.CountAsync(p => !p.IsVerified, context.HttpContext.RequestAborted);
+
+                // The sidebar hides the super-admin section for everyone else.
+                ViewData["IsSuperAdmin"] = User.IsSuperAdmin();
             }
 
             await next();
@@ -737,6 +749,81 @@ namespace GigApp.Api.Controllers
             return Redirect(target);
         }
 
+        // ------------------------------------------- super admin: accounts
+        // These are the operations that must not be delegated. A team member
+        // with the plain admin role reaches everything above but not this.
+
+        [HttpPost("users/{id:int}/password")]
+        [Authorize(Policy = Policies.SuperAdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("UserAccount")]
+        [TrackEntry(TrackingEntryType.Update)]
+        public async Task<IActionResult> ResetUserPassword(
+            int id, AdminResetPasswordRequest form, string? returnTo, CancellationToken ct)
+        {
+            var target = LocalOr(returnTo, "/admin/users/customers");
+
+            if (!ModelState.IsValid)
+            {
+                TempData["Error"] = FirstError() ?? "Could not reset that password.";
+                return Redirect(target);
+            }
+
+            var result = await _userAdmin.ResetPasswordAsync(
+                User.GetRequiredUserId(), id, form, ct);
+
+            if (!result.Succeeded)
+            {
+                TempData["Error"] = result.Error;
+                return Redirect(target);
+            }
+
+            TrackDoc(id, result.User);
+
+            // Shown once. It is not stored anywhere and the audit payload masks
+            // it, so there is no second chance to read it.
+            TempData["Success"] =
+                $"Password reset for {result.User!.Name}. New password: {result.GeneratedPassword} "
+              + "— copy it now, it will not be shown again.";
+
+            return Redirect(target);
+        }
+
+        [HttpPost("users/{id:int}/active")]
+        [Authorize(Policy = Policies.SuperAdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("UserAccount")]
+        [TrackEntry(TrackingEntryType.Update)]
+        public async Task<IActionResult> SetUserActive(
+            int id, SetUserActiveRequest form, string? returnTo, CancellationToken ct)
+        {
+            var target = LocalOr(returnTo, "/admin/users/customers");
+
+            if (!ModelState.IsValid)
+            {
+                TempData["Error"] = "That request could not be read. Reload the page and try again.";
+                return Redirect(target);
+            }
+
+            var result = await _userAdmin.SetActiveAsync(User.GetRequiredUserId(), id, form, ct);
+
+            if (!result.Succeeded)
+            {
+                TempData["Error"] = result.Error;
+                return Redirect(target);
+            }
+
+            TrackDoc(id, result.User);
+            TempData["Success"] = form.IsActive
+                ? $"{result.User!.Name} can sign in again."
+                : $"{result.User!.Name} has been deactivated and signed out everywhere.";
+
+            return Redirect(target);
+        }
+
+        private string LocalOr(string? returnTo, string fallback) =>
+            !string.IsNullOrEmpty(returnTo) && Url.IsLocalUrl(returnTo) ? returnTo : fallback;
+
         // -------------------------------------------------- user management
 
         [HttpGet("users/partners")]
@@ -779,7 +866,7 @@ namespace GigApp.Api.Controllers
         [HttpGet("users/admins")]
         [Authorize(Policy = Policies.AdminOnly)]
         public Task<IActionResult> Admins([FromQuery] PageRequest paging, CancellationToken ct) =>
-            UserListAsync(UserRoles.Admin, "Administrators", paging, ct);
+            UserListAsync(UserRoles.Admin, "Administrators", paging, ct, includeSuperAdmins: true);
 
         // ------------------------------------------------------- operations
 
@@ -830,13 +917,17 @@ namespace GigApp.Api.Controllers
                 .Include(t => t.Partner)!.ThenInclude(p => p!.User);
 
         private async Task<IActionResult> UserListAsync(
-            string role, string heading, PageRequest paging, CancellationToken ct)
+            string role, string heading, PageRequest paging, CancellationToken ct,
+            bool includeSuperAdmins = false)
         {
             ViewData["Title"] = heading;
 
             var query = _context.Users.AsNoTracking()
                 .Include(u => u.PartnerProfile)!.ThenInclude(p => p!.SkillCategory)
-                .Where(u => u.Role == role);
+                // Super admins are administrators too, so they belong on that
+                // list rather than being invisible.
+                .Where(u => u.Role == role
+                         || (includeSuperAdmins && u.Role == UserRoles.SuperAdmin));
 
             if (!string.IsNullOrWhiteSpace(paging.Search))
             {

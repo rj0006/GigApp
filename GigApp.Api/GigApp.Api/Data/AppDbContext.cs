@@ -27,6 +27,8 @@ namespace GigApp.Api.Data
                 e.Property(u => u.Email).HasMaxLength(256);
                 e.Property(u => u.PasswordHash).HasMaxLength(256).IsRequired();
                 e.Property(u => u.ProfileImageFileName).HasMaxLength(100);
+                e.Property(u => u.DeactivationReason).HasMaxLength(300);
+                e.HasIndex(u => new { u.Role, u.IsActive });
                 e.Property(u => u.Role).HasMaxLength(20).IsRequired();
 
                 // Both are login identifiers, so both must be unique. Email is
@@ -37,7 +39,7 @@ namespace GigApp.Api.Data
 
                 e.ToTable(t => t.HasCheckConstraint(
                     "CK_Users_Role",
-                    "\"Role\" IN ('customer','partner','admin')"));
+                    "\"Role\" IN ('customer','partner','admin','superadmin')"));
             });
 
             modelBuilder.Entity<Address>(e =>

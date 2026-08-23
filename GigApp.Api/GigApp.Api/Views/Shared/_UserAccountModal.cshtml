@@ -1,0 +1,118 @@
+@model UserDto
+@{
+    var returnTo = Context.Request.Path + Context.Request.QueryString;
+    var modalId = $"account-modal-{Model.Id}";
+}
+@*
+    Super-admin-only account actions. Rendered only where the caller is a super
+    admin; the endpoints check the policy again, so hiding this is convenience,
+    not the control.
+
+    There is no "show password" here on purpose — passwords are stored as
+    one-way BCrypt hashes, so the plaintext does not exist to be shown.
+*@
+<div class="modal fade" id="@modalId" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    @Model.Name
+                    <span class="badge @(Model.IsActive ? "text-bg-success" : "text-bg-danger")">
+                        @(Model.IsActive ? "Active" : "Deactivated")
+                    </span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body">
+                <dl class="row small mb-3">
+                    <dt class="col-5">Mobile</dt>
+                    <dd class="col-7 mono">@Model.Phone</dd>
+                    <dt class="col-5">Email</dt>
+                    <dd class="col-7">@(Model.Email ?? "—")</dd>
+                    <dt class="col-5">Role</dt>
+                    <dd class="col-7">@Model.RoleLabel</dd>
+                </dl>
+
+                @if (!Model.IsActive && !string.IsNullOrWhiteSpace(Model.DeactivationReason))
+                {
+                    <div class="alert alert-warning small">
+                        <strong>Deactivated:</strong> @Model.DeactivationReason
+                    </div>
+                }
+
+                <hr />
+
+                <h6 class="small fw-semibold">Reset password</h6>
+                <p class="text-secondary small">
+                    Passwords cannot be read — they are stored as one-way hashes. Set a new one
+                    and pass it to the user. It is shown once and never stored.
+                </p>
+
+                <form method="post" action="/admin/users/@Model.Id/password" class="gig-form">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="returnTo" value="@returnTo" />
+
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" value="true"
+                               id="generate-@Model.Id" name="Generate" checked />
+                        <label class="form-check-label small" for="generate-@Model.Id">
+                            Generate a strong password
+                        </label>
+                    </div>
+
+                    <div class="mb-2">
+                        <label for="newpwd-@Model.Id" class="form-label small">
+                            Or type one
+                        </label>
+                        <input id="newpwd-@Model.Id" name="NewPassword" type="text"
+                               class="form-control form-control-sm"
+                               placeholder="Leave blank to generate" autocomplete="off" />
+                    </div>
+
+                    <div class="mb-2">
+                        <label for="pwdreason-@Model.Id" class="form-label small required">Reason</label>
+                        <input id="pwdreason-@Model.Id" name="Reason" class="form-control form-control-sm"
+                               maxlength="300" required placeholder="e.g. User locked out, verified by phone" />
+                    </div>
+
+                    <button type="submit" class="btn btn-sm btn-warning">Reset password</button>
+                </form>
+
+                <hr />
+
+                <h6 class="small fw-semibold">@(Model.IsActive ? "Deactivate account" : "Reactivate account")</h6>
+                <p class="text-secondary small">
+                    @(Model.IsActive
+                        ? "They will be signed out everywhere and cannot sign in again. Their tasks, bids and history stay intact."
+                        : "They will be able to sign in again.")
+                </p>
+
+                <form method="post" action="/admin/users/@Model.Id/active" class="gig-form"
+                      data-confirm="@(Model.IsActive ? $"Deactivate {Model.Name}?" : $"Reactivate {Model.Name}?")">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="returnTo" value="@returnTo" />
+                    @* String, not bool — Razor renders a bool attribute as value="value". *@
+                    <input type="hidden" name="IsActive" value="@(Model.IsActive ? "false" : "true")" />
+
+                    @if (Model.IsActive)
+                    {
+                        <div class="mb-2">
+                            <label for="deactreason-@Model.Id" class="form-label small required">Reason</label>
+                            <input id="deactreason-@Model.Id" name="Reason" class="form-control form-control-sm"
+                                   maxlength="300" required placeholder="e.g. Repeated no-shows" />
+                        </div>
+                    }
+
+                    <button type="submit" class="btn btn-sm @(Model.IsActive ? "btn-outline-danger" : "btn-success")">
+                        @(Model.IsActive ? "Deactivate" : "Reactivate")
+                    </button>
+                </form>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>

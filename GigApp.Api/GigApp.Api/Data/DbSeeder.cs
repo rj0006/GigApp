@@ -136,6 +136,24 @@ namespace GigApp.Api.Data
         {
             var changed = false;
 
+            // There must always be exactly one way in to the super-admin-only
+            // screens. If no super admin exists, promote the oldest admin —
+            // otherwise a fresh database has nobody who can reset a password.
+            if (!await context.Users.AnyAsync(u => u.Role == UserRoles.SuperAdmin, ct))
+            {
+                var founder = await context.Users
+                    .Where(u => u.Role == UserRoles.Admin)
+                    .OrderBy(u => u.Id)
+                    .FirstOrDefaultAsync(ct);
+
+                if (founder is not null)
+                {
+                    founder.Role = UserRoles.SuperAdmin;
+                    changed = true;
+                    logger.LogInformation("Promoted {Phone} to super admin", founder.Phone);
+                }
+            }
+
             // Accounts that predate authentication have no usable password.
             var passwordless = await context.Users
                 .Where(u => u.PasswordHash == "")

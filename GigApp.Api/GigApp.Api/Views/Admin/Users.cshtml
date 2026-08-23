@@ -2,6 +2,7 @@
 @{
     Layout = "_AdminLayout";
     var isPartnerList = Model.Role == UserRoles.Partner;
+    var isSuperAdmin = ViewData["IsSuperAdmin"] is true;
     // Do not name this `page` — Razor parses `@page` in markup as a directive.
     var list = Model.Users;
 }
@@ -38,9 +39,11 @@
                 <table class="table table-hover align-middle mb-0">
                     <thead>
                         <tr>
-                            <th>#</th><th>Name</th><th>Mobile</th><th>Email</th><th>Phone verified</th>
+                            <th>#</th><th>Name</th><th>Mobile</th><th>Email</th>
+                            <th>Status</th><th>Phone verified</th>
                             @if (isPartnerList) { <th>Skill</th> }
                             <th>Registered</th>
+                            @if (isSuperAdmin) { <th class="text-end">Account</th> }
                         </tr>
                     </thead>
                     <tbody>
@@ -51,6 +54,11 @@
                             <td class="fw-semibold">@user.Name</td>
                             <td class="mono">@user.Phone</td>
                             <td class="small">@(user.Email ?? "—")</td>
+                            <td>
+                                <span class="badge @(user.IsActive ? "text-bg-success" : "text-bg-danger")">
+                                    @(user.IsActive ? "Active" : "Deactivated")
+                                </span>
+                            </td>
                             <td>
                                 <span class="badge @(user.IsPhoneVerified ? "text-bg-success" : "text-bg-warning")">
                                     @(user.IsPhoneVerified ? "Verified" : "Unverified")
@@ -65,6 +73,15 @@
                                 </td>
                             }
                             <td class="small text-secondary">@user.CreatedAt.ToString("dd MMM yyyy")</td>
+                            @if (isSuperAdmin)
+                            {
+                                <td class="text-end">
+                                    <button type="button" class="btn btn-sm btn-outline-warning"
+                                            data-bs-toggle="modal" data-bs-target="#account-modal-@user.Id">
+                                        Manage
+                                    </button>
+                                </td>
+                            }
                         </tr>
                     }
                     </tbody>
@@ -75,6 +92,15 @@
         }
     </div>
 </div>
+
+@if (isSuperAdmin)
+{
+    @* Super-admin-only account actions. The endpoints re-check the policy. *@
+    foreach (var user in list.Items)
+    {
+        <partial name="_UserAccountModal" model="user" />
+    }
+}
 
 @if (Model.Role == UserRoles.Admin)
 {

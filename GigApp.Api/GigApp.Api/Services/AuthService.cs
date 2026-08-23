@@ -165,6 +165,14 @@ namespace GigApp.Api.Services
                 return AuthResult.Fail("Invalid credentials.");
             }
 
+            // Said plainly, unlike a wrong password: the account exists and the
+            // credentials were right, so hiding why would only waste their time.
+            if (!user.IsActive)
+            {
+                _logger.LogWarning("Login blocked for deactivated user {UserId}", user.Id);
+                return AuthResult.Fail("This account has been deactivated. Contact support.");
+            }
+
             return AuthResult.Ok(BuildResponse(user));
         }
 

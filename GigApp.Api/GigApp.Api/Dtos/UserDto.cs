@@ -14,6 +14,9 @@ namespace GigApp.Api.Dtos
         public string? Email { get; set; }
         public string Role { get; set; } = string.Empty;
         public bool IsPhoneVerified { get; set; }
+        public bool IsActive { get; set; }
+        public string? DeactivationReason { get; set; }
+        public string RoleLabel => UserRoles.Label(Role);
 
         public string? ProfileImageFileName { get; set; }
 
@@ -34,6 +37,8 @@ namespace GigApp.Api.Dtos
             Email = user.Email,
             Role = user.Role,
             IsPhoneVerified = user.IsPhoneVerified,
+            IsActive = user.IsActive,
+            DeactivationReason = user.DeactivationReason,
             ProfileImageFileName = user.ProfileImageFileName,
             CreatedAt = user.CreatedAt,
             PartnerProfile = user.PartnerProfile is null

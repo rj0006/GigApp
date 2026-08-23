@@ -40,6 +40,18 @@ namespace GigApp.Api.Models
 
         public string Role { get; set; } = UserRoles.Customer;
 
+        /// <summary>
+        /// Deactivated accounts cannot sign in and existing tokens stop working
+        /// on their next request. Deactivating is preferred over deleting: the
+        /// user's tasks, bids and audit trail stay intact and readable.
+        /// </summary>
+        public bool IsActive { get; set; } = true;
+
+        public DateTime? DeactivatedAt { get; set; }
+
+        /// <summary>Why the account was deactivated. Shown to admins only.</summary>
+        public string? DeactivationReason { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         /// <summary>Present only when <see cref="Role"/> is <c>partner</c>.</summary>

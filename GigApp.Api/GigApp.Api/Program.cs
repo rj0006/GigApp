@@ -11,6 +11,7 @@ using GigApp.Api.Services.Masters;
 using GigApp.Api.Services.Pricing;
 using GigApp.Api.Services.Profile;
 using GigApp.Api.Services.Tracking;
+using GigApp.Api.Services.UserAdmin;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -72,6 +73,29 @@ builder.Services
                 return Task.CompletedTask;
             },
 
+            // Tokens last seven days, so deactivating an account would otherwise
+            // do nothing until the token expired. Checking here costs one small
+            // lookup per authenticated request and makes deactivation immediate.
+            OnTokenValidated = async context =>
+            {
+                var userId = context.Principal?.GetUserId();
+                if (userId is null)
+                {
+                    context.Fail("No user id on the token.");
+                    return;
+                }
+
+                var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+
+                var isActive = await db.Users
+                    .Where(u => u.Id == userId)
+                    .Select(u => (bool?)u.IsActive)
+                    .FirstOrDefaultAsync(context.HttpContext.RequestAborted);
+
+                // Null means the account is gone; false means it was deactivated.
+                if (isActive != true) context.Fail("Account is not active.");
+            },
+
             // A bare 401/403 is right for API clients but renders as a blank page
             // in a browser, so send page requests to the matching portal login.
             OnChallenge = context =>
@@ -100,7 +124,11 @@ builder.Services
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy(Policies.AdminOnly, p => p.RequireRole(UserRoles.Admin));
+    // A super admin is an admin plus more, so AdminOnly accepts both. Only
+    // SuperAdminOnly is exclusive — that is what a future team member with the
+    // plain admin role will not be able to reach.
+    options.AddPolicy(Policies.AdminOnly, p => p.RequireRole(UserRoles.AdminRoles));
+    options.AddPolicy(Policies.SuperAdminOnly, p => p.RequireRole(UserRoles.SuperAdmin));
     options.AddPolicy(Policies.PartnerOnly, p => p.RequireRole(UserRoles.Partner));
     options.AddPolicy(Policies.CustomerOnly, p => p.RequireRole(UserRoles.Customer));
 });
@@ -111,6 +139,7 @@ builder.Services.AddScoped<ICategoryLookup, CategoryLookup>();
 builder.Services.AddScoped<IServiceItemLookup, ServiceItemLookup>();
 builder.Services.AddScoped<IPriceInsightService, PriceInsightService>();
 builder.Services.AddScoped<IAddressService, AddressService>();
+builder.Services.AddScoped<IUserAdminService, UserAdminService>();
 
 // Masters: add a new one by implementing IMasterSource and registering it here.
 // The /api/masters/{key} endpoint and global.js pick it up automatically.
@@ -225,6 +254,7 @@ app.Run();
 public static class Policies
 {
     public const string AdminOnly = "AdminOnly";
+    public const string SuperAdminOnly = "SuperAdminOnly";
     public const string PartnerOnly = "PartnerOnly";
     public const string CustomerOnly = "CustomerOnly";
 }

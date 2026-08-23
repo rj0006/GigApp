@@ -23,7 +23,11 @@ namespace GigApp.Api.Services
         public static string? GetRole(this ClaimsPrincipal principal) =>
             principal.FindFirstValue(ClaimNames.Role);
 
+        /// <summary>True for admins and super admins — super admin is a superset.</summary>
         public static bool IsAdmin(this ClaimsPrincipal principal) =>
-            principal.IsInRole(UserRoles.Admin);
+            principal.IsInRole(UserRoles.Admin) || principal.IsInRole(UserRoles.SuperAdmin);
+
+        public static bool IsSuperAdmin(this ClaimsPrincipal principal) =>
+            principal.IsInRole(UserRoles.SuperAdmin);
     }
 }

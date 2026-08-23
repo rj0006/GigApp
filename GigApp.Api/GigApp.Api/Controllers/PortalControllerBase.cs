@@ -42,7 +42,7 @@ namespace GigApp.Api.Controllers
         /// </summary>
         public override void OnActionExecuting(ActionExecutingContext context)
         {
-            ViewData["PortalHome"] = User.Identity?.IsAuthenticated == true && User.IsInRole(RequiredRole)
+            ViewData["PortalHome"] = User.Identity?.IsAuthenticated == true && PrincipalAccepted
                 ? DashboardPath
                 : "/";
 
@@ -52,6 +52,17 @@ namespace GigApp.Api.Controllers
         /// <summary>Route prefix and role this portal serves, e.g. "customer".</summary>
         protected abstract string PortalSlug { get; }
         protected abstract string RequiredRole { get; }
+
+        /// <summary>
+        /// Whether a role may use this portal. Exact match by default; the admin
+        /// portal widens it so a super admin is not locked out of the door they
+        /// have more rights behind.
+        /// </summary>
+        protected virtual bool AcceptsRole(string? role) =>
+            string.Equals(role, RequiredRole, StringComparison.Ordinal);
+
+        /// <summary>Same question, asked of the signed-in principal.</summary>
+        protected virtual bool PrincipalAccepted => User.IsInRole(RequiredRole);
 
         protected string LoginPath => $"/{PortalSlug}/login";
         protected string DashboardPath => $"/{PortalSlug}";
@@ -226,7 +237,7 @@ namespace GigApp.Api.Controllers
             return Redirect(ProfilePath);
         }
 
-        private string? FirstError() => ModelState
+        protected string? FirstError() => ModelState
             .SelectMany(e => e.Value!.Errors)
             .Select(e => e.ErrorMessage)
             .FirstOrDefault(m => !string.IsNullOrWhiteSpace(m));
@@ -247,7 +258,7 @@ namespace GigApp.Api.Controllers
             }
 
             // Stop a customer from signing in through the admin door.
-            if (!string.Equals(result.Response.User.Role, RequiredRole, StringComparison.Ordinal))
+            if (!AcceptsRole(result.Response.User.Role))
             {
                 ModelState.AddModelError(string.Empty,
                     $"This is the {PortalSlug} portal. Your account is registered as a {result.Response.User.Role}.");
@@ -303,7 +314,7 @@ namespace GigApp.Api.Controllers
         /// of showing a form they do not need.
         /// </summary>
         protected bool IsAlreadySignedIn =>
-            User.Identity?.IsAuthenticated == true && User.IsInRole(RequiredRole);
+            User.Identity?.IsAuthenticated == true && PrincipalAccepted;
 
         protected LoginViewModel BuildLoginModel(string? returnUrl, bool denied)
         {
