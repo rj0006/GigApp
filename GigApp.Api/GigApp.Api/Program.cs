@@ -106,10 +106,12 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICategoryLookup, CategoryLookup>();
+builder.Services.AddScoped<IServiceItemLookup, ServiceItemLookup>();
 
 // Masters: add a new one by implementing IMasterSource and registering it here.
 // The /api/masters/{key} endpoint and global.js pick it up automatically.
 builder.Services.AddScoped<IMasterSource, SkillCategoryMasterSource>();
+builder.Services.AddScoped<IMasterSource, ServiceItemMasterSource>();
 builder.Services.AddScoped<IMasterRegistry, MasterRegistry>();
 
 // ----------------------------------------------------------------------- cors

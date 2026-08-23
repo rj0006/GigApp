@@ -144,6 +144,7 @@ namespace GigApp.Api.Controllers
                     .AsNoTracking()
                     .Include(t => t.Customer)
                     .Include(t => t.Category)
+                    .Include(t => t.ServiceItem)
                     .Where(t => t.PartnerId == partner.Id)
                     .OrderByDescending(t => t.CreatedAt)
                     .ToListAsync(ct);
@@ -168,6 +169,7 @@ namespace GigApp.Api.Controllers
                         .AsNoTracking()
                         .Include(t => t.Customer)
                         .Include(t => t.Category)
+                        .Include(t => t.ServiceItem)
                         .Where(t => t.Status == GigTaskStatus.Pending
                                  && t.CategoryId == partner.SkillCategoryId)
                         .OrderBy(t => t.Urgency == TaskUrgency.Urgent ? 0

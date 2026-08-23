@@ -16,6 +16,14 @@ namespace GigApp.Api.Models
         public int CategoryId { get; set; }
         public SkillCategory? Category { get; set; }
 
+        /// <summary>
+        /// The specific job within that category. Required for anything new —
+        /// it is the unit prices are discovered and set against. Nullable only
+        /// because tasks created before service items existed have none.
+        /// </summary>
+        public int? ServiceItemId { get; set; }
+        public ServiceItem? ServiceItem { get; set; }
+
         public string Description { get; set; } = string.Empty;
         public string Address { get; set; } = string.Empty;
 

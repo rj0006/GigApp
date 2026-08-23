@@ -69,10 +69,23 @@
         });
     }
 
-    /** Remote source: hits a master endpoint on every keystroke. */
-    function remoteSource(url) {
+    /**
+     * Remote source: hits a master endpoint on every keystroke.
+     * `getParentId` is optional — dependent masters (service items inside a
+     * category) read it fresh on each call so changing the parent takes effect
+     * immediately.
+     */
+    function remoteSource(url, getParentId) {
         return function (request, response) {
-            fetch(url + encodeURIComponent(request.term), {
+            var full = url + encodeURIComponent(request.term);
+
+            if (typeof getParentId === 'function') {
+                var parentId = getParentId();
+                if (!parentId) { response([]); return; }   // no parent, nothing to offer
+                full += '&parentId=' + encodeURIComponent(parentId);
+            }
+
+            fetch(full, {
                 headers: { 'Accept': 'application/json' },
                 credentials: 'same-origin'
             })
@@ -182,8 +195,21 @@
      * Shorthand for a master-backed picker:
      *   App.masterPicker('CategoryPicker', 'CategoryId', 'skill-category', 'category');
      */
-    function masterPicker(inputId, hiddenId, masterKey, alertMsg, onSelect) {
-        AutoComplete(inputId, hiddenId, App.masterUrl(masterKey), alertMsg, onSelect);
+    function masterPicker(inputId, hiddenId, masterKey, alertMsg, onSelect, parentFieldId) {
+        var source = parentFieldId
+            ? remoteSource(App.masterUrl(masterKey), function () { return $('#' + parentFieldId).val(); })
+            : App.masterUrl(masterKey);
+
+        AutoComplete(inputId, hiddenId, source, alertMsg, onSelect);
+
+        // Changing the parent invalidates whatever child was chosen — clear it
+        // rather than leave a service item pointing at the wrong category.
+        if (parentFieldId) {
+            $('#' + parentFieldId).on('change', function () {
+                $('#' + inputId).val('');
+                $('#' + hiddenId).val('');
+            });
+        }
     }
 
     /**
@@ -228,7 +254,8 @@
     function wireDeclarativePickers() {
         $('input[data-master][data-target]').each(function () {
             var $el = $(this);
-            masterPicker($el.attr('id'), $el.data('target'), $el.data('master'), $el.data('alert'));
+            masterPicker($el.attr('id'), $el.data('target'), $el.data('master'),
+                         $el.data('alert'), null, $el.data('parent'));
         });
 
         $('input[data-options][data-target]').each(function () {

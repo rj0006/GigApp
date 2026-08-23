@@ -13,8 +13,9 @@ namespace GigApp.Api.Services.Masters
 
         public string Key => "skill-category";
 
+        /// <summary>Categories sit at the top, so <paramref name="parentId"/> is ignored.</summary>
         public async Task<IReadOnlyList<MasterItemDto>> SearchAsync(
-            string? term, int limit, CancellationToken ct)
+            string? term, int? parentId, int limit, CancellationToken ct)
         {
             var query = _context.SkillCategories.AsNoTracking().Where(c => c.IsActive);
 

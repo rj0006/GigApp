@@ -14,11 +14,16 @@ namespace GigApp.Api.Controllers
     public class GigTasksController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IServiceItemLookup _serviceItems;
         private readonly ILogger<GigTasksController> _logger;
 
-        public GigTasksController(AppDbContext context, ILogger<GigTasksController> logger)
+        public GigTasksController(
+            AppDbContext context,
+            IServiceItemLookup serviceItems,
+            ILogger<GigTasksController> logger)
         {
             _context = context;
+            _serviceItems = serviceItems;
             _logger = logger;
         }
 
@@ -37,11 +42,20 @@ namespace GigApp.Api.Controllers
             if (!TaskUrgency.IsValid(request.Urgency))
                 return BadRequest(new ProblemDetails { Title = "Choose a valid urgency.", Status = 400 });
 
+            // Must belong to the posted category — never trust the pairing.
+            if (!await _serviceItems.IsSelectableAsync(request.ServiceItemId, request.CategoryId, ct))
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Choose a service that belongs to the selected category.",
+                    Status = 400,
+                });
+
             // CustomerId comes from the token, never the request body.
             var task = new GigTask
             {
                 CustomerId = User.GetRequiredUserId(),
                 CategoryId = request.CategoryId,
+                ServiceItemId = request.ServiceItemId,
                 Urgency = request.Urgency,
                 Description = request.Description.Trim(),
                 Address = request.Address.Trim(),
@@ -219,6 +233,7 @@ namespace GigApp.Api.Controllers
             _context.GigTasks
                 .AsNoTracking()
                 .Include(t => t.Category)
+                .Include(t => t.ServiceItem)
                 .Include(t => t.Customer)
                 .Include(t => t.Partner)!.ThenInclude(p => p!.User);
 

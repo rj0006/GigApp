@@ -15,8 +15,14 @@ namespace GigApp.Api.Services.Masters
         /// <summary>URL segment, kebab-case. e.g. "skill-category".</summary>
         string Key { get; }
 
-        /// <summary>Active rows matching <paramref name="term"/>; empty term = first N.</summary>
-        Task<IReadOnlyList<MasterItemDto>> SearchAsync(string? term, int limit, CancellationToken ct);
+        /// <summary>
+        /// Active rows matching <paramref name="term"/>; empty term = first N.
+        /// <paramref name="parentId"/> narrows a dependent master to its owner —
+        /// service items to a category, areas to a city. Masters with no parent
+        /// ignore it.
+        /// </summary>
+        Task<IReadOnlyList<MasterItemDto>> SearchAsync(
+            string? term, int? parentId, int limit, CancellationToken ct);
     }
 
     /// <summary>Resolves a master by its URL key.</summary>

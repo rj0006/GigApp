@@ -151,6 +151,7 @@ else
                             <tr class="@(task.IsUrgent ? "table-danger" : "")">
                                 <td class="text-secondary">@task.Id</td>
                                 <td>
+                                    <div>@(task.ServiceItemName ?? task.CategoryName)</div>
                                     <span class="badge text-bg-light border">@task.CategoryName</span>
                                     @if (task.Urgency != TaskUrgency.Normal)
                                     {

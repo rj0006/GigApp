@@ -17,6 +17,7 @@ namespace GigApp.Api.Controllers
     {
         private readonly AppDbContext _context;
         private readonly ICategoryLookup _categories;
+        private readonly IServiceItemLookup _serviceItems;
         private readonly IBidService _bids;
 
         public CustomerController(
@@ -24,11 +25,13 @@ namespace GigApp.Api.Controllers
             IProfileService profileService,
             AppDbContext context,
             ICategoryLookup categories,
+            IServiceItemLookup serviceItems,
             IBidService bids)
             : base(authService, profileService)
         {
             _context = context;
             _categories = categories;
+            _serviceItems = serviceItems;
             _bids = bids;
         }
 
@@ -111,6 +114,7 @@ namespace GigApp.Api.Controllers
             var tasks = await _context.GigTasks
                 .AsNoTracking()
                 .Include(t => t.Category)
+                .Include(t => t.ServiceItem)
                 .Include(t => t.Partner)!.ThenInclude(p => p!.User)
                 .Include(t => t.Partner)!.ThenInclude(p => p!.SkillCategory)
                 .Where(t => t.CustomerId == userId)
@@ -121,12 +125,20 @@ namespace GigApp.Api.Controllers
             // plus anyone who has bid on one of their open tasks.
             var taskIds = tasks.Select(t => t.Id).ToList();
 
-            var bidderPartners = await _context.TaskBids
+            // Fetch the ids first, then load the partners. Include cannot be
+            // applied after a Select that projects through a navigation.
+            var bidderPartnerIds = await _context.TaskBids
                 .AsNoTracking()
                 .Where(b => taskIds.Contains(b.GigTaskId) && b.Status != BidStatus.Withdrawn)
-                .Select(b => b.Partner!)
+                .Select(b => b.PartnerId)
+                .Distinct()
+                .ToListAsync(ct);
+
+            var bidderPartners = await _context.Partners
+                .AsNoTracking()
                 .Include(p => p.User)
                 .Include(p => p.SkillCategory)
+                .Where(p => bidderPartnerIds.Contains(p.Id))
                 .ToListAsync(ct);
 
             var partners = tasks
@@ -191,10 +203,18 @@ namespace GigApp.Api.Controllers
                 return Redirect(DashboardPath);
             }
 
+            // Must belong to the posted category — never trust the pairing.
+            if (!await _serviceItems.IsSelectableAsync(newTask.ServiceItemId, newTask.CategoryId, ct))
+            {
+                TempData["Error"] = "Choose a service that belongs to the selected category.";
+                return Redirect(DashboardPath);
+            }
+
             var task = new GigTask
             {
                 CustomerId = User.GetRequiredUserId(),
                 CategoryId = newTask.CategoryId,
+                ServiceItemId = newTask.ServiceItemId,
                 Urgency = newTask.Urgency,
                 Description = newTask.Description.Trim(),
                 Address = newTask.Address.Trim(),

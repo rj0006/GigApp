@@ -13,6 +13,7 @@ namespace GigApp.Api.Data
         public DbSet<SkillCategory> SkillCategories => Set<SkillCategory>();
         public DbSet<TrackingLog> TrackingLogs => Set<TrackingLog>();
         public DbSet<TaskBid> TaskBids => Set<TaskBid>();
+        public DbSet<ServiceItem> ServiceItems => Set<ServiceItem>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -36,6 +37,22 @@ namespace GigApp.Api.Data
                 e.ToTable(t => t.HasCheckConstraint(
                     "CK_Users_Role",
                     "\"Role\" IN ('customer','partner','admin')"));
+            });
+
+            modelBuilder.Entity<ServiceItem>(e =>
+            {
+                e.Property(s => s.Name).HasMaxLength(80).IsRequired();
+                e.Property(s => s.Description).HasMaxLength(300);
+                e.Property(s => s.BasePayout).HasPrecision(10, 2);
+
+                // Restrict, not Cascade — deleting a category must not silently
+                // take its service items and their price history with it.
+                e.HasOne(s => s.SkillCategory)
+                 .WithMany(c => c.ServiceItems)
+                 .HasForeignKey(s => s.SkillCategoryId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(s => new { s.SkillCategoryId, s.IsActive, s.DisplayOrder });
             });
 
             modelBuilder.Entity<TaskBid>(e =>
@@ -148,6 +165,14 @@ namespace GigApp.Api.Data
                  .WithMany(c => c.Tasks)
                  .HasForeignKey(t => t.CategoryId)
                  .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(t => t.ServiceItem)
+                 .WithMany(s => s.Tasks)
+                 .HasForeignKey(t => t.ServiceItemId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                // Price discovery groups completed work by service item.
+                e.HasIndex(t => new { t.ServiceItemId, t.Status });
 
                 e.HasOne(t => t.Customer)
                  .WithMany()

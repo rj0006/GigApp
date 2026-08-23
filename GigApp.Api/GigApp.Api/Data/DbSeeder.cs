@@ -28,10 +28,76 @@ namespace GigApp.Api.Data
             ("Pest Control",      "Cockroach, termite and mosquito treatment"),
         };
 
+        /// <summary>
+        /// Starter service items per category. Categories are too coarse to
+        /// price, so every category needs at least a few of these before a task
+        /// can be posted against it.
+        /// </summary>
+        private static readonly Dictionary<string, string[]> DefaultServiceItems = new()
+        {
+            ["Plumbing"] = new[] { "Tap repair", "Leak fix", "New fitting installation", "Drain unclogging" },
+            ["Electrical"] = new[] { "Switch or socket repair", "Fan installation", "Light fitting", "Wiring fault check" },
+            ["Cleaning"] = new[] { "1BHK deep clean", "2BHK deep clean", "Bathroom deep clean", "Sofa cleaning" },
+            ["Shifting"] = new[] { "1BHK shifting", "2BHK shifting", "Single item shifting" },
+            ["Carpentry"] = new[] { "Furniture assembly", "Door repair", "Cupboard repair" },
+            ["Painting"] = new[] { "Single room painting", "Full house painting", "Touch-up work" },
+            ["Appliance Repair"] = new[] { "AC service", "Refrigerator repair", "Washing machine repair", "Geyser repair" },
+            ["Pest Control"] = new[] { "Cockroach treatment", "Termite treatment", "Mosquito treatment" },
+            ["General"] = new[] { "General help" },
+        };
+
         public static async Task SeedAsync(AppDbContext context, ILogger logger, CancellationToken ct = default)
         {
             await SeedCategoriesAsync(context, logger, ct);
+            await SeedServiceItemsAsync(context, logger, ct);
             await SeedAccountsAsync(context, logger, ct);
+        }
+
+        private static async Task SeedServiceItemsAsync(AppDbContext context, ILogger logger, CancellationToken ct)
+        {
+            var categories = await context.SkillCategories
+                .Select(c => new { c.Id, c.Name })
+                .ToListAsync(ct);
+
+            var existing = await context.ServiceItems
+                .Select(s => new { s.SkillCategoryId, Name = s.Name.ToLower() })
+                .ToListAsync(ct);
+
+            var added = 0;
+
+            foreach (var category in categories)
+            {
+                if (!DefaultServiceItems.TryGetValue(category.Name, out var names)) continue;
+
+                var order = 0;
+
+                foreach (var name in names)
+                {
+                    var alreadyThere = existing.Any(
+                        e => e.SkillCategoryId == category.Id && e.Name == name.ToLowerInvariant());
+
+                    if (!alreadyThere)
+                    {
+                        context.ServiceItems.Add(new ServiceItem
+                        {
+                            SkillCategoryId = category.Id,
+                            Name = name,
+                            IsActive = true,
+                            DisplayOrder = order,
+                            CreatedAt = DateTime.UtcNow,
+                        });
+                        added++;
+                    }
+
+                    order++;
+                }
+            }
+
+            if (added > 0)
+            {
+                await context.SaveChangesAsync(ct);
+                logger.LogInformation("Seeded {Count} service items", added);
+            }
         }
 
         private static async Task SeedCategoriesAsync(AppDbContext context, ILogger logger, CancellationToken ct)

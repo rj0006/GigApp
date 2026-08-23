@@ -510,6 +510,7 @@ namespace GigApp.Api.Controllers
         private IQueryable<GigTask> TasksWithDetail =>
             _context.GigTasks.AsNoTracking()
                 .Include(t => t.Category)
+                .Include(t => t.ServiceItem)
                 .Include(t => t.Customer)
                 .Include(t => t.Partner)!.ThenInclude(p => p!.User);
 

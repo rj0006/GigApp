@@ -22,10 +22,12 @@ namespace GigApp.Api.Controllers
         public MastersController(IMasterRegistry registry) => _registry = registry;
 
         // GET: api/masters/skill-category?term=plum&limit=20
+        // GET: api/masters/service-item?parentId=4&term=tap
         [HttpGet("{key}")]
         public async Task<ActionResult<ApiResponse<IReadOnlyList<MasterItemDto>>>> Search(
             string key,
             [FromQuery] string? term,
+            [FromQuery] int? parentId,
             [FromQuery] int limit,
             CancellationToken ct)
         {
@@ -36,7 +38,7 @@ namespace GigApp.Api.Controllers
                     $"Unknown master '{key}'. Known: {string.Join(", ", _registry.Keys)}"));
 
             var take = limit < 1 ? DefaultLimit : Math.Min(limit, MaxLimit);
-            var items = await source.SearchAsync(term, take, ct);
+            var items = await source.SearchAsync(term, parentId, take, ct);
 
             return Ok(ApiResponse<IReadOnlyList<MasterItemDto>>.Ok(items));
         }

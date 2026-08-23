@@ -28,5 +28,8 @@ namespace GigApp.Api.Models
 
         public ICollection<Partner> Partners { get; set; } = new List<Partner>();
         public ICollection<GigTask> Tasks { get; set; } = new List<GigTask>();
+
+        /// <summary>The specific jobs offered under this category.</summary>
+        public ICollection<ServiceItem> ServiceItems { get; set; } = new List<ServiceItem>();
     }
 }

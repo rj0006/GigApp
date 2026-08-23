@@ -10,6 +10,12 @@ namespace GigApp.Api.Dtos
         [Display(Name = "Category")]
         public int CategoryId { get; set; }
 
+        /// <summary>Required — this is the unit prices are discovered against.</summary>
+        [Required(ErrorMessage = "Choose the service you need.")]
+        [Range(1, int.MaxValue, ErrorMessage = "Choose the service you need.")]
+        [Display(Name = "Service")]
+        public int ServiceItemId { get; set; }
+
         [Required, StringLength(2000, MinimumLength = 5)]
         public string Description { get; set; } = string.Empty;
 
@@ -37,6 +43,10 @@ namespace GigApp.Api.Dtos
         public int Id { get; set; }
         public int CategoryId { get; set; }
         public string CategoryName { get; set; } = string.Empty;
+
+        public int? ServiceItemId { get; set; }
+        public string? ServiceItemName { get; set; }
+
         public string Description { get; set; } = string.Empty;
         public string Address { get; set; } = string.Empty;
         /// <summary>Customer's expected budget — indicative only.</summary>
@@ -79,6 +89,8 @@ namespace GigApp.Api.Dtos
             Id = task.Id,
             CategoryId = task.CategoryId,
             CategoryName = task.Category?.Name ?? string.Empty,
+            ServiceItemId = task.ServiceItemId,
+            ServiceItemName = task.ServiceItem?.Name,
             Description = task.Description,
             Address = task.Address,
             Budget = task.Budget,
