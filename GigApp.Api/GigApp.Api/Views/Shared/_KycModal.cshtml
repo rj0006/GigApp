@@ -10,9 +10,7 @@
             <div class="modal-header">
                 <h5 class="modal-title" id="@(modalId)-title">
                     @Model.Name
-                    <span class="badge @(Model.IsVerified ? "text-bg-success" : "text-bg-warning") ms-1">
-                        @(Model.IsVerified ? "Verified" : "Pending")
-                    </span>
+                    <span class="badge @Model.KycBadgeClass ms-1">@Model.KycLabel</span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -49,6 +47,21 @@
 
                 <partial name="_KycReview" model="Model" />
 
+                @if (Model.IsRejected)
+                {
+                    <div class="alert alert-danger small mt-3 mb-0">
+                        <strong>You rejected this partner</strong>
+                        @if (Model.KycReviewedAt is not null)
+                        {
+                            <text> on @Model.KycReviewedAt.Value.ToString("dd MMM yyyy, HH:mm") UTC</text>
+                        }.
+                        <div>Reason given: @Model.KycRejectionReason</div>
+                        <div class="mt-1">
+                            They can fix it and resubmit, which brings them back into this queue.
+                        </div>
+                    </div>
+                }
+
                 @if (!Model.HasCompleteKyc)
                 {
                     <div class="alert alert-warning small mt-3 mb-0">
@@ -76,7 +89,9 @@
 
                         @* String, not bool — Razor renders a bool attribute as value="value". *@
                         <button type="submit" name="isVerified" value="false"
-                                class="btn btn-sm btn-outline-danger">Reject</button>
+                                class="btn btn-sm btn-outline-danger">
+                            @(Model.IsRejected ? "Reject again" : "Reject")
+                        </button>
 
                         <button type="submit" name="isVerified" value="true"
                                 class="btn btn-sm btn-success" @(Model.HasCompleteKyc ? "" : "disabled")>

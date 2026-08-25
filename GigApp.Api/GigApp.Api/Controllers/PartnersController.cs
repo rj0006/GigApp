@@ -42,13 +42,13 @@ namespace GigApp.Api.Controllers
                 .AsQueryable();
 
             if (verified is not null)
-                query = query.Where(p => p.IsVerified == verified);
+                query = query.Where(p => (verified == true ? p.KycStatus == KycStatus.Approved : p.KycStatus != KycStatus.Approved));
 
             if (categoryId is not null)
                 query = query.Where(p => p.SkillCategoryId == categoryId);
 
             var partners = await query
-                .OrderBy(p => p.IsVerified)      // unverified first — that is the work queue
+                .OrderBy(p => p.KycStatus == KycStatus.Approved ? 1 : 0)      // unverified first — that is the work queue
                 .ThenByDescending(p => p.CreatedAt)
                 .ToListAsync(ct);
 
@@ -191,7 +191,10 @@ namespace GigApp.Api.Controllers
                 partner.AadhaarNumber = request.AadhaarNumber.Trim();
 
             // Re-submitting documents sends the partner back through review.
-            partner.IsVerified = false;
+            // Any resubmission goes back into the queue, whatever it was before.
+            partner.KycStatus = Models.KycStatus.Pending;
+            partner.KycRejectionReason = null;
+            partner.KycReviewedAt = null;
 
             await _context.SaveChangesAsync(ct);
 
@@ -225,7 +228,19 @@ namespace GigApp.Api.Controllers
                     Status = 400,
                 });
 
-            partner.IsVerified = request.IsVerified;
+            // Rejecting without saying why leaves the partner unable to work and
+            // with nothing to fix, so the reason is mandatory.
+            if (!request.IsVerified && string.IsNullOrWhiteSpace(request.Reason))
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Give a reason when rejecting a partner.",
+                    Status = 400,
+                });
+
+            partner.KycStatus = request.IsVerified ? KycStatus.Approved : KycStatus.Rejected;
+            partner.KycRejectionReason = request.IsVerified ? null : request.Reason!.Trim();
+            partner.KycReviewedAt = DateTime.UtcNow;
+
             await _context.SaveChangesAsync(ct);
 
             _logger.LogInformation(

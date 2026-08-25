@@ -198,7 +198,7 @@ namespace GigApp.Api.Data
                         {
                             UserId = user.Id,
                             SkillCategoryId = fallbackCategoryId,
-                            IsVerified = true,     // pre-approved so the dev flow is usable end to end
+                            KycStatus = Models.KycStatus.Approved,   // pre-approved so the dev flow is usable end to end
                             IsAvailable = true,
                             CreatedAt = DateTime.UtcNow,
                         });

@@ -61,13 +61,32 @@ cookie/session auth scheme** — do not add ASP.NET Identity or `AddCookie` alon
 **No public admin registration.** `AuthController` exposes `register/customer` and `register/partner`
 only. Admins are seeded or promoted by an existing admin. `/admin` is login-only by design.
 
-**Roles are lowercase strings**: `customer`, `partner`, `admin` — see `UserRoles`. Enforced by a DB check
+**Roles are lowercase strings**: `customer`, `partner`, `admin`, `superadmin` — see `UserRoles`. Enforced by a DB check
 constraint. The seed data originally used capitalised roles; a migration normalised them. Never compare
 role strings case-insensitively as a workaround — fix the data.
 
 **Task lifecycle is a state machine.** `GigTaskStatus.CanTransition` is the single authority:
 `pending → accepted → in_progress → completed`, with `cancelled` reachable from any non-terminal state.
 Both the API and the Razor portals call it. A DB check constraint backs the allowed values.
+
+**Partner KYC is a four-state column, not a boolean.** `Partner.KycStatus` holds
+`not_submitted → pending → approved | rejected`, backed by `CK_Partners_KycStatus`. The old
+`IsVerified` boolean could not tell "never reviewed" from "rejected", so an admin could not see
+what they had already refused and a partner was never told why. `Partner.IsVerified` still exists
+but is now a computed `KycStatus == approved` and is `Ignore`d by EF — never map or assign it.
+
+- Rejecting **requires a reason**; both `AdminController.SetVerification` and
+  `PartnersController.SetVerification` refuse without one. It is the only thing the partner sees.
+- Any KYC resubmission sets the status straight back to `pending` and clears the reason, whatever
+  it was before. That is what lets a rejected partner get back in the queue without a new account.
+- `/admin/approvals` lists everything that is not approved, ordered pending → not submitted →
+  rejected. The sidebar badge counts **only `pending`** — a rejected partner is waiting on
+  themselves, so counting them would keep the badge lit with no work behind it.
+
+**The role claim is refreshed from the database on every request.** `OnTokenValidated` checks
+`IsActive` and overwrites the token role with the stored one. Tokens last seven days, so without
+this a promotion to `superadmin` (or a demotion) would do nothing until the token expired — which
+is exactly what made the super-admin screens invisible after the seeder promoted the founder.
 
 **One category master, referenced by FK.** `SkillCategory` is admin-managed; both `Partner.SkillCategoryId`
 and `GigTask.CategoryId` point at it. They deliberately share one taxonomy — matching a task to a partner
@@ -117,7 +136,7 @@ Password for all: `Gigapp@123`. Sign in with mobile **or** email.
 | Role | Mobile | Email |
 |---|---|---|
 | admin | 8683846689 | rahuljangra807@gmail.com |
-| customer | 7879838798 | amit@gmail.com |
+| customer | 7879838799 | amit@gmail.com |
 | partner | 7459867732 | shivam@gmail.com |
 
 ## Gotchas that have already bitten
@@ -169,4 +188,4 @@ so a typo cannot invent a category.
 - Rate limiting on login and registration
 - `Jwt:Key` and the DB password are in config files; production must supply `Jwt__Key` via environment
 - The three Flutter apps have not been started
-- `IsAvailable` does not currently gate task acceptance (only `IsVerified` does)
+- `IsAvailable` does not currently gate task acceptance (only an approved KYC does)

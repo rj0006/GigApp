@@ -2,6 +2,10 @@
 @{
     // Do not name this `page` — Razor parses `@page` in markup as a directive.
     var list = Model.Partners;
+
+    // Only the user-management list fills Accounts, and only a super admin may
+    // act on them. The endpoints check the policy again — this is convenience.
+    var showAccounts = Model.Accounts.Count > 0 && ViewData["IsSuperAdmin"] is true;
 }
 
 @if (list.TotalCount == 0)
@@ -16,6 +20,7 @@ else
                 <tr>
                     <th>#</th><th>Name</th><th>Mobile</th><th>Skill</th>
                     <th>Aadhaar</th><th>Status</th><th>Duty</th><th class="text-end">Review</th>
+                    @if (showAccounts) { <th class="text-end">Account</th> }
                 </tr>
             </thead>
             <tbody>
@@ -34,9 +39,11 @@ else
                     <td><span class="badge text-bg-light border">@partner.SkillCategoryName</span></td>
                     <td class="mono small">@(partner.MaskedAadhaar ?? "—")</td>
                     <td>
-                        <span class="badge @(partner.IsVerified ? "text-bg-success" : "text-bg-warning")">
-                            @(partner.IsVerified ? "Verified" : "Pending")
-                        </span>
+                        <span class="badge @partner.KycBadgeClass">@partner.KycLabel</span>
+                        @if (showAccounts && Model.Accounts.TryGetValue(partner.Id, out var status) && !status.IsActive)
+                        {
+                            <div class="mt-1"><span class="badge text-bg-danger">Deactivated</span></div>
+                        }
                     </td>
                     <td class="small text-secondary">@(partner.IsAvailable ? "On duty" : "Off duty")</td>
                     <td class="text-end">
@@ -47,6 +54,20 @@ else
                             &#128065; View
                         </button>
                     </td>
+                    @if (showAccounts)
+                    {
+                        <td class="text-end">
+                            @if (Model.Accounts.ContainsKey(partner.Id))
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-warning"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#account-modal-@Model.Accounts[partner.Id].Id"
+                                        title="Reset password or change status">
+                                    Manage
+                                </button>
+                            }
+                        </td>
+                    }
                 </tr>
             }
             </tbody>
@@ -58,5 +79,13 @@ else
     @foreach (var partner in list.Items)
     {
         <partial name="_KycModal" model="partner" />
+    }
+
+    @if (showAccounts)
+    {
+        foreach (var account in Model.Accounts.Values)
+        {
+            <partial name="_UserAccountModal" model="account" />
+        }
     }
 }

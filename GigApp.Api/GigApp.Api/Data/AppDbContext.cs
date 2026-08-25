@@ -180,10 +180,20 @@ namespace GigApp.Api.Data
                  .HasForeignKey<Partner>(p => p.UserId)
                  .OnDelete(DeleteBehavior.Cascade);
 
+                e.Property(p => p.KycStatus).HasMaxLength(15).IsRequired();
+                e.Property(p => p.KycRejectionReason).HasMaxLength(500);
+
+                // IsVerified is derived from KycStatus, not stored.
+                e.Ignore(p => p.IsVerified);
+
                 e.HasIndex(p => p.UserId).IsUnique();
 
                 // Partner browsing filters on these two together.
-                e.HasIndex(p => new { p.IsVerified, p.IsAvailable });
+                e.HasIndex(p => new { p.KycStatus, p.IsAvailable });
+
+                e.ToTable(t => t.HasCheckConstraint(
+                    "CK_Partners_KycStatus",
+                    "\"KycStatus\" IN ('not_submitted','pending','approved','rejected')"));
             });
 
             modelBuilder.Entity<GigTask>(e =>

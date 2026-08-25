@@ -140,6 +140,14 @@ namespace GigApp.Api.ViewModels
             Array.Empty<SkillCategoryOptionDto>();
         public bool? VerifiedFilter { get; set; }
         public int? CategoryFilter { get; set; }
+
+        /// <summary>
+        /// The account behind each partner, keyed by partner id. Filled only on
+        /// the user-management list, where a super admin may reset a password or
+        /// deactivate the account; empty everywhere else.
+        /// </summary>
+        public IReadOnlyDictionary<int, UserDto> Accounts { get; set; } =
+            new Dictionary<int, UserDto>();
     }
 
     public class AdminUsersViewModel

@@ -15,7 +15,17 @@ namespace GigApp.Api.Dtos
 
         public int SkillCategoryId { get; set; }
         public string SkillCategoryName { get; set; } = string.Empty;
-        public bool IsVerified { get; set; }
+        public string KycStatus { get; set; } = Models.KycStatus.NotSubmitted;
+        public string? KycRejectionReason { get; set; }
+        public DateTime? KycReviewedAt { get; set; }
+
+        public string KycLabel => Models.KycStatus.Label(KycStatus);
+        public string KycBadgeClass => Models.KycStatus.BadgeClass(KycStatus);
+
+        public bool IsVerified => KycStatus == Models.KycStatus.Approved;
+        public bool IsRejected => KycStatus == Models.KycStatus.Rejected;
+        public bool IsAwaitingReview => KycStatus == Models.KycStatus.Pending;
+
         public bool IsAvailable { get; set; }
 
         // KYC. Only the partner themselves and admins ever receive a PartnerDto.
@@ -54,7 +64,9 @@ namespace GigApp.Api.Dtos
             IsPhoneVerified = partner.User?.IsPhoneVerified ?? false,
             SkillCategoryId = partner.SkillCategoryId,
             SkillCategoryName = partner.SkillCategory?.Name ?? string.Empty,
-            IsVerified = partner.IsVerified,
+            KycStatus = partner.KycStatus,
+            KycRejectionReason = partner.KycRejectionReason,
+            KycReviewedAt = partner.KycReviewedAt,
             IsAvailable = partner.IsAvailable,
             SelfieFileName = partner.SelfieFileName,
             AadhaarFrontFileName = partner.AadhaarFrontFileName,
@@ -98,6 +110,14 @@ namespace GigApp.Api.Dtos
     {
         [Required]
         public bool IsVerified { get; set; }
+
+        /// <summary>
+        /// Required when rejecting. A rejection with no reason leaves the
+        /// partner unable to work and with no idea what to fix.
+        /// </summary>
+        [StringLength(500)]
+        [Display(Name = "Reason")]
+        public string? Reason { get; set; }
     }
 
     public class UpdatePartnerProfileRequest

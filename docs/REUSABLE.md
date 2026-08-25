@@ -203,10 +203,11 @@ Forms carrying a file need `enctype="multipart/form-data"`; API actions need
 | `_ValidationSummary` | — | Lists `ModelState` errors. Put it above every form. |
 | `_Pagination` | `PagerModel` | Bootstrap pager plus a "Showing X–Y of Z" line. |
 | `_LoginCard` | `LoginViewModel` | Shared sign-in card for all three portals. Heading, subtitle and footer come from `ViewData`. |
-| `_PartnerTable` | `AdminPartnersViewModel` | Partner list with an eye button per row and a pager. |
+| `_PartnerTable` | `AdminPartnersViewModel` | Partner list with an eye button per row and a pager. Fill `Accounts` to add a super-admin "Manage" column. |
 | `_KycModal` | `PartnerDto` | Admin review modal — all KYC images, Aadhaar number, Approve/Reject. |
 | `_KycReview` | `PartnerDto` | Just the three KYC images plus the Aadhaar number. |
 | `_PartnerInfoModal` | `PartnerPublicDto` | Customer-facing partner card. **Never pass a PartnerDto here.** |
+| `_UserAccountModal` | `UserDto` | Super-admin password reset and activate/deactivate. Render it only when `ViewData["IsSuperAdmin"] is true`. |
 
 ### Which partner DTO to use
 
@@ -218,6 +219,29 @@ Forms carrying a file need `enctype="multipart/form-data"`; API actions need
 `GET /api/partners/{id}/public` returns the public one and refuses unless the
 caller is an admin, that partner, or a customer who shares a task with them —
 otherwise anyone signed in could walk the ids and harvest phone numbers.
+
+### KYC status — `Models/KycStatus.cs`
+
+Never write the status strings by hand and never re-derive the badge colour in a
+view. One helper class owns all of it.
+
+```csharp
+KycStatus.Approved            // "approved" — also NotSubmitted / Pending / Rejected
+KycStatus.IsValid(value)      // guard, for when a status ever arrives from a request
+KycStatus.Label(value)        // "Verified" / "Pending review" / "Rejected" / "Not submitted"
+KycStatus.BadgeClass(value)   // "text-bg-success" / "text-bg-warning" / ...
+```
+
+`PartnerDto` surfaces the same thing ready for a view, so a Razor page needs no
+`if` chain at all:
+
+```html
+<span class="badge @partner.KycBadgeClass">@partner.KycLabel</span>
+@if (partner.IsRejected) { <div class="small text-danger">@partner.KycRejectionReason</div> }
+```
+
+`IsVerified` / `IsRejected` / `IsAwaitingReview` on `PartnerDto` are computed from
+`KycStatus` — use them instead of comparing strings.
 
 ---
 

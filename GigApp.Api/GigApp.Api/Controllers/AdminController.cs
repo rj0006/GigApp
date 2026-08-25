@@ -65,8 +65,11 @@ namespace GigApp.Api.Controllers
         {
             if (User.IsAdmin())
             {
-                ViewData["PendingKycCount"] =
-                    await _context.Partners.CountAsync(p => !p.IsVerified, context.HttpContext.RequestAborted);
+                // Only partners actually waiting on the administrator. A rejected
+                // partner is waiting on themselves, so counting them would keep
+                // the badge lit with nothing to do.
+                ViewData["PendingKycCount"] = await _context.Partners.CountAsync(
+                    p => p.KycStatus == KycStatus.Pending, context.HttpContext.RequestAborted);
 
                 // The sidebar hides the super-admin section for everyone else.
                 ViewData["IsSuperAdmin"] = User.IsSuperAdmin();
@@ -125,9 +128,13 @@ namespace GigApp.Api.Controllers
         {
             ViewData["Title"] = "Dashboard";
 
+            // Same ordering as the approvals queue, so the five shown here are the
+            // five an administrator would actually act on next.
             var pending = await PartnersWithDetail
-                .Where(p => !p.IsVerified)
-                .OrderByDescending(p => p.CreatedAt)
+                .Where(p => p.KycStatus != KycStatus.Approved)
+                .OrderBy(p => p.KycStatus == KycStatus.Pending ? 0
+                            : p.KycStatus == KycStatus.NotSubmitted ? 1 : 2)
+                .ThenByDescending(p => p.CreatedAt)
                 .Take(5)
                 .ToListAsync(ct);
 
@@ -141,7 +148,7 @@ namespace GigApp.Api.Controllers
                 Name = User.Identity?.Name ?? "admin",
                 CustomerCount = await _context.Users.CountAsync(u => u.Role == UserRoles.Customer, ct),
                 PartnerCount = await _context.Partners.CountAsync(ct),
-                PendingKycCount = await _context.Partners.CountAsync(p => !p.IsVerified, ct),
+                PendingKycCount = await _context.Partners.CountAsync(p => p.KycStatus == KycStatus.Pending, ct),
                 OpenTaskCount = await _context.GigTasks.CountAsync(t => t.Status == GigTaskStatus.Pending, ct),
                 CategoryCount = await _context.SkillCategories.CountAsync(c => c.IsActive, ct),
                 PendingPartners = pending.Select(PartnerDto.From).ToList(),
@@ -686,9 +693,14 @@ namespace GigApp.Api.Controllers
         {
             ViewData["Title"] = "Partner approvals";
 
+            // Anyone actually waiting on the administrator comes first. Rejected
+            // partners stay on the list so their status is visible, but the ball
+            // is in their court, so they sink to the bottom.
             var page = await PartnersWithDetail
-                .Where(p => !p.IsVerified)
-                .OrderByDescending(p => p.CreatedAt)
+                .Where(p => p.KycStatus != KycStatus.Approved)
+                .OrderBy(p => p.KycStatus == KycStatus.Pending ? 0
+                            : p.KycStatus == KycStatus.NotSubmitted ? 1 : 2)
+                .ThenByDescending(p => p.CreatedAt)
                 .ToPagedResultAsync(paging, ct);
 
             return View(new AdminPartnersViewModel
@@ -736,14 +748,17 @@ namespace GigApp.Api.Controllers
             }
             else
             {
-                partner.IsVerified = isVerified;
+                partner.KycStatus = isVerified ? KycStatus.Approved : KycStatus.Rejected;
+                partner.KycRejectionReason = isVerified ? null : reason!.Trim();
+                partner.KycReviewedAt = DateTime.UtcNow;
+
                 await _context.SaveChangesAsync(ct);
 
                 // `reason` is picked up as the audit Remark by TrackingActionFilter.
                 TrackDoc(partner.Id, PartnerDto.From(partner));
                 TempData["Success"] = isVerified
                     ? $"{partner.User?.Name} is now verified."
-                    : $"{partner.User?.Name} was rejected.";
+                    : $"{partner.User?.Name} was rejected. They can fix the issue and resubmit.";
             }
 
             return Redirect(target);
@@ -835,7 +850,7 @@ namespace GigApp.Api.Controllers
 
             var query = PartnersWithDetail;
 
-            if (verified is not null) query = query.Where(p => p.IsVerified == verified);
+            if (verified is not null) query = query.Where(p => (verified == true ? p.KycStatus == KycStatus.Approved : p.KycStatus != KycStatus.Approved));
             if (categoryId is not null) query = query.Where(p => p.SkillCategoryId == categoryId);
 
             if (!string.IsNullOrWhiteSpace(paging.Search))
@@ -846,7 +861,7 @@ namespace GigApp.Api.Controllers
             }
 
             var page = await query
-                .OrderBy(p => p.IsVerified).ThenByDescending(p => p.CreatedAt)
+                .OrderBy(p => p.KycStatus == KycStatus.Approved ? 1 : 0).ThenByDescending(p => p.CreatedAt)
                 .ToPagedResultAsync(paging, ct);
 
             return View(new AdminPartnersViewModel
@@ -855,6 +870,11 @@ namespace GigApp.Api.Controllers
                 Categories = await _categories.GetActiveOptionsAsync(ct),
                 VerifiedFilter = verified,
                 CategoryFilter = categoryId,
+                // This is the user-management list, so a super admin gets the
+                // password and activation actions against the same rows.
+                Accounts = page.Items
+                    .Where(p => p.User is not null)
+                    .ToDictionary(p => p.Id, p => UserDto.From(p.User!)),
             });
         }
 

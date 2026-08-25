@@ -87,13 +87,31 @@ builder.Services
 
                 var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
 
-                var isActive = await db.Users
+                var account = await db.Users
                     .Where(u => u.Id == userId)
-                    .Select(u => (bool?)u.IsActive)
+                    .Select(u => new { u.IsActive, u.Role })
                     .FirstOrDefaultAsync(context.HttpContext.RequestAborted);
 
                 // Null means the account is gone; false means it was deactivated.
-                if (isActive != true) context.Fail("Account is not active.");
+                if (account is null || !account.IsActive)
+                {
+                    context.Fail("Account is not active.");
+                    return;
+                }
+
+                // The role is baked into the token at sign-in, so promoting or
+                // demoting someone would otherwise do nothing until their token
+                // expired — up to seven days of the wrong permissions. Replace
+                // the claim with what the database says right now.
+                if (context.Principal!.Identity is System.Security.Claims.ClaimsIdentity identity)
+                {
+                    var stale = identity.FindFirst(ClaimNames.Role);
+                    if (stale?.Value != account.Role)
+                    {
+                        if (stale is not null) identity.RemoveClaim(stale);
+                        identity.AddClaim(new System.Security.Claims.Claim(ClaimNames.Role, account.Role));
+                    }
+                }
             },
 
             // A bare 401/403 is right for API clients but renders as a blank page

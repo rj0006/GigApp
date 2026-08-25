@@ -15,8 +15,23 @@ namespace GigApp.Api.Models
         public int SkillCategoryId { get; set; }
         public SkillCategory? SkillCategory { get; set; }
 
-        /// <summary>Set by an admin after KYC review. Unverified partners cannot accept tasks.</summary>
-        public bool IsVerified { get; set; } = false;
+        /// <summary>
+        /// Where KYC stands — see <see cref="Models.KycStatus"/>. Replaces a
+        /// boolean that could not distinguish "not reviewed yet" from "rejected".
+        /// </summary>
+        public string KycStatus { get; set; } = Models.KycStatus.NotSubmitted;
+
+        /// <summary>Why the last review was rejected. Shown to the partner so they can fix it.</summary>
+        public string? KycRejectionReason { get; set; }
+
+        public DateTime? KycReviewedAt { get; set; }
+
+        /// <summary>
+        /// Convenience for the many places that only care whether this partner
+        /// may work. Not stored — KycStatus is the single source of truth.
+        /// LINQ that runs in the database must compare KycStatus directly.
+        /// </summary>
+        public bool IsVerified => KycStatus == Models.KycStatus.Approved;
 
         /// <summary>Partner's own on/off toggle for receiving work.</summary>
         public bool IsAvailable { get; set; } = true;

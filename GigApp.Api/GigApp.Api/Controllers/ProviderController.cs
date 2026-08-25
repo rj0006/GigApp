@@ -370,7 +370,10 @@ namespace GigApp.Api.Controllers
             if (!string.IsNullOrWhiteSpace(request.AadhaarNumber))
                 partner.AadhaarNumber = request.AadhaarNumber.Trim();
 
-            partner.IsVerified = false;   // re-submitting sends it back through review
+            // Any resubmission goes back into the queue, whatever it was before.
+            partner.KycStatus = Models.KycStatus.Pending;
+            partner.KycRejectionReason = null;
+            partner.KycReviewedAt = null;
             await _context.SaveChangesAsync(ct);
 
             foreach (var old in replaced) _storage.Delete(old, FileCategory.KycDocument);

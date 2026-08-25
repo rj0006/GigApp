@@ -65,7 +65,7 @@ namespace GigApp.Api.Services
                 AadhaarFrontFileName = aadhaarFront.FileName,
                 AadhaarBackFileName = aadhaarBack.FileName,
                 AadhaarNumber = request.AadhaarNumber.Trim(),
-                IsVerified = false,   // an admin must approve KYC before this partner can work
+                KycStatus = Models.KycStatus.Pending,   // documents arrive with sign-up, so review starts immediately
                 IsAvailable = true,
             }, ct);
 

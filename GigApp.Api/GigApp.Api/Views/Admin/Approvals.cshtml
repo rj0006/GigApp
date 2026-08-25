@@ -6,8 +6,9 @@
 
 <h1 class="h4">Partner approvals</h1>
 <p class="text-secondary small">
-    Partners waiting for KYC review. Open a row to check the selfie against the Aadhaar card
-    before deciding. A partner can neither browse nor accept work until approved.
+    Every partner who is not verified yet — waiting for review, rejected, or still to
+    upload. Open a row to check the selfie against the Aadhaar card before deciding.
+    A partner can neither browse nor accept work until approved.
 </p>
 
 <div class="card">
@@ -23,7 +24,7 @@
                     <thead>
                         <tr>
                             <th>#</th><th>Name</th><th>Mobile</th><th>Skill</th>
-                            <th>Aadhaar</th><th>Documents</th><th>Registered</th>
+                            <th>Aadhaar</th><th>Documents</th><th>Status</th><th>Registered</th>
                             <th class="text-end">Review</th>
                         </tr>
                     </thead>
@@ -46,6 +47,16 @@
                                 <span class="badge @(partner.HasCompleteKyc ? "text-bg-info" : "text-bg-warning")">
                                     @(partner.HasCompleteKyc ? "Complete" : "Incomplete")
                                 </span>
+                            </td>
+                            <td>
+                                <span class="badge @partner.KycBadgeClass">@partner.KycLabel</span>
+                                @if (partner.IsRejected)
+                                {
+                                    <div class="small text-danger mt-1" style="max-width:16rem">
+                                        @partner.KycRejectionReason
+                                    </div>
+                                    <div class="small text-secondary">Waiting for them to resubmit.</div>
+                                }
                             </td>
                             <td class="small text-secondary">@partner.CreatedAt.ToString("dd MMM yyyy")</td>
                             <td class="text-end">
