@@ -5,9 +5,15 @@
     var sections = new List<(string Key, string Label, string Icon, bool Enabled, string? Note)>
     {
         (ProfileSections.Details, "Profile", "&#128100;", true, null),
-        (ProfileSections.Bank, "Account details", "&#127974;", true, null),
-        (ProfileSections.Addresses, "My addresses", "&#128205;", true, null),
     };
+
+    // An administrator is never paid and never booked, so a bank account and a
+    // delivery address mean nothing on their account.
+    if (!UserRoles.IsAdminRole(user.Role))
+    {
+        sections.Add((ProfileSections.Bank, "Account details", "&#127974;", true, null));
+        sections.Add((ProfileSections.Addresses, "My addresses", "&#128205;", true, null));
+    }
 
     if (Model.ShowKyc)
     {

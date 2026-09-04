@@ -156,6 +156,36 @@ namespace GigApp.Api.ViewModels
             new Dictionary<int, IReadOnlyList<KycHistoryEntryDto>>();
     }
 
+    public class UserMenuViewModel
+    {
+        public string? DisplayName { get; set; }
+        public string PortalSlug { get; set; } = "customer";
+        public string? PhotoUrl { get; set; }
+        public int NotificationCount { get; set; }
+        public string? NotificationHref { get; set; }
+        public string NotificationLabel { get; set; } = "items need your attention";
+
+        public string ProfilePath => $"/{PortalSlug}/profile";
+        public string LogoutPath => $"/{PortalSlug}/logout";
+
+        public string Initial => string.IsNullOrWhiteSpace(DisplayName)
+            ? "?"
+            : DisplayName.Trim()[..1].ToUpperInvariant();
+    }
+
+    public class AdminMenusViewModel
+    {
+        public IReadOnlyList<MenuItemDto> Items { get; set; } = Array.Empty<MenuItemDto>();
+    }
+
+    public class MenuFormViewModel
+    {
+        public int? Id { get; set; }
+        public SaveMenuItemRequest Form { get; set; } = new();
+        public IReadOnlyList<MenuOptionDto> Parents { get; set; } = Array.Empty<MenuOptionDto>();
+        public bool IsNew => Id is null;
+    }
+
     public class KycModalViewModel
     {
         public PartnerDto Partner { get; set; } = new();

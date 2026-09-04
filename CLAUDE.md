@@ -101,6 +101,13 @@ role strings case-insensitively as a workaround — fix the data.
 `pending → accepted → in_progress → completed`, with `cancelled` reachable from any non-terminal state.
 Both the API and the Razor portals call it. A DB check constraint backs the allowed values.
 
+**The admin sidebar is a master, not markup.** `MenuItems` drives it, managed at
+`/admin/masters/menu` by a super admin only. A row with no controller, action or URL is a group
+heading; the rest are links, resolved with `Url.Action` so attribute routes keep working. On save
+the action is checked against `IActionDescriptorCollectionProvider`, so an administrator cannot
+create a dead link. Two levels deep, no more. `BadgeKey` names a counter the application knows how
+to compute — adding one means a `MenuBadgeKeys` constant and a line in `_AdminLayout`.
+
 **Profile is a section shell, not one page.** `/{portal}/profile` renders `_ProfileBody`, which draws
 the left menu and switches on `ProfilePageViewModel.Section`. Sections: Profile, Account details
 (bank), My addresses, KYC (partners only), Manage devices (disabled — no session table to revoke

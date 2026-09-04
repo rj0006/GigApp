@@ -3,6 +3,7 @@ using GigApp.Api.Dtos;
 using GigApp.Api.Models;
 using GigApp.Api.Services;
 using GigApp.Api.Services.Kyc;
+using GigApp.Api.Services.Menus;
 using GigApp.Api.Services.Pricing;
 using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Banking;
@@ -28,12 +29,14 @@ namespace GigApp.Api.Controllers
         private const string ServicesPath = "/admin/masters/services";
         private const string PricingPath = "/admin/masters/pricing";
         private const string ApprovalsPath = "/admin/approvals";
+        private const string MenuPath = "/admin/masters/menu";
 
         private readonly AppDbContext _context;
         private readonly ICategoryLookup _categories;
         private readonly IPriceInsightService _priceInsights;
         private readonly IUserAdminService _userAdmin;
         private readonly IKycHistoryService _kycHistory;
+        private readonly IMenuService _menus;
 
         public AdminController(
             IAuthService authService,
@@ -44,7 +47,8 @@ namespace GigApp.Api.Controllers
             IPriceInsightService priceInsights,
             IUserAdminService userAdmin,
             IKycHistoryService kycHistory,
-            IBankAccountService bankAccounts)
+            IBankAccountService bankAccounts,
+            IMenuService menus)
             : base(authService, profileService, addressService, bankAccounts)
         {
             _context = context;
@@ -52,6 +56,7 @@ namespace GigApp.Api.Controllers
             _priceInsights = priceInsights;
             _userAdmin = userAdmin;
             _kycHistory = kycHistory;
+            _menus = menus;
         }
 
         protected override string PortalSlug => "admin";
@@ -79,6 +84,8 @@ namespace GigApp.Api.Controllers
 
                 // The sidebar hides the super-admin section for everyone else.
                 ViewData["IsSuperAdmin"] = User.IsSuperAdmin();
+                ViewData["Sidebar"] = await _menus.GetSidebarAsync(
+                    User.IsSuperAdmin(), context.HttpContext.RequestAborted);
             }
 
             await next();
@@ -680,6 +687,118 @@ namespace GigApp.Api.Controllers
                 $"'{item.Name}' payout set to ₹{insight.MedianAmount:N0} from {insight.CompletedCount} completed job(s).";
 
             return Redirect(PricingPath);
+        }
+
+        [HttpGet("masters/menu")]
+        [Authorize(Policy = Policies.SuperAdminOnly)]
+        public async Task<IActionResult> Menus(CancellationToken ct)
+        {
+            ViewData["Title"] = "Menu";
+
+            return View("Menus", new AdminMenusViewModel
+            {
+                Items = await _menus.GetAllAsync(ct),
+            });
+        }
+
+        [HttpGet("masters/menu/new")]
+        [Authorize(Policy = Policies.SuperAdminOnly)]
+        public async Task<IActionResult> NewMenu(CancellationToken ct)
+        {
+            ViewData["Title"] = "New menu item";
+
+            return View("MenuForm", new MenuFormViewModel
+            {
+                Form = new SaveMenuItemRequest { IsActive = true, SortOrder = 1 },
+                Parents = await _menus.GetParentOptionsAsync(null, ct),
+            });
+        }
+
+        [HttpPost("masters/menu/new")]
+        [Authorize(Policy = Policies.SuperAdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("Menu")]
+        public Task<IActionResult> NewMenu(SaveMenuItemRequest form, CancellationToken ct) =>
+            SaveMenuAsync(null, form, "New menu item", ct);
+
+        [HttpGet("masters/menu/{id:int}")]
+        [Authorize(Policy = Policies.SuperAdminOnly)]
+        public async Task<IActionResult> EditMenu(int id, CancellationToken ct)
+        {
+            var item = await _menus.GetAsync(id, ct);
+            if (item is null) return NotFound();
+
+            ViewData["Title"] = "Edit menu item";
+
+            return View("MenuForm", new MenuFormViewModel
+            {
+                Id = id,
+                Form = SaveMenuItemRequest.From(item),
+                Parents = await _menus.GetParentOptionsAsync(id, ct),
+            });
+        }
+
+        [HttpPost("masters/menu/{id:int}")]
+        [Authorize(Policy = Policies.SuperAdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("Menu")]
+        public Task<IActionResult> EditMenu(int id, SaveMenuItemRequest form, CancellationToken ct) =>
+            SaveMenuAsync(id, form, "Edit menu item", ct);
+
+        [HttpPost("masters/menu/{id:int}/delete")]
+        [Authorize(Policy = Policies.SuperAdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("Menu")]
+        [TrackEntry(TrackingEntryType.Delete)]
+        public async Task<IActionResult> DeleteMenu(int id, CancellationToken ct)
+        {
+            var result = await _menus.DeleteAsync(id, ct);
+
+            if (result.Succeeded)
+            {
+                TrackDoc(id, result.Item);
+                TempData["Success"] = $"'{result.Item!.Label}' removed from the menu.";
+            }
+            else
+            {
+                TempData["Error"] = result.Error;
+            }
+
+            return Redirect(MenuPath);
+        }
+
+        private async Task<IActionResult> SaveMenuAsync(
+            int? id, SaveMenuItemRequest form, string title, CancellationToken ct)
+        {
+            ViewData["Title"] = title;
+
+            if (!ModelState.IsValid)
+            {
+                return View("MenuForm", new MenuFormViewModel
+                {
+                    Id = id,
+                    Form = form,
+                    Parents = await _menus.GetParentOptionsAsync(id, ct),
+                });
+            }
+
+            var result = await _menus.SaveAsync(id, form, ct);
+
+            if (!result.Succeeded)
+            {
+                ModelState.AddModelError(string.Empty, result.Error!);
+
+                return View("MenuForm", new MenuFormViewModel
+                {
+                    Id = id,
+                    Form = form,
+                    Parents = await _menus.GetParentOptionsAsync(id, ct),
+                });
+            }
+
+            TrackDoc(result.Item!.Id, result.Item);
+            TempData["Success"] = $"'{result.Item.Label}' saved.";
+            return Redirect(MenuPath);
         }
 
         [HttpGet("approvals")]

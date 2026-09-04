@@ -16,6 +16,7 @@ namespace GigApp.Api.Data
         public DbSet<ServiceItem> ServiceItems => Set<ServiceItem>();
         public DbSet<Address> Addresses => Set<Address>();
         public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
+        public DbSet<MenuItem> MenuItems => Set<MenuItem>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -38,6 +39,24 @@ namespace GigApp.Api.Data
                 e.ToTable(t => t.HasCheckConstraint(
                     "CK_Users_Role",
                     "\"Role\" IN ('customer','partner','admin','superadmin')"));
+            });
+
+            modelBuilder.Entity<MenuItem>(e =>
+            {
+                e.Property(m => m.Label).HasMaxLength(60).IsRequired();
+                e.Property(m => m.ControllerName).HasMaxLength(60);
+                e.Property(m => m.ActionName).HasMaxLength(60);
+                e.Property(m => m.Url).HasMaxLength(200);
+                e.Property(m => m.Icon).HasMaxLength(20);
+                e.Property(m => m.Visibility).HasMaxLength(20).IsRequired();
+                e.Property(m => m.BadgeKey).HasMaxLength(40);
+                e.Ignore(m => m.IsGroup);
+                e.HasIndex(m => new { m.ParentId, m.SortOrder });
+                e.HasOne(m => m.Parent).WithMany(m => m.Children).HasForeignKey(m => m.ParentId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.ToTable(t => t.HasCheckConstraint(
+                    "CK_MenuItems_Visibility",
+                    "\"Visibility\" IN ('all','super_admin')"));
             });
 
             modelBuilder.Entity<BankAccount>(e =>

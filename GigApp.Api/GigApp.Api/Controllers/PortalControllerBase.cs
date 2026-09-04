@@ -128,6 +128,12 @@ namespace GigApp.Api.Controllers
         protected virtual Task<ProfileExtras> LoadProfileExtrasAsync(
             string section, CancellationToken ct) => Task.FromResult(new ProfileExtras());
 
+        // An administrator is never paid and never booked, so a bank account and
+        // a delivery address mean nothing on their account.
+        private static bool SectionApplies(string section, string role) =>
+            !UserRoles.IsAdminRole(role)
+            || (section != ProfileSections.Bank && section != ProfileSections.Addresses);
+
         protected async Task<IActionResult> ProfileSectionAsync(string section, CancellationToken ct)
         {
             ViewData["Title"] = "My profile";
@@ -136,6 +142,8 @@ namespace GigApp.Api.Controllers
             var user = await ProfileService.GetAsync(userId, ct);
 
             if (user is null) return Redirect(LoginPath);
+
+            if (!SectionApplies(section, user.Role)) return Redirect(ProfilePath);
 
             var extras = await LoadProfileExtrasAsync(section, ct);
             var bank = await BankAccounts.GetAsync(userId, ct);

@@ -1,14 +1,21 @@
 @{
     var displayName = User.Identity?.IsAuthenticated == true ? User.Identity.Name : null;
     var pendingKyc = ViewData["PendingKycCount"] as int? ?? 0;
+    var sidebar = ViewData["Sidebar"] as IReadOnlyList<MenuNodeDto> ?? Array.Empty<MenuNodeDto>();
 
-    // Current path drives the active menu item.
     var path = (Context.Request.Path.Value ?? "/admin").ToLowerInvariant().TrimEnd('/');
     if (path.Length == 0) path = "/admin";
 
-    Func<string, bool, string> nav = (href, exact) =>
-        (exact ? path == href.ToLowerInvariant() : path.StartsWith(href.ToLowerInvariant()))
-            ? "nav-link active" : "nav-link";
+    string? Href(MenuItemDto item) => item.Url ?? (item.ControllerName is null || item.ActionName is null
+        ? null
+        : Url.Action(item.ActionName, item.ControllerName));
+
+    int Badge(string? key) => key == MenuBadgeKeys.PendingKyc ? pendingKyc : 0;
+
+    string NavClass(string? href) =>
+        href is not null && href != "/admin" && path.StartsWith(href.ToLowerInvariant())
+            ? "nav-link active"
+            : href == "/admin" && path == "/admin" ? "nav-link active" : "nav-link";
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -31,53 +38,41 @@
             </div>
 
             <nav class="nav flex-column pb-4">
-                <a class="@nav("/admin", true)" href="/admin">
-                    <span class="nav-icon">▦</span> Dashboard
-                </a>
-
-                <div class="nav-group">Masters</div>
-                <a class="@nav("/admin/masters/categories", false)" href="/admin/masters/categories">
-                    <span class="nav-icon">☰</span> Skill categories
-                </a>
-                <a class="@nav("/admin/masters/services", false)" href="/admin/masters/services">
-                    <span class="nav-icon">&#9776;</span> Services
-                </a>
-                <a class="@nav("/admin/masters/pricing", false)" href="/admin/masters/pricing">
-                    <span class="nav-icon">&#8377;</span> Price insights
-                </a>
-
-                <div class="nav-group">Approvals</div>
-                <a class="@nav("/admin/approvals", false)" href="/admin/approvals">
-                    <span class="nav-icon">✓</span> Partner KYC
-                    @if (pendingKyc > 0)
+                @foreach (var node in sidebar)
+                {
+                    if (node.Item.IsGroup)
                     {
-                        <span class="badge rounded-pill text-bg-warning ms-auto">@pendingKyc</span>
+                        <div class="nav-group">@node.Item.Label</div>
+
+                        foreach (var child in node.Children)
+                        {
+                            var href = Href(child.Item);
+                            if (href is null) { continue; }
+
+                            var count = Badge(child.Item.BadgeKey);
+
+                            <a class="@NavClass(href)" href="@href"
+                               target="@(child.Item.OpensInNewTab ? "_blank" : null)"
+                               rel="@(child.Item.OpensInNewTab ? "noopener" : null)">
+                                <span class="nav-icon">@child.Item.Icon</span> @child.Item.Label
+                                @if (count > 0)
+                                {
+                                    <span class="badge rounded-pill text-bg-warning ms-auto">@count</span>
+                                }
+                            </a>
+                        }
                     }
-                </a>
-
-                <div class="nav-group">User management</div>
-                <a class="@nav("/admin/users/customers", false)" href="/admin/users/customers">
-                    <span class="nav-icon">◔</span> Customers
-                </a>
-                <a class="@nav("/admin/users/partners", false)" href="/admin/users/partners">
-                    <span class="nav-icon">◑</span> Partners
-                </a>
-                <a class="@nav("/admin/users/admins", false)" href="/admin/users/admins">
-                    <span class="nav-icon">◕</span> Administrators
-                </a>
-
-                <div class="nav-group">Account</div>
-                <a class="@nav("/admin/profile", false)" href="/admin/profile">
-                    <span class="nav-icon">&#9787;</span> My profile
-                </a>
-
-                <div class="nav-group">Operations</div>
-                <a class="@nav("/admin/tasks", false)" href="/admin/tasks">
-                    <span class="nav-icon">▤</span> Tasks
-                </a>
-                <a class="nav-link" href="/swagger" target="_blank" rel="noopener">
-                    <span class="nav-icon">↗</span> API reference
-                </a>
+                    else
+                    {
+                        var href = Href(node.Item);
+                        if (href is not null)
+                        {
+                            <a class="@NavClass(href)" href="@href">
+                                <span class="nav-icon">@node.Item.Icon</span> @node.Item.Label
+                            </a>
+                        }
+                    }
+                }
             </nav>
         </aside>
 
@@ -85,15 +80,15 @@
             <header class="admin-header d-flex align-items-center gap-3 px-3 px-lg-4 py-2">
                 <label for="sidebar-toggle" class="btn btn-sm btn-outline-secondary d-lg-none mb-0">☰</label>
                 <h1 class="h6 mb-0">@ViewData["Title"]</h1>
-                <div class="ms-auto d-flex align-items-center gap-2">
-                    @if (displayName is not null)
+                <div class="ms-auto">
+                    <partial name="_UserMenu" model="@(new UserMenuViewModel
                     {
-                        <a class="btn btn-outline-secondary btn-sm" href="/admin/profile">@displayName</a>
-                        <form method="post" action="/admin/logout">
-                            @Html.AntiForgeryToken()
-                            <button type="submit" class="btn btn-outline-secondary btn-sm">Sign out</button>
-                        </form>
-                    }
+                        DisplayName = displayName,
+                        PortalSlug = "admin",
+                        NotificationCount = pendingKyc,
+                        NotificationHref = "/admin/approvals",
+                        NotificationLabel = "partner KYC waiting for review",
+                    })" />
                 </div>
             </header>
 

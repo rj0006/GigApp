@@ -153,6 +153,15 @@
                                     <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none"
                                             data-bs-toggle="modal" data-bs-target="#partner-modal-@task.PartnerId"
                                             title="View partner details">@task.PartnerName</button>
+
+                                    @if (task.PartnerChangedSkill)
+                                    {
+                                        <div class="small text-warning-emphasis mt-1" style="max-width:14rem">
+                                            This partner has changed their skill to
+                                            @task.PartnerSkillCategory since accepting your task. They
+                                            are still expected to finish it as agreed.
+                                        </div>
+                                    }
                                 }
                                 else
                                 {

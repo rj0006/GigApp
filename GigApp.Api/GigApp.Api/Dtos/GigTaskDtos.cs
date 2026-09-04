@@ -90,6 +90,10 @@ namespace GigApp.Api.Dtos
         public int? PartnerId { get; set; }
         public string? PartnerName { get; set; }
         public string? PartnerSkillCategory { get; set; }
+        public int? PartnerSkillCategoryId { get; set; }
+
+        public bool PartnerChangedSkill =>
+            PartnerSkillCategoryId is not null && PartnerSkillCategoryId != CategoryId;
 
         public string StatusLabel => Status.Replace('_', ' ');
 
@@ -122,6 +126,7 @@ namespace GigApp.Api.Dtos
             PartnerId = task.PartnerId,
             PartnerName = task.Partner?.User?.Name,
             PartnerSkillCategory = task.Partner?.SkillCategory?.Name,
+            PartnerSkillCategoryId = task.Partner?.SkillCategoryId,
         };
     }
 }

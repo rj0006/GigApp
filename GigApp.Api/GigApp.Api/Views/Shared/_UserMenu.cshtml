@@ -1,0 +1,50 @@
+@model UserMenuViewModel
+
+@if (Model.DisplayName is not null)
+{
+    <div class="d-flex align-items-center gap-2">
+        @if (Model.NotificationHref is not null)
+        {
+            <a class="btn btn-sm btn-light border position-relative" href="@Model.NotificationHref"
+               title="@Model.NotificationCount @Model.NotificationLabel">
+                &#128276;
+                @if (Model.NotificationCount > 0)
+                {
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger">
+                        @Model.NotificationCount
+                        <span class="visually-hidden">@Model.NotificationLabel</span>
+                    </span>
+                }
+            </a>
+        }
+
+        <div class="dropdown">
+            <button class="btn btn-sm btn-light border d-flex align-items-center gap-2 dropdown-toggle"
+                    type="button" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">
+                @if (Model.PhotoUrl is not null)
+                {
+                    <img src="@Model.PhotoUrl" alt="" width="24" height="24"
+                         class="rounded-circle" style="object-fit:cover" />
+                }
+                else
+                {
+                    <span class="rounded-circle bg-secondary-subtle text-secondary-emphasis
+                                 d-inline-flex align-items-center justify-content-center fw-semibold"
+                          style="width:24px;height:24px;font-size:.7rem">@Model.Initial</span>
+                }
+                <span class="d-none d-sm-inline">@Model.DisplayName</span>
+            </button>
+
+            <div class="dropdown-menu dropdown-menu-end p-2" style="min-width:14rem">
+                <div class="small text-secondary px-1 pb-2">Signed in as <strong>@Model.DisplayName</strong></div>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-sm btn-outline-primary flex-fill" href="@Model.ProfilePath">Profile</a>
+                    <form method="post" action="@Model.LogoutPath" class="flex-fill">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-sm btn-outline-secondary w-100">Sign out</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+}

@@ -51,6 +51,54 @@ namespace GigApp.Api.Data
             await SeedCategoriesAsync(context, logger, ct);
             await SeedServiceItemsAsync(context, logger, ct);
             await SeedAccountsAsync(context, logger, ct);
+            await SeedMenuAsync(context, logger, ct);
+        }
+
+        private static async Task SeedMenuAsync(AppDbContext context, ILogger logger, CancellationToken ct)
+        {
+            if (await context.MenuItems.AnyAsync(ct)) return;
+
+            var dashboard = new MenuItem
+            {
+                Label = "Dashboard",
+                ControllerName = "Admin",
+                ActionName = "Index",
+                Icon = "▦",
+                SortOrder = 0,
+            };
+
+            var groups = new Dictionary<string, MenuItem>
+            {
+                ["Masters"] = new MenuItem { Label = "Masters", SortOrder = 10 },
+                ["Approvals"] = new MenuItem { Label = "Approvals", SortOrder = 20 },
+                ["User management"] = new MenuItem { Label = "User management", SortOrder = 30 },
+                ["Account"] = new MenuItem { Label = "Account", SortOrder = 40 },
+                ["Operations"] = new MenuItem { Label = "Operations", SortOrder = 50 },
+            };
+
+            context.MenuItems.Add(dashboard);
+            context.MenuItems.AddRange(groups.Values);
+            await context.SaveChangesAsync(ct);
+
+            var leaves = new[]
+            {
+                new MenuItem { Label = "Skill categories", ControllerName = "Admin", ActionName = "Categories", Icon = "☰", SortOrder = 1, ParentId = groups["Masters"].Id },
+                new MenuItem { Label = "Services", ControllerName = "Admin", ActionName = "Services", Icon = "☰", SortOrder = 2, ParentId = groups["Masters"].Id },
+                new MenuItem { Label = "Price insights", ControllerName = "Admin", ActionName = "Pricing", Icon = "₹", SortOrder = 3, ParentId = groups["Masters"].Id },
+                new MenuItem { Label = "Menu", ControllerName = "Admin", ActionName = "Menus", Icon = "☰", SortOrder = 4, ParentId = groups["Masters"].Id, Visibility = MenuVisibility.SuperAdmin },
+                new MenuItem { Label = "Partner KYC", ControllerName = "Admin", ActionName = "Approvals", Icon = "✓", SortOrder = 1, ParentId = groups["Approvals"].Id, BadgeKey = MenuBadgeKeys.PendingKyc },
+                new MenuItem { Label = "Customers", ControllerName = "Admin", ActionName = "Customers", Icon = "◔", SortOrder = 1, ParentId = groups["User management"].Id },
+                new MenuItem { Label = "Partners", ControllerName = "Admin", ActionName = "Partners", Icon = "◑", SortOrder = 2, ParentId = groups["User management"].Id },
+                new MenuItem { Label = "Administrators", ControllerName = "Admin", ActionName = "Admins", Icon = "◕", SortOrder = 3, ParentId = groups["User management"].Id },
+                new MenuItem { Label = "My profile", ControllerName = "Admin", ActionName = "Profile", Icon = "☻", SortOrder = 1, ParentId = groups["Account"].Id },
+                new MenuItem { Label = "Tasks", ControllerName = "Admin", ActionName = "Tasks", Icon = "▤", SortOrder = 1, ParentId = groups["Operations"].Id },
+                new MenuItem { Label = "API reference", Url = "/swagger", Icon = "↗", SortOrder = 2, ParentId = groups["Operations"].Id, OpensInNewTab = true },
+            };
+
+            context.MenuItems.AddRange(leaves);
+            await context.SaveChangesAsync(ct);
+
+            logger.LogInformation("Seeded {Count} admin menu items", leaves.Length + groups.Count + 1);
         }
 
         private static async Task SeedServiceItemsAsync(AppDbContext context, ILogger logger, CancellationToken ct)

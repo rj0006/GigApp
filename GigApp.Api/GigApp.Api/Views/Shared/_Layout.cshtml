@@ -24,21 +24,23 @@
                 <span class="badge text-bg-primary-subtle text-primary-emphasis">@portal</span>
             }
             <div class="ms-auto d-flex align-items-center gap-2">
-                @if (displayName is not null)
+                @if (displayName is not null && portal is not null)
                 {
-                    @if (portal is not null)
+                    var portalSlug = portal.ToLowerInvariant().Replace("partner", "provider");
+
+                    <a class="btn btn-outline-secondary btn-sm d-none d-sm-inline-block"
+                       href="/@portalSlug/profile/addresses">Addresses</a>
+
+                    <partial name="_UserMenu" model="@(new UserMenuViewModel
                     {
-                        var portalSlug = portal.ToLowerInvariant().Replace("partner", "provider");
-                        <a class="btn btn-outline-secondary btn-sm d-none d-sm-inline-block"
-                           href="/@portalSlug/profile/addresses">Addresses</a>
-                        <a class="btn btn-outline-secondary btn-sm" href="/@portalSlug/profile">
-                            @displayName
-                        </a>
-                    }
-                    else
-                    {
-                        <span class="small text-secondary d-none d-sm-inline">@displayName</span>
-                    }
+                        DisplayName = displayName,
+                        PortalSlug = portalSlug,
+                        PhotoUrl = ViewData["ProfilePhotoUrl"] as string,
+                    })" />
+                }
+                else if (displayName is not null)
+                {
+                    <span class="small text-secondary d-none d-sm-inline">@displayName</span>
 
                     @if (logoutAction is not null)
                     {

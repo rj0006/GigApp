@@ -1,0 +1,100 @@
+@model MenuFormViewModel
+@{
+    Layout = "_AdminLayout";
+    var postTo = Model.IsNew ? "/admin/masters/menu/new" : $"/admin/masters/menu/{Model.Id}";
+}
+
+<h1 class="h4">@(Model.IsNew ? "New menu item" : "Edit menu item")</h1>
+<p class="text-secondary small">
+    Leave the controller, action and URL empty to make this a group heading. Otherwise give either a
+    controller and action, or a URL — the controller and action are checked against the application,
+    so a link cannot point at something that does not exist.
+</p>
+
+<div class="card">
+    <div class="card-body">
+        <partial name="_ValidationSummary" />
+
+        <form method="post" action="@postTo" class="gig-form row g-3">
+            @Html.AntiForgeryToken()
+
+            <div class="col-md-6">
+                <label asp-for="Form.Label" class="form-label required"></label>
+                <input asp-for="Form.Label" class="form-control" />
+                <span asp-validation-for="Form.Label" class="text-danger small"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="Form.ParentId" class="form-label"></label>
+                <select asp-for="Form.ParentId" class="form-select">
+                    <option value="">Top level</option>
+                    @foreach (var parent in Model.Parents)
+                    {
+                        <option value="@parent.Id">@parent.Name</option>
+                    }
+                </select>
+                <div class="form-text">The sidebar is two levels deep, no more.</div>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="Form.ControllerName" class="form-label"></label>
+                <input asp-for="Form.ControllerName" class="form-control" placeholder="Admin" />
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="Form.ActionName" class="form-label"></label>
+                <input asp-for="Form.ActionName" class="form-control" placeholder="Categories" />
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="Form.Url" class="form-label"></label>
+                <input asp-for="Form.Url" class="form-control" placeholder="/swagger" />
+                <div class="form-text">Only for links outside the admin controller.</div>
+            </div>
+
+            <div class="col-md-3">
+                <label asp-for="Form.Icon" class="form-label"></label>
+                <input asp-for="Form.Icon" class="form-control" />
+            </div>
+
+            <div class="col-md-3">
+                <label asp-for="Form.SortOrder" class="form-label"></label>
+                <input asp-for="Form.SortOrder" type="number" min="0" max="999" class="form-control" />
+            </div>
+
+            <div class="col-md-3">
+                <label asp-for="Form.Visibility" class="form-label required"></label>
+                <select asp-for="Form.Visibility" class="form-select">
+                    @foreach (var option in MenuVisibility.Options)
+                    {
+                        <option value="@option">@MenuVisibility.Label(option)</option>
+                    }
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label asp-for="Form.BadgeKey" class="form-label"></label>
+                <select asp-for="Form.BadgeKey" class="form-select">
+                    <option value="">No badge</option>
+                    <option value="@MenuBadgeKeys.PendingKyc">Partners waiting for KYC review</option>
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <div class="form-check">
+                    <input asp-for="Form.IsActive" class="form-check-input" />
+                    <label asp-for="Form.IsActive" class="form-check-label"></label>
+                </div>
+                <div class="form-check">
+                    <input asp-for="Form.OpensInNewTab" class="form-check-input" />
+                    <label asp-for="Form.OpensInNewTab" class="form-check-label"></label>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <a class="btn btn-outline-secondary" href="/admin/masters/menu">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>

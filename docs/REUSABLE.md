@@ -228,6 +228,7 @@ Forms carrying a file need `enctype="multipart/form-data"`; API actions need
 | `_PartnerInfoModal` | `PartnerPublicDto` | Customer-facing partner card. **Never pass a PartnerDto here.** |
 | `_UserAccountModal` | `UserDto` | Super-admin password reset and activate/deactivate. Render it only when `ViewData["IsSuperAdmin"] is true`. |
 | `_KycHistory` | `IReadOnlyList<KycHistoryEntryDto>` | Read-only KYC timeline, newest first. |
+| `_UserMenu` | `UserMenuViewModel` | Navbar avatar with a Profile / Sign out box, plus an optional notification bell. Used by both layouts. |
 | `_MyJobs` | `ProviderDashboardViewModel` | Partner job table with Start / Complete / Cancel. Flags any job whose category no longer matches the partner's skill. |
 | `_ProfileBody` | `ProfilePageViewModel` | Profile shell: left menu plus the section named by `Model.Section`. |
 | `_ProfileDetails` / `_ProfileBank` / `_ProfileAddresses` / `_ProfileKyc` / `_ProfileSettings` | `ProfilePageViewModel` | The profile sections. Add a new one by adding to `ProfileSections`, the menu list in `_ProfileBody`, and a `GET` on `PortalControllerBase`. |
@@ -242,6 +243,23 @@ Forms carrying a file need `enctype="multipart/form-data"`; API actions need
 `GET /api/partners/{id}/public` returns the public one and refuses unless the
 caller is an admin, that partner, or a customer who shares a task with them —
 otherwise anyone signed in could walk the ids and harvest phone numbers.
+
+### Admin menu — `Services/Menus/MenuService.cs`
+
+The admin sidebar is data. Nothing about it is hard-coded in `_AdminLayout` except how a row is
+drawn.
+
+```csharp
+await _menus.GetSidebarAsync(isSuperAdmin, ct)   // two-level tree, active rows only
+await _menus.GetAllAsync(ct)                     // flat list for the master screen, groups first
+await _menus.GetParentOptionsAsync(excludingId, ct)
+await _menus.SaveAsync(id, request, ct)          // id null inserts
+await _menus.DeleteAsync(id, ct)                 // refuses a group that still has children
+_menus.ActionExists(controller, action)          // guards against a dead link
+```
+
+`SaveAsync` validates before it writes: the action must exist, a row cannot carry both a route and
+a URL, the tree cannot go deeper than two levels, and `BadgeKey` must be a known counter.
 
 ### KYC history — `Services/Kyc/KycHistoryService.cs`
 

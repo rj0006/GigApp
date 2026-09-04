@@ -9,6 +9,68 @@ developer can call the same thing.
 
 ---
 
+## 2026-09-05 — The admin sidebar is a master, not markup
+
+**Asked:** build the menu dynamically from a table the admin manages, with CRUD, so new screens can
+be added without a developer.
+
+**Rule.** `MenuItems` drives the admin sidebar. Managed at `/admin/masters/menu`, **super admin
+only** — a plain administrator can neither see the screen nor reach it.
+
+| Column | Meaning |
+|---|---|
+| `Label` | What the sidebar shows |
+| `ParentId` | Null for a top-level row. The sidebar is **two levels deep**, no more |
+| `ControllerName` + `ActionName` | The target. Resolved with `Url.Action`, so attribute routes work |
+| `Url` | An alternative target for links outside the admin controller, such as `/swagger` |
+| `Icon`, `SortOrder`, `IsActive`, `OpensInNewTab` | Presentation |
+| `Visibility` | `all` or `super_admin` |
+| `BadgeKey` | Optional counter. Only `pending_kyc` is wired today |
+
+- **A row with no controller, action or URL is a group heading.** That is how "Masters" and
+  "Approvals" exist without being links.
+- **A link cannot point at nothing.** On save the controller and action are checked against
+  `IActionDescriptorCollectionProvider`, so a typo is refused rather than shipped as a dead link.
+- A group with children cannot be turned into a link, and a group cannot sit inside a group.
+- Deleting a group with children is refused; hide it with `IsActive` instead, which keeps the row.
+- The current sidebar is seeded on first run, so nothing was lost in the move.
+
+**Adding a badge needs code.** `BadgeKey` names a counter the application knows how to compute;
+add the constant to `MenuBadgeKeys` and resolve it in `_AdminLayout`. An unknown key is refused on
+save rather than rendering a silent zero.
+
+---
+
+## 2026-09-05 — Navbar carries the account menu
+
+**Asked:** the name and photo in the navbar should open a small box with Profile on the left and
+Logout on the right, with a notification icon beside it.
+
+**Rule.** `_UserMenu` renders both, in the admin sidebar header and in the customer and partner
+navbar. The avatar falls back to the first letter of the name when no photo is uploaded.
+
+The **notification bell only renders where there is a real number behind it**. Today that is the
+admin, where it counts partners waiting for KYC review and links to the approvals queue. The
+customer and partner navbars show the account menu without a bell, because there is no notification
+feed yet — a bell that always reads zero is worse than no bell. It comes with the notification
+system.
+
+---
+
+## 2026-09-05 — A customer is told when their partner changes skill
+
+**Asked:** if a partner has accepted a job and then changes skill, tell that customer on the task.
+
+**Rule.** On the customer's task list, a task whose `CategoryId` no longer matches the assigned
+partner's `SkillCategoryId` carries: "This partner has changed their skill to Electrical since
+accepting your task. They are still expected to finish it as agreed."
+
+It is derived, not stored — `GigTaskDto.PartnerChangedSkill` compares the two ids, so it disappears
+by itself if the partner changes back. Only customers who actually have that partner assigned see
+it; nobody else is told anything.
+
+---
+
 ## 2026-09-05 — Profile is section based, and KYC moved into it
 
 **Asked:** move the KYC details out of the partner dashboard into the profile, give the profile a
@@ -19,13 +81,16 @@ left-side menu, and add a bank account section.
 | Section | Route | Who sees it |
 |---|---|---|
 | Profile | `/{portal}/profile` | everyone |
-| Account details | `/{portal}/profile/bank` | everyone |
-| My addresses | `/{portal}/profile/addresses` | everyone |
+| Account details | `/{portal}/profile/bank` | customers and partners |
+| My addresses | `/{portal}/profile/addresses` | customers and partners |
 | KYC | `/provider/profile/kyc` | partners only |
 | Manage devices | — | **not built yet**, see Scope below |
 | Settings | `/{portal}/profile/settings` | everyone |
 
 - Password change moved from the profile form into **Settings**.
+- **An administrator gets neither Account details nor My addresses** — they are never paid and never
+  booked. The menu hides them and the routes redirect back to the profile, so a typed URL does not
+  reach a section that means nothing for that role.
 - The address book moved from its own page into the **My addresses** section. `/{portal}/addresses`
   still answers, but redirects there, so old links keep working. The POST routes did not move.
 - **Bank account**: one per user, stored in `BankAccounts` with a unique `UserId`. Fields are
