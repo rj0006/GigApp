@@ -105,6 +105,7 @@ namespace GigApp.Api.Controllers
                 {
                     Identifier = model.Identifier,
                     Password = model.Password,
+                    Role = RequiredRole,
                 }),
                 nameof(Login), model);
 
@@ -748,9 +749,7 @@ namespace GigApp.Api.Controllers
             }
             else
             {
-                partner.KycStatus = isVerified ? KycStatus.Approved : KycStatus.Rejected;
-                partner.KycRejectionReason = isVerified ? null : reason!.Trim();
-                partner.KycReviewedAt = DateTime.UtcNow;
+                PartnerKyc.Review(partner, isVerified, reason);
 
                 await _context.SaveChangesAsync(ct);
 

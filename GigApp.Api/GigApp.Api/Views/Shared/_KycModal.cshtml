@@ -39,6 +39,13 @@
                     <dd class="col-sm-8">@Model.CreatedAt.ToString("dd MMM yyyy, HH:mm") UTC</dd>
                 </dl>
 
+                @if (!string.IsNullOrWhiteSpace(Model.KycReviewNote))
+                {
+                    <div class="alert alert-primary small">
+                        <strong>Why this is in the queue:</strong> @Model.KycReviewNote
+                    </div>
+                }
+
                 <h6 class="small fw-semibold">KYC documents</h6>
                 <p class="text-secondary small">
                     Check that the selfie matches the photo on the Aadhaar card, and that the

@@ -4,15 +4,14 @@ namespace GigApp.Api.Dtos
 {
     public class LoginRequest
     {
-        /// <summary>
-        /// Mobile number or email address. Accepting either keeps the contract
-        /// stable when phone becomes the primary identifier.
-        /// </summary>
         [Required, StringLength(256)]
         public string Identifier { get; set; } = string.Empty;
 
         [Required]
         public string Password { get; set; } = string.Empty;
+
+        [StringLength(20)]
+        public string? Role { get; set; }
     }
 
     public class RegisterCustomerRequest

@@ -31,11 +31,8 @@ namespace GigApp.Api.Data
                 e.HasIndex(u => new { u.Role, u.IsActive });
                 e.Property(u => u.Role).HasMaxLength(20).IsRequired();
 
-                // Both are login identifiers, so both must be unique. Email is
-                // nullable — Postgres allows any number of NULLs in a unique index,
-                // so phone-only accounts coexist fine.
-                e.HasIndex(u => u.Email).IsUnique();
-                e.HasIndex(u => u.Phone).IsUnique();
+                e.HasIndex(u => new { u.Email, u.Role }).IsUnique();
+                e.HasIndex(u => new { u.Phone, u.Role }).IsUnique();
 
                 e.ToTable(t => t.HasCheckConstraint(
                     "CK_Users_Role",
@@ -182,6 +179,7 @@ namespace GigApp.Api.Data
 
                 e.Property(p => p.KycStatus).HasMaxLength(15).IsRequired();
                 e.Property(p => p.KycRejectionReason).HasMaxLength(500);
+                e.Property(p => p.KycReviewNote).HasMaxLength(300);
 
                 // IsVerified is derived from KycStatus, not stored.
                 e.Ignore(p => p.IsVerified);

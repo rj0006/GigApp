@@ -7,14 +7,18 @@ it again**. When you add a new reusable piece, add one line for it here.
 
 ## JavaScript — `wwwroot/js/global.js`
 
-Loaded by both layouts. jQuery, jQuery UI and the Bootstrap bundle load before it.
+Loaded by both layouts. jQuery, jQuery UI, the Bootstrap bundle and SweetAlert2 load before it.
+
+**Never call `alert()`, `confirm()` or `prompt()`.** Everything goes through the helpers below.
 
 | Helper | Signature | Purpose |
 |---|---|---|
 | `AutoComplete` | `AutoComplete(inputId, hiddenId, url, alertMsg, onSelect)` | Binds a text box to a hidden id field. Text box holds the **name**, hidden field holds the **id**. If nothing is picked from the list the hidden field stays empty, so the server rejects it. |
 | `App.masterPicker` | `App.masterPicker(inputId, hiddenId, masterKey, alertMsg, onSelect)` | Shortcut for the above; builds the master URL itself. |
 | `App.masterUrl` | `App.masterUrl(key)` → `/api/masters/{key}?term=` | Search URL for a master. |
-| `showToast` | `showToast(title, message, cssClass)` | Bootstrap toast. Use `bg-danger`, `bg-success`, `bg-warning` or `bg-primary`. |
+| `showToast` | `showToast(title, message, cssClass)` | Corner toast, auto-dismissed. Use `bg-danger`, `bg-success`, `bg-warning` or `bg-primary`. |
+| `App.confirmAction` | `App.confirmAction(textOrOptions)` → `Promise<bool>` | SweetAlert confirm. Options: `title`, `text`, `icon`, `confirmText`, `cancelText`. |
+| `App.notify` | `App.notify(textOrOptions)` → `Promise` | SweetAlert message box, one OK button. Replaces `alert()`. |
 
 ### Autocomplete — the easy way (no JavaScript needed)
 
@@ -44,8 +48,23 @@ App.masterPicker('CityPicker', 'CityId', 'city', 'city', function (item) {
 
 | Attribute | Put it on | Effect |
 |---|---|---|
-| `data-confirm="..."` | `<form>` | Shows a confirm dialog before submit. Use for delete and cancel. |
+| `data-confirm="..."` | `<form>` | SweetAlert confirm before submit. Use for delete, cancel and anything with a consequence. |
+| `data-confirm-title` | `<form>` | Heading for that dialog. Defaults to "Please confirm". |
+| `data-confirm-ok` | `<form>` | Confirm button text. Defaults to "Yes, continue". |
+| `data-confirm-icon` | `<form>` | `warning` (default), `question`, `info` or `error`. |
+| `data-confirm-changed="fieldId"` | `<form>` | Skip the dialog while that field still holds its original value. Use it so an unchanged form does not nag. |
 | `data-auto-submit` | filter `<form>` | Submits the form as soon as a `<select>` inside it changes. |
+
+The confirm handler cancels the first submit, waits for the dialog, then re-submits — carrying the
+clicked button name and value, so a form with two named submit buttons keeps working.
+
+```html
+<form method="post" asp-action="UpdateSkill"
+      data-confirm-title="Change your skill?"
+      data-confirm="@PartnerKyc.SkillChangeWarning"
+      data-confirm-ok="Yes, change my skill"
+      data-confirm-changed="skillCategoryId">
+```
 
 ---
 
@@ -219,6 +238,21 @@ Forms carrying a file need `enctype="multipart/form-data"`; API actions need
 `GET /api/partners/{id}/public` returns the public one and refuses unless the
 caller is an admin, that partner, or a customer who shares a task with them —
 otherwise anyone signed in could walk the ids and harvest phone numbers.
+
+### KYC transitions — `Models/PartnerKyc.cs`
+
+Every change to a partner's KYC state goes through this class. Nothing else may assign `KycStatus`,
+`KycRejectionReason`, `KycReviewedAt` or `KycReviewNote` directly.
+
+```csharp
+PartnerKyc.ChangeSkill(partner, categoryId, fromName, toName)  // true when it went back for review
+PartnerKyc.SubmitDocuments(partner)                            // resubmission -> pending, reason cleared
+PartnerKyc.Review(partner, approved, rejectionReason)          // admin decision, clears the note
+PartnerKyc.SkillChangeWarning                                  // the text for the SweetAlert confirm
+```
+
+`ChangeSkill` returns false when the category did not actually change, or when the partner was not
+approved to begin with. Category names come from `ICategoryLookup.GetNameAsync`.
 
 ### KYC status — `Models/KycStatus.cs`
 

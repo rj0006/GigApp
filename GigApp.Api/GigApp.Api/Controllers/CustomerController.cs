@@ -65,6 +65,7 @@ namespace GigApp.Api.Controllers
                 {
                     Identifier = model.Identifier,
                     Password = model.Password,
+                    Role = RequiredRole,
                 }),
                 nameof(Login), model);
 

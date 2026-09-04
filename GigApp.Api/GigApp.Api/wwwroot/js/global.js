@@ -1,87 +1,102 @@
-/* ===========================================================================
-   GigApp — global helpers. Loaded on every page.
-   Documented in docs/REUSABLE.md — read that instead of this file.
-   =========================================================================== */
 (function (window, $) {
     'use strict';
 
     var App = window.App || {};
 
-    /* ---------------------------------------------------------------- config */
     App.masterUrl = function (key) {
         return '/api/masters/' + encodeURIComponent(key) + '?term=';
     };
 
-    /* ----------------------------------------------------------------- toast */
-    /**
-     * showToast(title, message, cssClass)
-     * cssClass: 'bg-danger' | 'bg-success' | 'bg-warning' | 'bg-primary'
-     */
-    function showToast(title, message, cssClass) {
-        var $host = $('#toast-host');
-        if (!$host.length) {
-            $host = $('<div id="toast-host" class="toast-container position-fixed top-0 end-0 p-3"></div>')
-                .appendTo(document.body);
-        }
+    var ICONS = {
+        'bg-danger': 'error',
+        'bg-warning': 'warning',
+        'bg-success': 'success',
+        'bg-primary': 'info'
+    };
 
-        var $toast = $(
-            '<div class="toast align-items-center text-white ' + (cssClass || 'bg-primary') + ' border-0" ' +
-            'role="alert" aria-live="assertive" aria-atomic="true">' +
-              '<div class="d-flex">' +
-                '<div class="toast-body"><strong></strong><span></span></div>' +
-                '<button type="button" class="btn-close btn-close-white me-2 m-auto" ' +
-                'data-bs-dismiss="toast" aria-label="Close"></button>' +
-              '</div>' +
-            '</div>');
+    function swal() {
+        return window.Swal;
+    }
 
-        $toast.find('strong').text(title ? title + ' ' : '');
-        $toast.find('span').text(message || '');
-        $host.append($toast);
-
-        // bootstrap is loaded globally; fall back to a plain timeout if not.
-        if (window.bootstrap && window.bootstrap.Toast) {
-            var t = new window.bootstrap.Toast($toast[0], { delay: 4000 });
-            t.show();
-            $toast.on('hidden.bs.toast', function () { $toast.remove(); });
-        } else {
-            $toast.addClass('show');
-            window.setTimeout(function () { $toast.remove(); }, 4000);
+    function missing(helper) {
+        if (window.console) {
+            window.console.error('SweetAlert2 did not load, so App.' + helper + ' cannot run.');
         }
     }
 
-    /* ---------------------------------------------------------- autocomplete */
-    /**
-     * AutoComplete(inputId, hiddenId, url, alertMsg, onSelect)
-     *
-     * Binds a visible text input to a hidden id input. The text box holds the
-     * NAME (so the user can type), the hidden field holds the ID (what actually
-     * gets posted). A name that is not picked from the list leaves the hidden
-     * field empty, so the server rejects it — a typo can never invent a record.
-     *
-     * `url` must return { success: true, data: [{ id, name, hint }] } and must
-     * already end with the query key, e.g. App.masterUrl('skill-category').
-     */
+    function showToast(title, message, cssClass) {
+        var text = [title, message].filter(Boolean).join(' ').trim();
+
+        if (!swal()) {
+            missing('showToast');
+            return;
+        }
+
+        swal().fire({
+            toast: true,
+            position: 'top-end',
+            icon: ICONS[cssClass] || 'info',
+            title: text,
+            showConfirmButton: false,
+            timer: 4000,
+            timerProgressBar: true
+        });
+    }
+
+    function confirmAction(options) {
+        var settings = typeof options === 'string' ? { text: options } : (options || {});
+
+        // Refusing is the safe answer — never fall back to a browser dialog.
+        if (!swal()) {
+            missing('confirmAction');
+            return Promise.resolve(false);
+        }
+
+        return swal().fire({
+            title: settings.title || 'Please confirm',
+            text: settings.text || 'Are you sure?',
+            icon: settings.icon || 'warning',
+            showCancelButton: true,
+            confirmButtonText: settings.confirmText || 'Yes, continue',
+            cancelButtonText: settings.cancelText || 'Cancel',
+            confirmButtonColor: settings.icon === 'question' ? '#0d6efd' : '#dc3545',
+            cancelButtonColor: '#6c757d',
+            reverseButtons: true,
+            focusCancel: true
+        }).then(function (result) { return result.isConfirmed === true; });
+    }
+
+    function notify(options) {
+        var settings = typeof options === 'string' ? { text: options } : (options || {});
+
+        if (!swal()) {
+            missing('notify');
+            return Promise.resolve();
+        }
+
+        return swal().fire({
+            title: settings.title || '',
+            text: settings.text || '',
+            icon: settings.icon || 'info',
+            confirmButtonText: settings.confirmText || 'OK',
+            confirmButtonColor: '#0d6efd'
+        });
+    }
+
     function toSuggestions(items) {
         return (items || []).map(function (item) {
-            // A bare "-" would render as an empty row, so pad it.
             var label = item.name === '-' ? '​-' : item.name;
             return { label: label, value: label, id: String(item.id), raw: item };
         });
     }
 
-    /**
-     * Remote source: hits a master endpoint on every keystroke.
-     * `getParentId` is optional — dependent masters (service items inside a
-     * category) read it fresh on each call so changing the parent takes effect
-     * immediately.
-     */
     function remoteSource(url, getParentId) {
         return function (request, response) {
             var full = url + encodeURIComponent(request.term);
 
             if (typeof getParentId === 'function') {
                 var parentId = getParentId();
-                if (!parentId) { response([]); return; }   // no parent, nothing to offer
+                if (!parentId) { response([]); return; }
                 full += '&parentId=' + encodeURIComponent(parentId);
             }
 
@@ -97,11 +112,6 @@
         };
     }
 
-    /**
-     * Local source: filters a list already on the page. Used by anonymous pages
-     * (registration) where the master API is not reachable without a token, so
-     * the options are server-rendered instead of fetched.
-     */
     function localSource(items) {
         return function (request, response) {
             var term = (request.term || '').toLowerCase();
@@ -117,10 +127,8 @@
 
         if (!$input.length || !$hidden.length) return;
 
-        // A string source is a URL; anything else is already a source function.
         var sourceFn = typeof source === 'string' ? remoteSource(source) : source;
 
-        // Stops the browser's own dropdown covering the jQuery UI one.
         $input.attr('autocomplete', 'new-password');
 
         $input.autocomplete({
@@ -149,7 +157,6 @@
             }
         });
 
-        // Two-line row: name on top, hint below.
         $input.data('ui-autocomplete')._renderItem = function (ul, item) {
             var $row = $('<div>').addClass('ac-row').text(item.label);
             if (item.raw && item.raw.hint) {
@@ -158,10 +165,8 @@
             return $('<li>').data('ui-autocomplete-item', item).append($row).appendTo(ul);
         };
 
-        // Empty search on focus = show the first page of options.
         $input.on('focus', function () { $(this).autocomplete('search', ''); });
 
-        // Typing by hand invalidates the previous pick.
         $input.on('input', function () { $hidden.val(''); });
 
         $input.on('blur', function () {
@@ -169,7 +174,6 @@
             if (!$hidden.val()) clearAndAlert();
         });
 
-        // TAB should commit whatever row is highlighted.
         $input.on('keydown', function (e) {
             if (e.which !== 9) return;
 
@@ -191,10 +195,6 @@
         }
     }
 
-    /**
-     * Shorthand for a master-backed picker:
-     *   App.masterPicker('CategoryPicker', 'CategoryId', 'skill-category', 'category');
-     */
     function masterPicker(inputId, hiddenId, masterKey, alertMsg, onSelect, parentFieldId) {
         var source = parentFieldId
             ? remoteSource(App.masterUrl(masterKey), function () { return $('#' + parentFieldId).val(); })
@@ -202,8 +202,6 @@
 
         AutoComplete(inputId, hiddenId, source, alertMsg, onSelect);
 
-        // Changing the parent invalidates whatever child was chosen — clear it
-        // rather than leave a service item pointing at the wrong category.
         if (parentFieldId) {
             $('#' + parentFieldId).on('change', function () {
                 $('#' + inputId).val('');
@@ -212,11 +210,6 @@
         }
     }
 
-    /**
-     * Picker backed by options already on the page instead of the master API.
-     *   App.localPicker('SkillPicker', 'SkillCategoryId', 'skill-options', 'skill category');
-     * `listId` is a <datalist> whose options carry data-id.
-     */
     function localPicker(inputId, hiddenId, listId, alertMsg, onSelect) {
         var items = $('#' + listId + ' option').map(function () {
             return {
@@ -229,18 +222,6 @@
         AutoComplete(inputId, hiddenId, localSource(items), alertMsg, onSelect);
     }
 
-    /* -------------------------------------------------------------- helpers */
-
-    /**
-     * "Use my current location" buttons.
-     *
-     * Fills a pair of hidden lat/lon fields from the browser's geolocation.
-     * Both are written together or neither is — the server rejects half a pin,
-     * because an address with only a latitude looks mappable but is not.
-     *
-     *   <button data-capture-location data-lat="Latitude" data-lon="Longitude"
-     *           data-status="pinStatus">Use my location</button>
-     */
     function wireLocationCapture() {
         $(document).on('click', '[data-capture-location]', function (e) {
             e.preventDefault();
@@ -267,7 +248,6 @@
                     $btn.prop('disabled', false);
                 },
                 function (err) {
-                    // Leave both fields untouched — a partial pin is worse than none.
                     $status.text(err.code === err.PERMISSION_DENIED
                         ? 'Location permission was denied. You can still save the address without a pin.'
                         : 'Could not get your location. You can still save the address without a pin.')
@@ -278,26 +258,64 @@
         });
     }
 
-    /** Confirm before a destructive submit. Use data-confirm="Are you sure?". */
     function wireConfirms() {
+        // A hidden input reports defaultValue as whatever value currently holds,
+        // so the starting value has to be snapshotted here instead.
+        $('form[data-confirm-changed]').each(function () {
+            var $form = $(this);
+            var field = document.getElementById($form.data('confirm-changed'));
+            if (field) $form.data('confirm-original', field.value);
+        });
+
         $(document).on('submit', 'form[data-confirm]', function (e) {
-            if (!window.confirm($(this).data('confirm'))) e.preventDefault();
+            var form = this;
+            var $form = $(form);
+
+            if ($form.data('confirmed')) {
+                $form.removeData('confirmed');
+                return;
+            }
+
+            var watch = $form.data('confirm-changed');
+            if (watch) {
+                var field = document.getElementById(watch);
+                if (field && field.value === $form.data('confirm-original')) return;
+            }
+
+            e.preventDefault();
+
+            confirmAction({
+                title: $form.data('confirm-title'),
+                text: $form.data('confirm'),
+                icon: $form.data('confirm-icon'),
+                confirmText: $form.data('confirm-ok')
+            }).then(function (ok) {
+                if (!ok) return;
+                $form.data('confirmed', true);
+
+                var submitter = $form.data('submitter');
+                $form.removeData('submitter');
+
+                if (submitter && submitter.name) {
+                    $('<input>').attr({ type: 'hidden', name: submitter.name, value: submitter.value })
+                        .appendTo($form);
+                }
+
+                form.submit();
+            });
+        });
+
+        $(document).on('click', 'form[data-confirm] [type="submit"]', function () {
+            $(this).closest('form').data('submitter', { name: this.name, value: this.value });
         });
     }
 
-    /** Auto-submit a filter form when a select changes. Use data-auto-submit. */
     function wireAutoSubmit() {
         $(document).on('change', '[data-auto-submit] select', function () {
             $(this).closest('form').submit();
         });
     }
 
-    /**
-     * Declarative pickers:
-     *   data-master="key"      → fetches from /api/masters/{key} (needs a session)
-     *   data-options="listId"  → filters a server-rendered <datalist> (works anonymous)
-     * Both need data-target="hiddenFieldId".
-     */
     function wireDeclarativePickers() {
         $('input[data-master][data-target]').each(function () {
             var $el = $(this);
@@ -312,11 +330,13 @@
     }
 
     App.showToast = showToast;
+    App.confirmAction = confirmAction;
+    App.notify = notify;
     App.AutoComplete = AutoComplete;
     App.masterPicker = masterPicker;
     App.localPicker = localPicker;
     window.App = App;
-    window.showToast = showToast;      // AutoComplete's error path calls this bare
+    window.showToast = showToast;
     window.AutoComplete = AutoComplete;
 
     $(function () {

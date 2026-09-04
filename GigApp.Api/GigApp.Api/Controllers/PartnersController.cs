@@ -17,13 +17,18 @@ namespace GigApp.Api.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IFileStorageService _storage;
+        private readonly ICategoryLookup _categories;
         private readonly ILogger<PartnersController> _logger;
 
         public PartnersController(
-            AppDbContext context, IFileStorageService storage, ILogger<PartnersController> logger)
+            AppDbContext context,
+            IFileStorageService storage,
+            ICategoryLookup categories,
+            ILogger<PartnersController> logger)
         {
             _context = context;
             _storage = storage;
+            _categories = categories;
             _logger = logger;
         }
 
@@ -132,10 +137,12 @@ namespace GigApp.Api.Controllers
             var partner = await LoadOwnProfileAsync(track: true, ct);
             if (partner is null) return NotFound("No partner profile is attached to this account.");
 
-            partner.SkillCategoryId = request.SkillCategoryId;
+            var fromName = await _categories.GetNameAsync(partner.SkillCategoryId, ct);
+            var toName = await _categories.GetNameAsync(request.SkillCategoryId, ct);
+
+            PartnerKyc.ChangeSkill(partner, request.SkillCategoryId, fromName, toName);
             await _context.SaveChangesAsync(ct);
 
-            // Reload so the response carries the new category's name.
             await _context.Entry(partner).Reference(p => p.SkillCategory).LoadAsync(ct);
 
             return Ok(PartnerDto.From(partner));
@@ -190,11 +197,7 @@ namespace GigApp.Api.Controllers
             if (!string.IsNullOrWhiteSpace(request.AadhaarNumber))
                 partner.AadhaarNumber = request.AadhaarNumber.Trim();
 
-            // Re-submitting documents sends the partner back through review.
-            // Any resubmission goes back into the queue, whatever it was before.
-            partner.KycStatus = Models.KycStatus.Pending;
-            partner.KycRejectionReason = null;
-            partner.KycReviewedAt = null;
+            PartnerKyc.SubmitDocuments(partner);
 
             await _context.SaveChangesAsync(ct);
 
@@ -237,9 +240,7 @@ namespace GigApp.Api.Controllers
                     Status = 400,
                 });
 
-            partner.KycStatus = request.IsVerified ? KycStatus.Approved : KycStatus.Rejected;
-            partner.KycRejectionReason = request.IsVerified ? null : request.Reason!.Trim();
-            partner.KycReviewedAt = DateTime.UtcNow;
+            PartnerKyc.Review(partner, request.IsVerified, request.Reason);
 
             await _context.SaveChangesAsync(ct);
 

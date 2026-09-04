@@ -50,6 +50,12 @@
                             </td>
                             <td>
                                 <span class="badge @partner.KycBadgeClass">@partner.KycLabel</span>
+                                @if (!string.IsNullOrWhiteSpace(partner.KycReviewNote))
+                                {
+                                    <div class="small text-primary mt-1" style="max-width:16rem">
+                                        @partner.KycReviewNote
+                                    </div>
+                                }
                                 @if (partner.IsRejected)
                                 {
                                     <div class="small text-danger mt-1" style="max-width:16rem">

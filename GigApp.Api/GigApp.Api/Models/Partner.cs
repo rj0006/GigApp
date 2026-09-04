@@ -26,6 +26,8 @@ namespace GigApp.Api.Models
 
         public DateTime? KycReviewedAt { get; set; }
 
+        public string? KycReviewNote { get; set; }
+
         /// <summary>
         /// Convenience for the many places that only care whether this partner
         /// may work. Not stored — KycStatus is the single source of truth.

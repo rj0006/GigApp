@@ -18,6 +18,7 @@ namespace GigApp.Api.Dtos
         public string KycStatus { get; set; } = Models.KycStatus.NotSubmitted;
         public string? KycRejectionReason { get; set; }
         public DateTime? KycReviewedAt { get; set; }
+        public string? KycReviewNote { get; set; }
 
         public string KycLabel => Models.KycStatus.Label(KycStatus);
         public string KycBadgeClass => Models.KycStatus.BadgeClass(KycStatus);
@@ -67,6 +68,7 @@ namespace GigApp.Api.Dtos
             KycStatus = partner.KycStatus,
             KycRejectionReason = partner.KycRejectionReason,
             KycReviewedAt = partner.KycReviewedAt,
+            KycReviewNote = partner.KycReviewNote,
             IsAvailable = partner.IsAvailable,
             SelfieFileName = partner.SelfieFileName,
             AadhaarFrontFileName = partner.AadhaarFrontFileName,

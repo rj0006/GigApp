@@ -107,11 +107,11 @@ namespace GigApp.Api.Services
             var email = NormalizeEmail(request.Email);
             var phone = request.Phone.Trim();
 
-            if (await _context.Users.AnyAsync(u => u.Phone == phone, ct))
-                return AuthResult.Fail("An account with this phone number already exists.");
+            if (await _context.Users.AnyAsync(u => u.Phone == phone && u.Role == role, ct))
+                return AuthResult.Fail($"A {role} account with this phone number already exists.");
 
-            if (email is not null && await _context.Users.AnyAsync(u => u.Email == email, ct))
-                return AuthResult.Fail("An account with this email already exists.");
+            if (email is not null && await _context.Users.AnyAsync(u => u.Email == email && u.Role == role, ct))
+                return AuthResult.Fail($"A {role} account with this email already exists.");
 
             var user = new User
             {
@@ -139,7 +139,7 @@ namespace GigApp.Api.Services
             }
             catch (DbUpdateException ex) when (IsUniqueViolation(ex))
             {
-                return AuthResult.Fail("An account with this email or phone number already exists.");
+                return AuthResult.Fail($"A {role} account with this email or phone number already exists.");
             }
 
             _logger.LogInformation("Registered {Role} account {UserId}", role, user.Id);
@@ -149,24 +149,43 @@ namespace GigApp.Api.Services
         public async Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken ct = default)
         {
             var identifier = request.Identifier.Trim();
-            var query = _context.Users.Include(u => u.PartnerProfile);
+            var query = _context.Users.Include(u => u.PartnerProfile).AsQueryable();
 
-            // An '@' is the only thing separating the two identifier forms; phone
-            // numbers never contain one.
-            var user = identifier.Contains('@')
-                ? await query.FirstOrDefaultAsync(u => u.Email == identifier.ToLowerInvariant(), ct)
-                : await query.FirstOrDefaultAsync(u => u.Phone == identifier, ct);
+            query = identifier.Contains('@')
+                ? query.Where(u => u.Email == identifier.ToLowerInvariant())
+                : query.Where(u => u.Phone == identifier);
 
-            // Same message whether the account is missing or the password is
-            // wrong — do not leak which.
-            if (user is null || !VerifyPassword(request.Password, user.PasswordHash))
+            if (!string.IsNullOrWhiteSpace(request.Role))
+            {
+                var role = request.Role.Trim();
+
+                query = UserRoles.IsAdminRole(role)
+                    ? query.Where(u => u.Role == UserRoles.Admin || u.Role == UserRoles.SuperAdmin)
+                    : query.Where(u => u.Role == role);
+            }
+
+            var candidates = await query.ToListAsync(ct);
+
+            var matched = candidates
+                .Where(u => VerifyPassword(request.Password, u.PasswordHash))
+                .ToList();
+
+            if (matched.Count == 0)
             {
                 _logger.LogWarning("Failed login attempt for {Identifier}", identifier);
                 return AuthResult.Fail("Invalid credentials.");
             }
 
-            // Said plainly, unlike a wrong password: the account exists and the
-            // credentials were right, so hiding why would only waste their time.
+            if (matched.Count > 1)
+            {
+                var roles = string.Join(" and ", matched.Select(u => u.Role).Order());
+                return AuthResult.Fail(
+                    $"This login is used by more than one account ({roles}). " +
+                    "Sign in from the portal for the account you want.");
+            }
+
+            var user = matched[0];
+
             if (!user.IsActive)
             {
                 _logger.LogWarning("Login blocked for deactivated user {UserId}", user.Id);

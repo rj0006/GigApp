@@ -7,12 +7,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GigApp.Api.Controllers
 {
-    /// <summary>
-    /// Administrative user directory. Account creation lives in
-    /// <see cref="AuthController"/> — there is no create endpoint here, because
-    /// binding a User entity straight from the request body would let a caller
-    /// set their own Role and PasswordHash.
-    /// </summary>
     [Route("api/[controller]")]
     [ApiController]
     [Authorize(Policy = Policies.AdminOnly)]

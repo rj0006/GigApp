@@ -42,6 +42,10 @@ else
             @(profile.HasCompleteKyc
                 ? "Your documents are with an administrator for review. You cannot accept work until they are approved."
                 : "Your KYC is incomplete. Upload the missing documents below to start the review.")
+            @if (!string.IsNullOrWhiteSpace(profile.KycReviewNote))
+            {
+                <div class="mt-2 small">@profile.KycReviewNote</div>
+            }
         </div>
     }
 
@@ -80,7 +84,11 @@ else
                 </button>
             </form>
 
-            <form method="post" asp-action="UpdateSkill" class="gig-form row g-3 mb-3">
+            <form method="post" asp-action="UpdateSkill" class="gig-form row g-3 mb-3"
+                  data-confirm-title="Change your skill?"
+                  data-confirm="@PartnerKyc.SkillChangeWarning"
+                  data-confirm-ok="Yes, change my skill"
+                  data-confirm-changed="skillCategoryId">
                 <div class="col-md-8">
                     <label for="SkillPicker" class="form-label required">Skill category</label>
                     <input id="SkillPicker" class="form-control"
@@ -88,6 +96,9 @@ else
                            data-alert="skill category" value="@profile.SkillCategoryName" />
                     <input type="hidden" id="skillCategoryId" name="skillCategoryId"
                            value="@profile.SkillCategoryId" />
+                    <div class="form-text text-warning-emphasis">
+                        Changing your skill sends your account back for KYC approval.
+                    </div>
                 </div>
                 <div class="col-12">
                     <button type="submit" class="btn btn-sm btn-primary">Update skill</button>

@@ -16,13 +16,20 @@ How the user wants help delivered on this project. These override default respon
    management solution, and a typed API client with a single auth interceptor. No logic in widgets.
 3. **Language — depends on where it goes:**
    - **Chat replies:** simple Hinglish / Indian English. Short sentences, no heavy vocabulary.
-   - **Everything written to a file — web page text, code comments, docs, commit messages, log
-     messages, validation messages:** **Indian English only. No Hinglish, ever.** Those are read by
+   - **Everything written to a file — web page text, docs, commit messages, log messages,
+     validation messages:** **Indian English only. No Hinglish, ever.** Those are read by
      users and other developers, so they stay in plain professional English.
 4. **Breaking changes → top 3 bullets first**, before any code or explanation.
 5. **Max one clarifying question.** If more than one thing is unclear, assume best practice, list the
    assumptions at the top, and keep going. Never block waiting for an answer.
-6. **Repeated code → reusable helper.** If the same code appears in more than two places, extract it
+6. **No comments in code.** No `///` summary blocks, no `<param>` or `<see>` tags, no block
+   comments, no section banners — in C#, JavaScript, Razor or SQL. Name things well enough that
+   the code reads on its own. If a line genuinely cannot be understood without help, one plain
+   single-line comment is allowed, and that is the ceiling. The "why" belongs in this file and in
+   [docs/REUSABLE.md](docs/REUSABLE.md), not scattered through the source.
+7. **Alerts use SweetAlert2, never the browser dialogs.** No `alert()`, `confirm()` or `prompt()`.
+   Go through `App.confirmAction`, `App.notify` or `showToast` in `wwwroot/js/global.js`.
+8. **Repeated code → reusable helper.** If the same code appears in more than two places, extract it
    into a reusable function, partial or utility instead of copy-pasting. Record every new helper in
    [docs/REUSABLE.md](docs/REUSABLE.md) with its signature and a usage snippet, so next time it can be
    called directly without reading the implementation again.
@@ -46,6 +53,22 @@ Read these before changing auth, identity, or the data model. They were delibera
 live on `User` for customers, partners and admins alike. `Partner` is a *profile* row linked by a
 required `UserId` FK — it holds only skill category, verification and KYC. Never add name/phone/email
 to `Partner`; that duplication was removed on purpose.
+
+**One account per identifier per role.** The same phone or email may hold a customer account **and**
+a partner account — the unique indexes are `(Phone, Role)` and `(Email, Role)`, not the plain columns.
+One person testing both sides, or a partner who also books work, needs exactly this. What is still
+refused is a second account with the same role.
+
+- The rows are separate `User` records with their own password, profile and history. They are not
+  linked, and nothing is shared between them.
+- Login therefore has to be told which one. `LoginRequest.Role` carries it; each portal passes its
+  own `RequiredRole`, and the admin portal is expanded to accept `superadmin` too. Mobile clients
+  must send it as well.
+- With no role, `AuthService` verifies the password against every candidate. Exactly one match signs
+  in; more than one returns "sign in from the portal for the account you want". Nothing is revealed
+  before the password is right, so this does not leak which accounts exist.
+- `admin` and `superadmin` are separate role values, so in theory one phone could hold both. There is
+  no public admin registration, and promotion mutates the existing row, so it cannot happen by accident.
 
 **Phone is the primary identifier, email is optional.** `User.Email` is nullable and uniquely indexed
 (Postgres allows many NULLs). Login accepts either — `LoginRequest.Identifier` is routed by whether it
@@ -75,6 +98,13 @@ Both the API and the Razor portals call it. A DB check constraint backs the allo
 what they had already refused and a partner was never told why. `Partner.IsVerified` still exists
 but is now a computed `KycStatus == approved` and is `Ignore`d by EF — never map or assign it.
 
+- **Changing skill sends an approved partner back to `pending`.** The approval was for that skill, so
+  it cannot carry over. `PartnerKyc.ChangeSkill` is the only place this happens, and both the portal
+  and `PartnersController.UpdateMyProfile` call it. The partner is warned with a SweetAlert confirm
+  before the form submits.
+- `Partner.KycReviewNote` says **why** a partner is in the queue — "Skill changed from Plumbing to
+  Electrical on 04 Sep 2026" — so an administrator knows what to re-check rather than reviewing blind.
+  `PartnerKyc.Review` clears it once a decision is made.
 - Rejecting **requires a reason**; both `AdminController.SetVerification` and
   `PartnersController.SetVerification` refuse without one. It is the only thing the partner sees.
 - Any KYC resubmission sets the status straight back to `pending` and clears the reason, whatever
@@ -168,9 +198,16 @@ The sidebar is grouped: **Dashboard**, **Masters** → Skill categories, **Appro
 - The mobile drawer is a CSS-only checkbox toggle; there is no sidebar JavaScript.
 - Adding a master: new section under `Masters` in `_AdminLayout`, routes under `/admin/masters/...`.
 
-The only JavaScript in the project is `wwwroot/js/category-picker.js`, which binds a `<datalist>` name
-input to a hidden id field. An unrecognised name resolves to an empty id, which the server then rejects —
-so a typo cannot invent a category.
+All JavaScript lives in `wwwroot/js/global.js` and is driven by `data-` attributes, so views stay
+markup-only. Pickers bind a visible name input to a hidden id field; an unrecognised name resolves
+to an empty id, which the server then rejects, so a typo cannot invent a category.
+
+SweetAlert2 is vendored at `wwwroot/lib/sweetalert2/` and loaded by both layouts. `data-confirm` on a
+form opens a SweetAlert confirm instead of the browser one — add `data-confirm-title`,
+`data-confirm-ok` and `data-confirm-icon` to tune it, and `data-confirm-changed="fieldId"` to skip
+the prompt when that field still holds its original value. Because SweetAlert is asynchronous, the
+handler always cancels the first submit and re-submits after confirmation, carrying the clicked
+button name and value forward so multi-button forms still work.
 
 ## Conventions
 

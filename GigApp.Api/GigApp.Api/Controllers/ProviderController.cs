@@ -66,6 +66,7 @@ namespace GigApp.Api.Controllers
                 {
                     Identifier = model.Identifier,
                     Password = model.Password,
+                    Role = RequiredRole,
                 }),
                 nameof(Login), model);
 
@@ -319,9 +320,16 @@ namespace GigApp.Api.Controllers
             }
             else
             {
-                partner.SkillCategoryId = skillCategoryId;
+                var fromName = await _categories.GetNameAsync(partner.SkillCategoryId, ct);
+                var toName = await _categories.GetNameAsync(skillCategoryId, ct);
+
+                var sentForReview = PartnerKyc.ChangeSkill(partner, skillCategoryId, fromName, toName);
                 await _context.SaveChangesAsync(ct);
-                TempData["Success"] = "Skill category updated.";
+
+                TrackDoc(partner.Id, PartnerDto.From(partner));
+                TempData["Success"] = sentForReview
+                    ? $"Skill changed to {toName}. Your KYC has gone back for approval, so you cannot accept work until an administrator approves it."
+                    : "Skill category updated.";
             }
 
             return Redirect(DashboardPath);
@@ -370,10 +378,7 @@ namespace GigApp.Api.Controllers
             if (!string.IsNullOrWhiteSpace(request.AadhaarNumber))
                 partner.AadhaarNumber = request.AadhaarNumber.Trim();
 
-            // Any resubmission goes back into the queue, whatever it was before.
-            partner.KycStatus = Models.KycStatus.Pending;
-            partner.KycRejectionReason = null;
-            partner.KycReviewedAt = null;
+            PartnerKyc.SubmitDocuments(partner);
             await _context.SaveChangesAsync(ct);
 
             foreach (var old in replaced) _storage.Delete(old, FileCategory.KycDocument);

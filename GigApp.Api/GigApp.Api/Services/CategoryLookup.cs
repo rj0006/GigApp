@@ -21,6 +21,8 @@ namespace GigApp.Api.Services
             int? selectedId, CancellationToken ct = default);
 
         Task<bool> IsSelectableAsync(int categoryId, CancellationToken ct = default);
+
+        Task<string?> GetNameAsync(int categoryId, CancellationToken ct = default);
     }
 
     public class CategoryLookup : ICategoryLookup
@@ -38,6 +40,12 @@ namespace GigApp.Api.Services
 
         public Task<bool> IsSelectableAsync(int categoryId, CancellationToken ct = default) =>
             _context.SkillCategories.AnyAsync(c => c.Id == categoryId && c.IsActive, ct);
+
+        public Task<string?> GetNameAsync(int categoryId, CancellationToken ct = default) =>
+            _context.SkillCategories.AsNoTracking()
+                .Where(c => c.Id == categoryId)
+                .Select(c => c.Name)
+                .FirstOrDefaultAsync(ct)!;
 
         private static IQueryable<SkillCategoryOptionDto> Ordered(IQueryable<Models.SkillCategory> query) =>
             query.AsNoTracking()
