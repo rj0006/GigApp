@@ -44,15 +44,26 @@ tokens, otherwise "revoke" would be a button that does nothing.
 
 ## 2026-09-05 — An unapproved partner sees only their KYC status
 
-**Asked:** a partner whose KYC is not approved should see only a greeting and the KYC status —
-no available work, no bids, no jobs.
+**Asked:** a partner whose KYC is not approved should see only a greeting and the KYC status — no
+available work, no bids. Jobs they had already accepted stay visible.
 
 **Rule.** `GET /provider` returns the trimmed dashboard whenever `KycStatus != approved`. Available
-work, My bids and My jobs are not rendered at all, rather than rendered empty. The partner gets the
-status card, the reason if rejected, and a link to the KYC section of their profile.
+work and My bids are not rendered at all, rather than rendered empty. The partner gets the status
+card, the reason if rejected, and a link to the KYC section of their profile.
+
+**Jobs already accepted are the exception.** A partner sent back to `pending` — usually by a skill
+change — keeps the **My jobs** section, showing only tasks that are not yet completed or cancelled.
+Without this a customer would be stranded halfway through a booking the partner had already agreed
+to. Completed and cancelled history stays hidden until they are approved again.
+
+A job whose `CategoryId` no longer matches the partner's `SkillCategoryId` carries a line saying so:
+"Booked under Painting, which is no longer your skill. Finish it as agreed — you cannot take new
+work in this category." It is informational only; Start, Complete and Cancel all still work on that
+job.
 
 The API already refuses the same actions, so mobile can rely on `partner.isVerified` from
-`GET /api/partners/me` to decide which screen to show.
+`GET /api/partners/me` to decide which screen to show, and on `task.categoryId` against
+`partner.skillCategoryId` to show the same mismatch line.
 
 ---
 

@@ -30,5 +30,8 @@ namespace GigApp.Api.Models
 
         public static bool CanTransition(string from, string to) =>
             Transitions.TryGetValue(from, out var allowed) && allowed.Contains(to);
+
+        public static bool IsOpen(string status) =>
+            status != Completed && status != Cancelled;
     }
 }

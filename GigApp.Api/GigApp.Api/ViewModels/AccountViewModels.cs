@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using GigApp.Api.Dtos;
+using GigApp.Api.Models;
 
 namespace GigApp.Api.ViewModels
 {
@@ -113,6 +114,8 @@ namespace GigApp.Api.ViewModels
 
         /// <summary>Only tasks actually assigned — a bid alone does not appear here.</summary>
         public IReadOnlyList<GigTaskDto> MyJobs { get; set; } = Array.Empty<GigTaskDto>();
+
+        public bool HasOpenJobs => MyJobs.Any(j => GigTaskStatus.IsOpen(j.Status));
 
         public IReadOnlyList<SkillCategoryOptionDto> Categories { get; set; } =
             Array.Empty<SkillCategoryOptionDto>();

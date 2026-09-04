@@ -228,6 +228,7 @@ Forms carrying a file need `enctype="multipart/form-data"`; API actions need
 | `_PartnerInfoModal` | `PartnerPublicDto` | Customer-facing partner card. **Never pass a PartnerDto here.** |
 | `_UserAccountModal` | `UserDto` | Super-admin password reset and activate/deactivate. Render it only when `ViewData["IsSuperAdmin"] is true`. |
 | `_KycHistory` | `IReadOnlyList<KycHistoryEntryDto>` | Read-only KYC timeline, newest first. |
+| `_MyJobs` | `ProviderDashboardViewModel` | Partner job table with Start / Complete / Cancel. Flags any job whose category no longer matches the partner's skill. |
 | `_ProfileBody` | `ProfilePageViewModel` | Profile shell: left menu plus the section named by `Model.Section`. |
 | `_ProfileDetails` / `_ProfileBank` / `_ProfileAddresses` / `_ProfileKyc` / `_ProfileSettings` | `ProfilePageViewModel` | The profile sections. Add a new one by adding to `ProfileSections`, the menu list in `_ProfileBody`, and a `GET` on `PortalControllerBase`. |
 

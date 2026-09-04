@@ -179,22 +179,30 @@ namespace GigApp.Api.Controllers
                 Categories = await _categories.GetOptionsIncludingAsync(partner?.SkillCategoryId, ct),
             };
 
-            if (partner is not null && partner.IsVerified)
+            if (partner is not null)
             {
-                // Only assigned work lands here — a bid on its own does not.
-                var myJobs = await _context.GigTasks
+                // An unverified partner keeps the jobs they already hold, so a
+                // skill change cannot strand a customer mid-booking. Everything
+                // else on the dashboard stays hidden until they are approved.
+                var jobs = _context.GigTasks
                     .AsNoTracking()
                     .Include(t => t.Customer)
                     .Include(t => t.Category)
                     .Include(t => t.ServiceItem)
-                    .Where(t => t.PartnerId == partner.Id)
-                    .OrderByDescending(t => t.CreatedAt)
-                    .ToListAsync(ct);
+                    .Where(t => t.PartnerId == partner.Id);
 
-                model.MyJobs = myJobs.Select(GigTaskDto.From).ToList();
-                model.MyBids = await _bids.ForPartnerAsync(userId, ct);
-
+                if (!partner.IsVerified)
                 {
+                    jobs = jobs.Where(t => t.Status != GigTaskStatus.Completed
+                                        && t.Status != GigTaskStatus.Cancelled);
+                }
+
+                var myJobs = await jobs.OrderByDescending(t => t.CreatedAt).ToListAsync(ct);
+                model.MyJobs = myJobs.Select(GigTaskDto.From).ToList();
+
+                if (partner.IsVerified)
+                {
+                    model.MyBids = await _bids.ForPartnerAsync(userId, ct);
                     // Already-bid tasks move to "My bids", so drop them here to
                     // avoid the partner thinking they still need to act.
                     var alreadyBidTaskIds = model.MyBids

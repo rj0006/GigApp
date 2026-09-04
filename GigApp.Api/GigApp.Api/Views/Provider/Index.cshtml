@@ -54,6 +54,17 @@ else if (!profile.IsVerified)
             <a class="btn btn-primary mt-2" href="/provider/profile/kyc">Go to KYC</a>
         </div>
     </div>
+
+    @if (Model.HasOpenJobs)
+    {
+        <div class="alert alert-warning mt-3">
+            <strong>You still have work in hand.</strong>
+            Jobs you had already accepted are listed below so a customer is not left waiting.
+            Finish them as agreed. New work stays hidden until your KYC is approved again.
+        </div>
+
+        <partial name="_MyJobs" model="Model" />
+    }
 }
 else
 {
@@ -196,64 +207,5 @@ else
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-body">
-            <h2 class="h6 mb-1">My jobs</h2>
-            <p class="text-secondary small">Only tasks the customer has assigned to you.</p>
-
-            @if (Model.MyJobs.Count == 0)
-            {
-                <p class="text-center text-secondary py-4 mb-0">You have not accepted any tasks yet.</p>
-            }
-            else
-            {
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead>
-                            <tr><th>#</th><th>Category</th><th>Address</th><th>Agreed</th><th>Status</th><th>Customer</th><th class="text-end">Actions</th></tr>
-                        </thead>
-                        <tbody>
-                        @foreach (var job in Model.MyJobs)
-                        {
-                            <tr>
-                                <td class="text-secondary">@job.Id</td>
-                                <td><span class="badge text-bg-light border">@job.CategoryName</span></td>
-                                <td class="small text-secondary">@job.Address</td>
-                                <td class="fw-semibold">₹@job.EffectiveAmount.ToString("N0")</td>
-                                <td><span class="badge badge-@job.Status text-white">@job.StatusLabel</span></td>
-                                <td>@(job.CustomerName ?? "—")</td>
-                                <td>
-                                    <div class="row-actions justify-end">
-                                        @if (GigTaskStatus.CanTransition(job.Status, GigTaskStatus.InProgress))
-                                        {
-                                            <form method="post" asp-action="UpdateStatus" asp-route-id="@job.Id">
-                                                <input type="hidden" name="status" value="@GigTaskStatus.InProgress" />
-                                                <button type="submit" class="btn btn-sm btn-primary">Start</button>
-                                            </form>
-                                        }
-                                        @if (GigTaskStatus.CanTransition(job.Status, GigTaskStatus.Completed))
-                                        {
-                                            <form method="post" asp-action="UpdateStatus" asp-route-id="@job.Id">
-                                                <input type="hidden" name="status" value="@GigTaskStatus.Completed" />
-                                                <button type="submit" class="btn btn-sm btn-success">Complete</button>
-                                            </form>
-                                        }
-                                        @if (GigTaskStatus.CanTransition(job.Status, GigTaskStatus.Cancelled))
-                                        {
-                                            <form method="post" asp-action="UpdateStatus" asp-route-id="@job.Id"
-                                                  data-confirm="Cancel task #@job.Id?">
-                                                <input type="hidden" name="status" value="@GigTaskStatus.Cancelled" />
-                                                <button type="submit" class="btn btn-sm btn-outline-danger">Cancel</button>
-                                            </form>
-                                        }
-                                    </div>
-                                </td>
-                            </tr>
-                        }
-                        </tbody>
-                    </table>
-                </div>
-            }
-        </div>
-    </div>
+    <partial name="_MyJobs" model="Model" />
 }

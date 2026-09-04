@@ -105,13 +105,14 @@ Both the API and the Razor portals call it. A DB check constraint backs the allo
 the left menu and switches on `ProfilePageViewModel.Section`. Sections: Profile, Account details
 (bank), My addresses, KYC (partners only), Manage devices (disabled — no session table to revoke
 against yet) and Settings, which is where password change lives. Adding one means a
-`ProfileSections` constant, a row
-in the menu list, a partial, and a `GET` on `PortalControllerBase`. A portal supplies extra data by
+`ProfileSections` constant, a row in the menu list, a partial, and a `GET` on `PortalControllerBase`. A portal supplies extra data by
 overriding `LoadProfileExtrasAsync` — that is how the partner portal adds its KYC.
 
-**KYC lives in the profile, and an unapproved partner sees nothing else.** `/provider` renders only
-a greeting and the KYC status until `KycStatus == approved` — no available work, no bids, no jobs.
-The skill picker and document upload moved to `/provider/profile/kyc`.
+**KYC lives in the profile, and an unapproved partner sees almost nothing else.** `/provider` renders
+only a greeting and the KYC status until `KycStatus == approved` — no available work, no bids. The
+one exception is **My jobs**, which keeps showing work already accepted and not yet finished, so a
+skill change cannot strand a customer mid-booking. The skill picker and document upload moved to
+`/provider/profile/kyc`.
 
 **Partner KYC is a four-state column, not a boolean.** `Partner.KycStatus` holds
 `not_submitted → pending → approved | rejected`, backed by `CK_Partners_KycStatus`. The old
