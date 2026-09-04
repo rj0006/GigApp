@@ -1,7 +1,6 @@
 @model AdminServiceItemsViewModel
 @{
     Layout = "_AdminLayout";
-    // Do not name this `page` — Razor parses `@page` in markup as a directive.
     var list = Model.Items;
 }
 
@@ -103,8 +102,6 @@
                                        href="/admin/masters/services/@item.Id/edit">Edit</a>
 
                                     <form method="post" asp-action="ToggleService" asp-route-id="@item.Id">
-                                        @* String, not bool — Razor renders a bool attribute as
-                                           value="value", which fails to bind. *@
                                         <input type="hidden" name="isActive"
                                                value="@(item.IsActive ? "false" : "true")" />
                                         <button type="submit" class="btn btn-sm btn-outline-secondary">

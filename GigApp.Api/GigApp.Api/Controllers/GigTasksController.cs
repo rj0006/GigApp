@@ -46,7 +46,6 @@ namespace GigApp.Api.Controllers
             if (!TaskUrgency.IsValid(request.Urgency))
                 return BadRequest(new ProblemDetails { Title = "Choose a valid urgency.", Status = 400 });
 
-            // Must belong to the posted category — never trust the pairing.
             if (!await _serviceItems.IsSelectableAsync(request.ServiceItemId, request.CategoryId, ct))
                 return BadRequest(new ProblemDetails
                 {
@@ -239,8 +238,6 @@ namespace GigApp.Api.Controllers
 
             return Ok(GigTaskDto.From(await LoadDetailedAsync(id, ct)));
         }
-
-        // ------------------------------------------------------------ helpers
 
         /// <summary>
         /// Tasks with customer and partner names attached — the shape every

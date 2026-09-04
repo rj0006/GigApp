@@ -141,8 +141,6 @@ namespace GigApp.Api.Services.Addresses
             return AddressResult.Ok(AddressDto.From(address));
         }
 
-        // ----------------------------------------------------------- helpers
-
         private IQueryable<Address> Live(int userId) =>
             _context.Addresses.Where(a => a.UserId == userId && !a.IsDeleted);
 

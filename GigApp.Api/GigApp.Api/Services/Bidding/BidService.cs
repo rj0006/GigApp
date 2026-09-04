@@ -36,8 +36,6 @@ namespace GigApp.Api.Services.Bidding
             _logger = logger;
         }
 
-        // ------------------------------------------------------- partner side
-
         public async Task<BidResult> PlaceAsync(
             int partnerUserId, int taskId, PlaceBidRequest request, CancellationToken ct = default)
         {
@@ -117,8 +115,6 @@ namespace GigApp.Api.Services.Bidding
             return await AwardAsync(bid, bid.CounterAmount ?? bid.Amount, ct);
         }
 
-        // ------------------------------------------------------ customer side
-
         public async Task<BidResult> CounterAsync(
             int customerUserId, int bidId, CounterBidRequest request, CancellationToken ct = default)
         {
@@ -166,8 +162,6 @@ namespace GigApp.Api.Services.Bidding
             return BidResult.Ok(await ReloadAsync(bid.Id, ct));
         }
 
-        // ------------------------------------------------------------- reads
-
         public async Task<IReadOnlyList<BidDto>> ForTaskAsync(
             int customerUserId, int taskId, CancellationToken ct = default)
         {
@@ -200,8 +194,6 @@ namespace GigApp.Api.Services.Bidding
 
             return bids.Select(BidDto.From).ToList();
         }
-
-        // ----------------------------------------------------------- helpers
 
         /// <summary>
         /// Assigns the task to this bid's partner and closes every other bid.

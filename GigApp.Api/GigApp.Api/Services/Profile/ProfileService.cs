@@ -181,8 +181,6 @@ namespace GigApp.Api.Services.Profile
             return history.Take(take).ToList();
         }
 
-        // ------------------------------------------------------------ helpers
-
         private Task<User?> LoadAsync(int userId, bool track, CancellationToken ct)
         {
             var query = _context.Users

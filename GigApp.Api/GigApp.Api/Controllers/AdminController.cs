@@ -78,8 +78,6 @@ namespace GigApp.Api.Controllers
             await next();
         }
 
-        // ------------------------------------------------------------------ auth
-
         [HttpGet("login")]
         [AllowAnonymous]
         public IActionResult Login(string? returnUrl, bool denied = false)
@@ -121,8 +119,6 @@ namespace GigApp.Api.Controllers
             return Redirect(LoginPath);
         }
 
-        // ------------------------------------------------------------- dashboard
-
         [HttpGet("")]
         [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> Index(CancellationToken ct)
@@ -156,8 +152,6 @@ namespace GigApp.Api.Controllers
                 RecentTasks = recentTasks.Select(GigTaskDto.From).ToList(),
             });
         }
-
-        // ------------------------------------------------- masters: categories
 
         [HttpGet("masters/categories")]
         [Authorize(Policy = Policies.AdminOnly)]
@@ -378,8 +372,6 @@ namespace GigApp.Api.Controllers
 
             return Redirect(CategoriesPath);
         }
-
-        // ---------------------------------------------- masters: service items
 
         [HttpGet("masters/services")]
         [Authorize(Policy = Policies.AdminOnly)]
@@ -627,8 +619,6 @@ namespace GigApp.Api.Controllers
             return Redirect(ServicesPath);
         }
 
-        // ------------------------------------------------- masters: pricing
-
         [HttpGet("masters/pricing")]
         [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> Pricing(CancellationToken ct)
@@ -685,8 +675,6 @@ namespace GigApp.Api.Controllers
 
             return Redirect(PricingPath);
         }
-
-        // -------------------------------------------------------- approvals
 
         [HttpGet("approvals")]
         [Authorize(Policy = Policies.AdminOnly)]
@@ -763,7 +751,6 @@ namespace GigApp.Api.Controllers
             return Redirect(target);
         }
 
-        // ------------------------------------------- super admin: accounts
         // These are the operations that must not be delegated. A team member
         // with the plain admin role reaches everything above but not this.
 
@@ -838,8 +825,6 @@ namespace GigApp.Api.Controllers
         private string LocalOr(string? returnTo, string fallback) =>
             !string.IsNullOrEmpty(returnTo) && Url.IsLocalUrl(returnTo) ? returnTo : fallback;
 
-        // -------------------------------------------------- user management
-
         [HttpGet("users/partners")]
         [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> Partners(
@@ -887,8 +872,6 @@ namespace GigApp.Api.Controllers
         public Task<IActionResult> Admins([FromQuery] PageRequest paging, CancellationToken ct) =>
             UserListAsync(UserRoles.Admin, "Administrators", paging, ct, includeSuperAdmins: true);
 
-        // ------------------------------------------------------- operations
-
         [HttpGet("tasks")]
         [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> Tasks(
@@ -920,8 +903,6 @@ namespace GigApp.Api.Controllers
                 CategoryFilter = categoryId,
             });
         }
-
-        // ---------------------------------------------------------- helpers
 
         private IQueryable<Partner> PartnersWithDetail =>
             _context.Partners.AsNoTracking()

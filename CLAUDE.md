@@ -25,8 +25,13 @@ How the user wants help delivered on this project. These override default respon
 6. **No comments in code.** No `///` summary blocks, no `<param>` or `<see>` tags, no block
    comments, no section banners — in C#, JavaScript, Razor or SQL. Name things well enough that
    the code reads on its own. If a line genuinely cannot be understood without help, one plain
-   single-line comment is allowed, and that is the ceiling. The "why" belongs in this file and in
-   [docs/REUSABLE.md](docs/REUSABLE.md), not scattered through the source.
+   single-line comment is allowed, and that is the ceiling.
+   - **Never write the same comment twice.** If an explanation belongs in more than one file it is
+     not a comment, it is a rule — put it in this file or in [docs/REUSABLE.md](docs/REUSABLE.md)
+     once. Repeating it is the same duplication that rule 8 bans for code, and it rots faster,
+     because the copies drift as soon as one of them is edited.
+   - The "why" belongs in this file and in [docs/REUSABLE.md](docs/REUSABLE.md), not scattered
+     through the source.
 7. **Alerts use SweetAlert2, never the browser dialogs.** No `alert()`, `confirm()` or `prompt()`.
    Go through `App.confirmAction`, `App.notify` or `showToast` in `wwwroot/js/global.js`.
 8. **Repeated code → reusable helper.** If the same code appears in more than two places, extract it
@@ -175,6 +180,14 @@ Password for all: `Gigapp@123`. Sign in with mobile **or** email.
 when true and *omits the attribute* when false. Both fail to bind and silently default to `false` — which
 made an "Approve" button perform a revoke. Always render booleans as strings in markup:
 `value="@(x ? "false" : "true")"`. Guard the action with a `ModelState.IsValid` check too.
+
+**Never name a Razor view local `page`.** `@page.TotalCount` is parsed as the `@page` directive, not
+as a property access, and the view fails to compile with an unrelated-looking error. Every paged view
+names it `list` instead.
+
+**A file upload form needs `enctype="multipart/form-data"`.** Without it the browser posts only the
+file names, every `IFormFile` binds as null, and nothing reports an error — the upload silently does
+nothing. Applies to partner registration, KYC upload and the profile photo.
 
 **Npgsql rejects non-UTC `DateTime` on `timestamp with time zone`.** JSON without an offset deserializes
 as `Unspecified` and throws at save time. Run every client-supplied timestamp through

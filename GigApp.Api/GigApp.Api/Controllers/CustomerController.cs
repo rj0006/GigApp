@@ -207,7 +207,6 @@ namespace GigApp.Api.Controllers
                 return Redirect(DashboardPath);
             }
 
-            // Must belong to the posted category — never trust the pairing.
             if (!await _serviceItems.IsSelectableAsync(newTask.ServiceItemId, newTask.CategoryId, ct))
             {
                 TempData["Error"] = "Choose a service that belongs to the selected category.";
@@ -280,8 +279,6 @@ namespace GigApp.Api.Controllers
 
             return Redirect(DashboardPath);
         }
-
-        // ------------------------------------------------------------- bids
 
         [HttpPost("bids/{bidId:int}/accept")]
         [Authorize(Policy = Policies.CustomerOnly)]

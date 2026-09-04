@@ -67,7 +67,6 @@ namespace GigApp.Api.Controllers
         protected string LoginPath => $"/{PortalSlug}/login";
         protected string DashboardPath => $"/{PortalSlug}";
 
-        // ------------------------------------------------------------ profile
         // Declared once here so /admin/profile, /provider/profile and
         // /customer/profile all work from a single implementation — attribute
         // routes on a base action are picked up under each derived prefix.
@@ -146,7 +145,6 @@ namespace GigApp.Api.Controllers
             return Redirect(ProfilePath);
         }
 
-        // ---------------------------------------------------------- addresses
         // Declared here for the same reason as profile: one implementation,
         // reachable as /customer/addresses and /provider/addresses.
 

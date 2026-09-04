@@ -19,11 +19,9 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ---------------------------------------------------------------- persistence
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// ----------------------------------------------------------------------- auth
 var jwtSection = builder.Configuration.GetSection(JwtSettings.SectionName);
 builder.Services.Configure<JwtSettings>(jwtSection);
 
@@ -165,7 +163,6 @@ builder.Services.AddScoped<IMasterSource, SkillCategoryMasterSource>();
 builder.Services.AddScoped<IMasterSource, ServiceItemMasterSource>();
 builder.Services.AddScoped<IMasterRegistry, MasterRegistry>();
 
-// ----------------------------------------------------------------------- cors
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
 
@@ -192,17 +189,14 @@ builder.Services.AddCors(options =>
     });
 });
 
-// ------------------------------------------------------------------- tracking
 builder.Services.AddScoped<ITrackingLogService, TrackingLogService>();
 
-// ---------------------------------------------------------------- file uploads
 builder.Services.Configure<FileStorageOptions>(
     builder.Configuration.GetSection(FileStorageOptions.SectionName));
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IBidService, BidService>();
 
-// ------------------------------------------------------------------------ mvc
 builder.Services.AddControllersWithViews(options =>
 {
     // Global so every new write endpoint is audited without anyone
@@ -237,7 +231,6 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// ------------------------------------------------------------------- pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

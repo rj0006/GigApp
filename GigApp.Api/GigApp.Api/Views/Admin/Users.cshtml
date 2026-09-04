@@ -3,7 +3,6 @@
     Layout = "_AdminLayout";
     var isPartnerList = Model.Role == UserRoles.Partner;
     var isSuperAdmin = ViewData["IsSuperAdmin"] is true;
-    // Do not name this `page` — Razor parses `@page` in markup as a directive.
     var list = Model.Users;
 }
 

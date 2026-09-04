@@ -94,7 +94,6 @@
                         <button type="button" class="btn btn-sm btn-outline-secondary"
                                 data-bs-dismiss="modal">Cancel</button>
 
-                        @* String, not bool — Razor renders a bool attribute as value="value". *@
                         <button type="submit" name="isVerified" value="false"
                                 class="btn btn-sm btn-outline-danger">
                             @(Model.IsRejected ? "Reject again" : "Reject")

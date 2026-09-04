@@ -14,7 +14,6 @@
 
         <partial name="_ValidationSummary" />
 
-        @* enctype is required — without it only file names reach the server. *@
         <form method="post" asp-action="Register" enctype="multipart/form-data" class="gig-form row g-3">
             <div class="col-12">
                 <label asp-for="Name" class="form-label required"></label>

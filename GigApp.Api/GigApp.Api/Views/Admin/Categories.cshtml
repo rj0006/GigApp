@@ -1,7 +1,6 @@
 @model AdminCategoriesViewModel
 @{
     Layout = "_AdminLayout";
-    // Do not name this `page` — Razor parses `@page` in markup as a directive.
     var list = Model.Categories;
 }
 
@@ -83,8 +82,6 @@
                                        href="/admin/masters/categories/@category.Id/edit">Edit</a>
 
                                     <form method="post" asp-action="ToggleCategory" asp-route-id="@category.Id">
-                                        @* String, not bool — Razor renders a bool attribute as
-                                           value="value", which fails to bind. *@
                                         <input type="hidden" name="isActive"
                                                value="@(category.IsActive ? "false" : "true")" />
                                         <button type="submit" class="btn btn-sm btn-outline-secondary">

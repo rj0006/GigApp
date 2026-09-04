@@ -92,7 +92,6 @@
                       data-confirm="@(Model.IsActive ? $"Deactivate {Model.Name}?" : $"Reactivate {Model.Name}?")">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="returnTo" value="@returnTo" />
-                    @* String, not bool — Razor renders a bool attribute as value="value". *@
                     <input type="hidden" name="IsActive" value="@(Model.IsActive ? "false" : "true")" />
 
                     @if (Model.IsActive)

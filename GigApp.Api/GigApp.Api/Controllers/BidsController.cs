@@ -24,8 +24,6 @@ namespace GigApp.Api.Controllers
 
         public BidsController(IBidService bids) => _bids = bids;
 
-        // ------------------------------------------------------------ partner
-
         // POST: api/bids/task/5  -> place or update a bid
         [HttpPost("task/{taskId:int}")]
         [Authorize(Policy = Policies.PartnerOnly)]
@@ -52,8 +50,6 @@ namespace GigApp.Api.Controllers
         [TrackEntry(TrackingEntryType.Update)]
         public async Task<ActionResult<BidDto>> AcceptCounter(int bidId, CancellationToken ct) =>
             FromResult(await _bids.AcceptCounterAsync(User.GetRequiredUserId(), bidId, ct));
-
-        // ----------------------------------------------------------- customer
 
         // GET: api/bids/task/5  -> bids on the caller's own task
         [HttpGet("task/{taskId:int}")]

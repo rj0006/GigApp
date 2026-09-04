@@ -77,7 +77,6 @@ else
             <h2 class="h6 mb-3">Profile</h2>
 
             <form method="post" asp-action="ToggleAvailability" class="mb-3">
-                @* String, not bool — see Views/Admin/Categories.cshtml. *@
                 <input type="hidden" name="isAvailable" value="@(profile.IsAvailable ? "false" : "true")" />
                 <button type="submit" class="btn btn-sm btn-outline-secondary">
                     @(profile.IsAvailable ? "Go off duty" : "Go on duty")
@@ -108,7 +107,6 @@ else
             <h3 class="h6 mt-4">KYC documents</h3>
             <partial name="_KycReview" model="profile" />
 
-            @* enctype is required — without it only file names reach the server. *@
             <form method="post" asp-action="SubmitKyc" enctype="multipart/form-data"
                   class="gig-form row g-3 mt-1">
                 <div class="col-12">

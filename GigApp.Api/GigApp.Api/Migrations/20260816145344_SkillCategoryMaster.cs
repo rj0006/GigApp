@@ -21,7 +21,6 @@ namespace GigApp.Api.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // --------------------------------------------------- 1. master table
             migrationBuilder.CreateTable(
                 name: "SkillCategories",
                 columns: table => new
@@ -56,7 +55,6 @@ namespace GigApp.Api.Migrations
                 @"CREATE UNIQUE INDEX ""UX_SkillCategories_Name_Lower""
                   ON ""SkillCategories"" (LOWER(""Name""));");
 
-            // ------------------------------------- 2. seed from values in use
             migrationBuilder.Sql(@"
                 INSERT INTO ""SkillCategories"" (""Name"", ""IsActive"", ""DisplayOrder"", ""CreatedAt"")
                 SELECT DISTINCT ON (LOWER(name)) name, TRUE, 0, NOW()
@@ -81,7 +79,6 @@ namespace GigApp.Api.Migrations
                   AND (EXISTS (SELECT 1 FROM ""Partners"") OR EXISTS (SELECT 1 FROM ""GigTasks""));
             ");
 
-            // ----------------------------------------- 3. nullable FK columns
             migrationBuilder.AddColumn<int>(
                 name: "SkillCategoryId",
                 table: "Partners",
@@ -94,7 +91,6 @@ namespace GigApp.Api.Migrations
                 type: "integer",
                 nullable: true);
 
-            // ------------------------------------------------- 4. backfill
             migrationBuilder.Sql(@"
                 UPDATE ""Partners"" p
                    SET ""SkillCategoryId"" = c.""Id""
@@ -117,7 +113,6 @@ namespace GigApp.Api.Migrations
                  WHERE ""CategoryId"" IS NULL;
             ");
 
-            // ------------------------------------------------ 5. enforce NOT NULL
             migrationBuilder.AlterColumn<int>(
                 name: "SkillCategoryId",
                 table: "Partners",
@@ -136,11 +131,9 @@ namespace GigApp.Api.Migrations
                 oldType: "integer",
                 oldNullable: true);
 
-            // --------------------------------- 6. retire the free-text columns
             migrationBuilder.DropColumn(name: "SkillCategory", table: "Partners");
             migrationBuilder.DropColumn(name: "Category", table: "GigTasks");
 
-            // ------------------------------------------ 7. indexes and keys
             migrationBuilder.CreateIndex(
                 name: "IX_Partners_SkillCategoryId",
                 table: "Partners",
