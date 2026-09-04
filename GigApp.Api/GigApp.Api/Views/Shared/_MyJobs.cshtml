@@ -30,7 +30,7 @@
                                 <td class="text-secondary">@job.Id</td>
                                 <td>
                                     <span class="badge text-bg-light border">@job.CategoryName</span>
-                                    @if (job.CategoryId != profile.SkillCategoryId)
+                                    @if (job.CategoryId != profile.SkillCategoryId && GigTaskStatus.IsOpen(job.Status))
                                     {
                                         <div class="small text-warning-emphasis mt-1" style="max-width:14rem">
                                             Booked under @job.CategoryName, which is no longer your

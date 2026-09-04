@@ -93,7 +93,9 @@ namespace GigApp.Api.Dtos
         public int? PartnerSkillCategoryId { get; set; }
 
         public bool PartnerChangedSkill =>
-            PartnerSkillCategoryId is not null && PartnerSkillCategoryId != CategoryId;
+            PartnerSkillCategoryId is not null
+            && PartnerSkillCategoryId != CategoryId
+            && GigTaskStatus.IsOpen(Status);
 
         public string StatusLabel => Status.Replace('_', ' ');
 

@@ -65,9 +65,14 @@ system.
 partner's `SkillCategoryId` carries: "This partner has changed their skill to Electrical since
 accepting your task. They are still expected to finish it as agreed."
 
-It is derived, not stored — `GigTaskDto.PartnerChangedSkill` compares the two ids, so it disappears
-by itself if the partner changes back. Only customers who actually have that partner assigned see
-it; nobody else is told anything.
+**It only shows while the work is still open.** Once the task is completed or cancelled the note
+disappears — the skill no longer matters on a job nobody is going to do.
+
+It is derived, not stored — `GigTaskDto.PartnerChangedSkill` compares the two category ids and
+checks `GigTaskStatus.IsOpen`, so it also clears itself if the partner changes back. Only customers
+who actually have that partner assigned see it; nobody else is told anything.
+
+The partner side follows the same rule: `_MyJobs` flags a mismatched job only while it is open.
 
 ---
 
@@ -124,7 +129,7 @@ to. Completed and cancelled history stays hidden until they are approved again.
 A job whose `CategoryId` no longer matches the partner's `SkillCategoryId` carries a line saying so:
 "Booked under Painting, which is no longer your skill. Finish it as agreed — you cannot take new
 work in this category." It is informational only; Start, Complete and Cancel all still work on that
-job.
+job, and it disappears once the job is completed or cancelled.
 
 The API already refuses the same actions, so mobile can rely on `partner.isVerified` from
 `GET /api/partners/me` to decide which screen to show, and on `task.categoryId` against
