@@ -18,5 +18,14 @@ namespace GigApp.Api.Dtos
         public const string Password = @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{8,}$";
         public const string PasswordMessage =
             "Password must be at least 8 characters and include an uppercase letter, a lowercase letter, a digit and a symbol.";
+
+        public const string Ifsc = @"^[A-Z]{4}0[A-Z0-9]{6}$";
+        public const string IfscMessage = "IFSC must be 11 characters, for example HDFC0001234.";
+
+        public const string BankAccountNumber = @"^\d{9,18}$";
+        public const string BankAccountNumberMessage = "Account number must be 9 to 18 digits.";
+
+        public const string Upi = @"^[\w.\-]{2,}@[a-zA-Z]{2,}$";
+        public const string UpiMessage = "UPI ID looks like name@bank.";
     }
 }

@@ -1,0 +1,46 @@
+@model ProfilePageViewModel
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h6 mb-3">Change password</h2>
+
+        <partial name="_ValidationSummary" />
+
+        <form method="post" action="/@Model.PortalSlug/profile/password" class="gig-form row g-3">
+            @Html.AntiForgeryToken()
+
+            <div class="col-12">
+                <label for="CurrentPassword" class="form-label required">Current password</label>
+                <input id="CurrentPassword" name="CurrentPassword" type="password"
+                       class="form-control" required autocomplete="current-password" />
+            </div>
+
+            <div class="col-md-6">
+                <label for="NewPassword" class="form-label required">New password</label>
+                <input id="NewPassword" name="NewPassword" type="password"
+                       class="form-control" required autocomplete="new-password" />
+                <div class="form-text">@ValidationPatterns.PasswordMessage</div>
+            </div>
+
+            <div class="col-md-6">
+                <label for="ConfirmPassword" class="form-label required">Confirm new password</label>
+                <input id="ConfirmPassword" name="ConfirmPassword" type="password"
+                       class="form-control" required autocomplete="new-password" />
+            </div>
+
+            <div class="col-12">
+                <button type="submit" class="btn btn-outline-primary">Change password</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h2 class="h6 mb-1">Notifications</h2>
+        <p class="text-secondary small mb-0">
+            Reminder and alert preferences will appear here once notifications are sent by the
+            system. Nothing to set yet.
+        </p>
+    </div>
+</div>

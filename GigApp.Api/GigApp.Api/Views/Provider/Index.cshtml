@@ -13,42 +13,50 @@
         No partner profile is attached to this account. Please contact an administrator.
     </div>
 }
+else if (!profile.IsVerified)
+{
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <span class="badge @profile.KycBadgeClass mb-3" style="font-size:.9rem">@profile.KycLabel</span>
+
+            @if (profile.IsRejected)
+            {
+                <h2 class="h5">Your KYC was rejected</h2>
+                <p class="text-secondary mb-2">
+                    @profile.KycRejectionReason
+                </p>
+                <p class="text-secondary small">
+                    Fix the problem and upload the document again. That puts you straight back
+                    into the review queue — you do not need a new account.
+                </p>
+            }
+            else if (profile.HasCompleteKyc)
+            {
+                <h2 class="h5">Your documents are under review</h2>
+                <p class="text-secondary mb-2">
+                    An administrator is checking them. You will be able to see and bid on work
+                    as soon as they approve.
+                </p>
+                @if (!string.IsNullOrWhiteSpace(profile.KycReviewNote))
+                {
+                    <p class="text-secondary small">@profile.KycReviewNote</p>
+                }
+            }
+            else
+            {
+                <h2 class="h5">Your KYC is incomplete</h2>
+                <p class="text-secondary mb-2">
+                    Upload your selfie, both sides of your Aadhaar card and your Aadhaar number
+                    to start the review.
+                </p>
+            }
+
+            <a class="btn btn-primary mt-2" href="/provider/profile/kyc">Go to KYC</a>
+        </div>
+    </div>
+}
 else
 {
-    @if (profile.IsRejected)
-    {
-        @* The whole point of the status: the partner is told what went wrong. *@
-        <div class="alert alert-danger">
-            <strong>Your KYC was rejected.</strong>
-            @if (profile.KycReviewedAt is not null)
-            {
-                <span class="small">
-                    Reviewed on @profile.KycReviewedAt.Value.ToString("dd MMM yyyy").
-                </span>
-            }
-            <div class="mt-2">
-                <strong>Reason:</strong> @profile.KycRejectionReason
-            </div>
-            <div class="mt-2 small">
-                Fix the problem and upload the affected document again below. That puts you
-                straight back into the review queue — you do not need a new account.
-            </div>
-        </div>
-    }
-    else if (!profile.IsVerified)
-    {
-        <div class="alert alert-info">
-            <strong>Verification pending.</strong>
-            @(profile.HasCompleteKyc
-                ? "Your documents are with an administrator for review. You cannot accept work until they are approved."
-                : "Your KYC is incomplete. Upload the missing documents below to start the review.")
-            @if (!string.IsNullOrWhiteSpace(profile.KycReviewNote))
-            {
-                <div class="mt-2 small">@profile.KycReviewNote</div>
-            }
-        </div>
-    }
-
     <div class="row g-3 mb-3">
         <div class="col-md-4">
             <div class="card h-100"><div class="card-body py-3">
@@ -64,85 +72,18 @@ else
         </div>
         <div class="col-md-4">
             <div class="card h-100"><div class="card-body py-3">
-                <span class="badge @(profile.IsAvailable ? "text-bg-success" : "text-bg-secondary")">
-                    @(profile.IsAvailable ? "On duty" : "Off duty")
-                </span>
-                <div class="text-secondary text-uppercase mt-1" style="font-size:.68rem">Availability</div>
+                <form method="post" asp-action="ToggleAvailability" class="d-inline">
+                    <input type="hidden" name="isAvailable" value="@(profile.IsAvailable ? "false" : "true")" />
+                    <button type="submit" class="btn btn-sm p-0 border-0 bg-transparent">
+                        <span class="badge @(profile.IsAvailable ? "text-bg-success" : "text-bg-secondary")">
+                            @(profile.IsAvailable ? "On duty" : "Off duty")
+                        </span>
+                    </button>
+                </form>
+                <div class="text-secondary text-uppercase mt-1" style="font-size:.68rem">
+                    Availability — click to change
+                </div>
             </div></div>
-        </div>
-    </div>
-
-    <div class="card mb-4">
-        <div class="card-body">
-            <h2 class="h6 mb-3">Profile</h2>
-
-            <form method="post" asp-action="ToggleAvailability" class="mb-3">
-                <input type="hidden" name="isAvailable" value="@(profile.IsAvailable ? "false" : "true")" />
-                <button type="submit" class="btn btn-sm btn-outline-secondary">
-                    @(profile.IsAvailable ? "Go off duty" : "Go on duty")
-                </button>
-            </form>
-
-            <form method="post" asp-action="UpdateSkill" class="gig-form row g-3 mb-3"
-                  data-confirm-title="Change your skill?"
-                  data-confirm="@PartnerKyc.SkillChangeWarning"
-                  data-confirm-ok="Yes, change my skill"
-                  data-confirm-changed="skillCategoryId">
-                <div class="col-md-8">
-                    <label for="SkillPicker" class="form-label required">Skill category</label>
-                    <input id="SkillPicker" class="form-control"
-                           data-master="skill-category" data-target="skillCategoryId"
-                           data-alert="skill category" value="@profile.SkillCategoryName" />
-                    <input type="hidden" id="skillCategoryId" name="skillCategoryId"
-                           value="@profile.SkillCategoryId" />
-                    <div class="form-text text-warning-emphasis">
-                        Changing your skill sends your account back for KYC approval.
-                    </div>
-                </div>
-                <div class="col-12">
-                    <button type="submit" class="btn btn-sm btn-primary">Update skill</button>
-                </div>
-            </form>
-
-            <h3 class="h6 mt-4">KYC documents</h3>
-            <partial name="_KycReview" model="profile" />
-
-            <form method="post" asp-action="SubmitKyc" enctype="multipart/form-data"
-                  class="gig-form row g-3 mt-1">
-                <div class="col-12">
-                    <div class="form-text mb-0">
-                        Upload only what you want to replace. Any upload returns your account to
-                        pending review. JPG, PNG or WEBP, up to 5 MB each.
-                    </div>
-                </div>
-
-                <div class="col-md-4">
-                    <label for="Selfie" class="form-label">Replace selfie</label>
-                    <input id="Selfie" name="Selfie" type="file" class="form-control form-control-sm"
-                           accept=".jpg,.jpeg,.png,.webp" />
-                </div>
-                <div class="col-md-4">
-                    <label for="AadhaarFront" class="form-label">Replace Aadhaar front</label>
-                    <input id="AadhaarFront" name="AadhaarFront" type="file" class="form-control form-control-sm"
-                           accept=".jpg,.jpeg,.png,.webp" />
-                </div>
-                <div class="col-md-4">
-                    <label for="AadhaarBack" class="form-label">Replace Aadhaar back</label>
-                    <input id="AadhaarBack" name="AadhaarBack" type="file" class="form-control form-control-sm"
-                           accept=".jpg,.jpeg,.png,.webp" />
-                </div>
-
-                <div class="col-md-6">
-                    <label for="AadhaarNumber" class="form-label">Aadhaar number</label>
-                    <input id="AadhaarNumber" name="AadhaarNumber" class="form-control form-control-sm"
-                           inputmode="numeric" maxlength="12" value="@profile.AadhaarNumber"
-                           placeholder="12 digits" />
-                </div>
-
-                <div class="col-12">
-                    <button type="submit" class="btn btn-sm btn-primary">Submit for review</button>
-                </div>
-            </form>
         </div>
     </div>
 

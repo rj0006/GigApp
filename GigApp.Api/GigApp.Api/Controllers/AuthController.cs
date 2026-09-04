@@ -1,6 +1,7 @@
 using GigApp.Api.Data;
 using GigApp.Api.Dtos;
 using GigApp.Api.Services;
+using GigApp.Api.Services.Kyc;
 using GigApp.Api.Services.Tracking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -42,7 +43,7 @@ namespace GigApp.Api.Controllers
         // Multipart, not JSON — a partner uploads a selfie and both sides of
         // their Aadhaar card as part of signing up.
         [HttpPost("register/partner")]
-        [TrackForm("Partner")]
+        [TrackForm(KycHistoryService.FormType)]
         [AllowAnonymous]
         [Consumes("multipart/form-data")]
         [ProducesResponseType(StatusCodes.Status201Created)]
@@ -51,6 +52,10 @@ namespace GigApp.Api.Controllers
             [FromForm] RegisterPartnerRequest request, CancellationToken ct)
         {
             var result = await _auth.RegisterPartnerAsync(request, ct);
+
+            var profile = result.Response?.User.PartnerProfile;
+            if (profile is not null) HttpContext.TrackDoc(profile.Id, profile);
+
             return FromResult(result, created: true);
         }
 

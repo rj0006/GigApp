@@ -2,8 +2,10 @@ using GigApp.Api.Data;
 using GigApp.Api.Dtos;
 using GigApp.Api.Models;
 using GigApp.Api.Services;
+using GigApp.Api.Services.Banking;
 using GigApp.Api.Services.Bidding;
 using GigApp.Api.Services.Files;
+using GigApp.Api.Services.Kyc;
 using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Profile;
 using GigApp.Api.Services.Tracking;
@@ -21,6 +23,7 @@ namespace GigApp.Api.Controllers
         private readonly ICategoryLookup _categories;
         private readonly IFileStorageService _storage;
         private readonly IBidService _bids;
+        private readonly IKycHistoryService _kycHistory;
 
         public ProviderController(
             IAuthService authService,
@@ -29,17 +32,47 @@ namespace GigApp.Api.Controllers
             AppDbContext context,
             ICategoryLookup categories,
             IFileStorageService storage,
-            IBidService bids)
-            : base(authService, profileService, addressService)
+            IBidService bids,
+            IBankAccountService bankAccounts,
+            IKycHistoryService kycHistory)
+            : base(authService, profileService, addressService, bankAccounts)
         {
             _context = context;
             _categories = categories;
             _storage = storage;
             _bids = bids;
+            _kycHistory = kycHistory;
         }
 
         protected override string PortalSlug => "provider";
         protected override string RequiredRole => UserRoles.Partner;
+
+        private string KycPath => $"{ProfilePath}/{ProfileSections.Kyc}";
+
+        [HttpGet("profile/kyc")]
+        [Authorize(Policy = Policies.PartnerOnly)]
+        public Task<IActionResult> ProfileKyc(CancellationToken ct) =>
+            ProfileSectionAsync(ProfileSections.Kyc, ct);
+
+        protected override async Task<ProfileExtras> LoadProfileExtrasAsync(
+            string section, CancellationToken ct)
+        {
+            var partner = await _context.Partners
+                .AsNoTracking()
+                .Include(p => p.User)
+                .Include(p => p.SkillCategory)
+                .FirstOrDefaultAsync(p => p.UserId == User.GetRequiredUserId(), ct);
+
+            if (partner is null) return new ProfileExtras();
+
+            return new ProfileExtras
+            {
+                Partner = PartnerDto.From(partner),
+                KycHistory = section == ProfileSections.Kyc
+                    ? await _kycHistory.ForPartnerAsync(partner.Id, ct)
+                    : Array.Empty<KycHistoryEntryDto>(),
+            };
+        }
 
         [HttpGet("login")]
         [AllowAnonymous]
@@ -89,6 +122,7 @@ namespace GigApp.Api.Controllers
         [HttpPost("register")]
         [AllowAnonymous]
         [ValidateAntiForgeryToken]
+        [TrackForm(KycHistoryService.FormType)]
         public async Task<IActionResult> Register(RegisterPartnerViewModel model, CancellationToken ct)
         {
             ViewData["Title"] = "Join as a partner";
@@ -98,8 +132,10 @@ namespace GigApp.Api.Controllers
 
             if (!ModelState.IsValid) return View(model);
 
+            AuthResult? outcome = null;
+
             var failed = await SignInAsync(
-                () => AuthService.RegisterPartnerAsync(new RegisterPartnerRequest
+                async () => outcome = await AuthService.RegisterPartnerAsync(new RegisterPartnerRequest
                 {
                     Name = model.Name,
                     Phone = model.Phone,
@@ -114,6 +150,9 @@ namespace GigApp.Api.Controllers
                 nameof(Register), model);
 
             if (failed is not null) return failed;
+
+            var profile = outcome?.Response?.User.PartnerProfile;
+            if (profile is not null) TrackDoc(profile.Id, profile);
 
             TempData["Success"] = "Account created. An admin will review your KYC before you can accept work.";
             return Redirect(DashboardPath);
@@ -140,7 +179,7 @@ namespace GigApp.Api.Controllers
                 Categories = await _categories.GetOptionsIncludingAsync(partner?.SkillCategoryId, ct),
             };
 
-            if (partner is not null)
+            if (partner is not null && partner.IsVerified)
             {
                 // Only assigned work lands here — a bid on its own does not.
                 var myJobs = await _context.GigTasks
@@ -155,9 +194,6 @@ namespace GigApp.Api.Controllers
                 model.MyJobs = myJobs.Select(GigTaskDto.From).ToList();
                 model.MyBids = await _bids.ForPartnerAsync(userId, ct);
 
-                // Unverified partners see an empty board — the API enforces the
-                // same rule, this just avoids showing work they cannot take.
-                if (partner.IsVerified)
                 {
                     // Already-bid tasks move to "My bids", so drop them here to
                     // avoid the partner thinking they still need to act.
@@ -305,6 +341,8 @@ namespace GigApp.Api.Controllers
 
         [HttpPost("skill")]
         [Authorize(Policy = Policies.PartnerOnly)]
+        [TrackForm(KycHistoryService.FormType)]
+        [TrackEntry(TrackingEntryType.Update)]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateSkill(int skillCategoryId, CancellationToken ct)
         {
@@ -332,11 +370,13 @@ namespace GigApp.Api.Controllers
                     : "Skill category updated.";
             }
 
-            return Redirect(DashboardPath);
+            return Redirect(KycPath);
         }
 
         [HttpPost("kyc")]
         [Authorize(Policy = Policies.PartnerOnly)]
+        [TrackForm(KycHistoryService.FormType)]
+        [TrackEntry(TrackingEntryType.Update)]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SubmitKyc(
             [FromForm] UpdateKycRequest request, CancellationToken ct)
@@ -346,7 +386,7 @@ namespace GigApp.Api.Controllers
             if (partner is null)
             {
                 TempData["Error"] = "No partner profile is attached to this account.";
-                return Redirect(DashboardPath);
+                return Redirect(KycPath);
             }
 
             if (!ModelState.IsValid || !request.HasAnything)
@@ -355,7 +395,7 @@ namespace GigApp.Api.Controllers
                     ? "Choose at least one document to upload."
                     : string.Join(" ", ModelState.SelectMany(e => e.Value!.Errors).Select(e => e.ErrorMessage));
 
-                return Redirect(DashboardPath);
+                return Redirect(KycPath);
             }
 
             var replaced = new List<string>();
@@ -368,7 +408,7 @@ namespace GigApp.Api.Controllers
             if (error is not null)
             {
                 TempData["Error"] = error;
-                return Redirect(DashboardPath);
+                return Redirect(KycPath);
             }
 
             partner.SelfieFileName = selfie.FileName;
@@ -386,7 +426,7 @@ namespace GigApp.Api.Controllers
             TrackDoc(partner.Id, PartnerDto.From(partner));
             TempData["Success"] = "Documents uploaded. An admin will review them shortly.";
 
-            return Redirect(DashboardPath);
+            return Redirect(KycPath);
         }
 
         /// <summary>Stores a replacement if one was sent, otherwise keeps the current name.</summary>

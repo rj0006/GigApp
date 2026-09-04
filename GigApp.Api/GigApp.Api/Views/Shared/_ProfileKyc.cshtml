@@ -1,0 +1,132 @@
+@model ProfilePageViewModel
+@{
+    var partner = Model.Partner!;
+}
+
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+            <h2 class="h6 mb-0">KYC status</h2>
+            <span class="badge @partner.KycBadgeClass">@partner.KycLabel</span>
+        </div>
+
+        @if (partner.IsRejected)
+        {
+            <div class="alert alert-danger mb-0">
+                <strong>Your KYC was rejected.</strong>
+                @if (partner.KycReviewedAt is not null)
+                {
+                    <span class="small">Reviewed on @partner.KycReviewedAt.Value.ToString("dd MMM yyyy").</span>
+                }
+                <div class="mt-2"><strong>Reason:</strong> @partner.KycRejectionReason</div>
+                <div class="mt-2 small">
+                    Fix the problem and upload the affected document again below. That puts you
+                    straight back into the review queue — you do not need a new account.
+                </div>
+            </div>
+        }
+        else if (partner.IsVerified)
+        {
+            <div class="alert alert-success mb-0">
+                <strong>You are verified.</strong> You can bid on work in @partner.SkillCategoryName.
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info mb-0">
+                <strong>Verification pending.</strong>
+                @(partner.HasCompleteKyc
+                    ? "Your documents are with an administrator for review. You cannot accept work until they are approved."
+                    : "Your KYC is incomplete. Upload the missing documents below to start the review.")
+                @if (!string.IsNullOrWhiteSpace(partner.KycReviewNote))
+                {
+                    <div class="mt-2 small">@partner.KycReviewNote</div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h6 mb-3">Skill category</h2>
+
+        <form method="post" action="/provider/skill" class="gig-form row g-3"
+              data-confirm-title="Change your skill?"
+              data-confirm="@PartnerKyc.SkillChangeWarning"
+              data-confirm-ok="Yes, change my skill"
+              data-confirm-changed="skillCategoryId">
+            @Html.AntiForgeryToken()
+
+            <div class="col-md-8">
+                <label for="SkillPicker" class="form-label required">Skill category</label>
+                <input id="SkillPicker" class="form-control"
+                       data-master="skill-category" data-target="skillCategoryId"
+                       data-alert="skill category" value="@partner.SkillCategoryName" />
+                <input type="hidden" id="skillCategoryId" name="skillCategoryId"
+                       value="@partner.SkillCategoryId" />
+                <div class="form-text text-warning-emphasis">
+                    Changing your skill sends your account back for KYC approval.
+                </div>
+            </div>
+
+            <div class="col-12">
+                <button type="submit" class="btn btn-sm btn-primary">Update skill</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h6 mb-3">Documents</h2>
+
+        <partial name="_KycReview" model="partner" />
+
+        <form method="post" action="/provider/kyc" enctype="multipart/form-data"
+              class="gig-form row g-3 mt-1">
+            @Html.AntiForgeryToken()
+
+            <div class="col-12">
+                <div class="form-text mb-0">
+                    Upload only what you want to replace. Any upload returns your account to
+                    pending review. JPG, PNG or WEBP, up to 5 MB each.
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <label for="Selfie" class="form-label">Replace selfie</label>
+                <input id="Selfie" name="Selfie" type="file" class="form-control form-control-sm"
+                       accept=".jpg,.jpeg,.png,.webp" />
+            </div>
+            <div class="col-md-4">
+                <label for="AadhaarFront" class="form-label">Replace Aadhaar front</label>
+                <input id="AadhaarFront" name="AadhaarFront" type="file" class="form-control form-control-sm"
+                       accept=".jpg,.jpeg,.png,.webp" />
+            </div>
+            <div class="col-md-4">
+                <label for="AadhaarBack" class="form-label">Replace Aadhaar back</label>
+                <input id="AadhaarBack" name="AadhaarBack" type="file" class="form-control form-control-sm"
+                       accept=".jpg,.jpeg,.png,.webp" />
+            </div>
+
+            <div class="col-md-6">
+                <label for="AadhaarNumber" class="form-label">Aadhaar number</label>
+                <input id="AadhaarNumber" name="AadhaarNumber" class="form-control form-control-sm"
+                       inputmode="numeric" maxlength="12" value="@partner.AadhaarNumber"
+                       placeholder="12 digits" />
+            </div>
+
+            <div class="col-12">
+                <button type="submit" class="btn btn-sm btn-primary">Submit for review</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h2 class="h6 mb-1">KYC history</h2>
+        <partial name="_KycHistory" model="Model.KycHistory" />
+    </div>
+</div>

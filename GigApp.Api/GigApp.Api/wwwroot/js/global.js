@@ -284,29 +284,43 @@
 
             e.preventDefault();
 
-            confirmAction({
-                title: $form.data('confirm-title'),
-                text: $form.data('confirm'),
-                icon: $form.data('confirm-icon'),
-                confirmText: $form.data('confirm-ok')
-            }).then(function (ok) {
-                if (!ok) return;
-                $form.data('confirmed', true);
-
-                var submitter = $form.data('submitter');
-                $form.removeData('submitter');
-
-                if (submitter && submitter.name) {
-                    $('<input>').attr({ type: 'hidden', name: submitter.name, value: submitter.value })
-                        .appendTo($form);
-                }
-
-                form.submit();
-            });
+            askThenSubmit($form, $form, $form.data('submitter'));
         });
 
-        $(document).on('click', 'form[data-confirm] [type="submit"]', function () {
-            $(this).closest('form').data('submitter', { name: this.name, value: this.value });
+        $(document).on('click', 'form [type="submit"]', function (e) {
+            var $btn = $(this);
+            var $form = $btn.closest('form');
+            var submitter = { name: this.name, value: this.value };
+
+            $form.data('submitter', submitter);
+
+            // A confirm on the button itself wins over one on the form, so a
+            // single form can ask about one button and not the others.
+            if (!$btn.data('confirm')) return;
+
+            e.preventDefault();
+            askThenSubmit($form, $btn, submitter);
+        });
+    }
+
+    function askThenSubmit($form, $source, submitter) {
+        confirmAction({
+            title: $source.data('confirm-title'),
+            text: $source.data('confirm'),
+            icon: $source.data('confirm-icon'),
+            confirmText: $source.data('confirm-ok')
+        }).then(function (ok) {
+            if (!ok) return;
+
+            $form.data('confirmed', true);
+            $form.removeData('submitter');
+
+            if (submitter && submitter.name) {
+                $('<input>').attr({ type: 'hidden', name: submitter.name, value: submitter.value })
+                    .appendTo($form);
+            }
+
+            $form[0].submit();
         });
     }
 

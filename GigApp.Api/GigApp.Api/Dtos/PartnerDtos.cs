@@ -78,6 +78,19 @@ namespace GigApp.Api.Dtos
         };
     }
 
+    public class KycHistoryEntryDto
+    {
+        public DateTime At { get; set; }
+        public string Action { get; set; } = string.Empty;
+        public string? Detail { get; set; }
+        public string? By { get; set; }
+        public string? Remark { get; set; }
+        public string Status { get; set; } = Models.KycStatus.NotSubmitted;
+
+        public string StatusLabel => Models.KycStatus.Label(Status);
+        public string BadgeClass => Models.KycStatus.BadgeClass(Status);
+    }
+
     public class UpdateAvailabilityRequest
     {
         [Required]

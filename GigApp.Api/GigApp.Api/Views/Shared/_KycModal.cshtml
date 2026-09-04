@@ -1,92 +1,120 @@
-@model PartnerDto
+@model KycModalViewModel
 @{
-    // Where the browser returns after Approve/Reject.
+    var partner = Model.Partner;
     var returnTo = Context.Request.Path + Context.Request.QueryString;
-    var modalId = $"kyc-modal-{Model.Id}";
+    var modalId = $"kyc-modal-{partner.Id}";
+
+    var approveConfirm = partner.IsRejected
+        ? $"You rejected this partner earlier for: \"{partner.KycRejectionReason}\". Do you want to approve the KYC now?"
+        : null;
 }
 <div class="modal fade" id="@modalId" tabindex="-1" aria-labelledby="@(modalId)-title" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="@(modalId)-title">
-                    @Model.Name
-                    <span class="badge @Model.KycBadgeClass ms-1">@Model.KycLabel</span>
+                    @partner.Name
+                    <span class="badge @partner.KycBadgeClass ms-1">@partner.KycLabel</span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
             <div class="modal-body">
-                <dl class="row mb-3 small">
-                    <dt class="col-sm-4">Partner ID</dt>
-                    <dd class="col-sm-8">@Model.Id</dd>
+                <ul class="nav nav-tabs mb-3" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" data-bs-toggle="tab" type="button" role="tab"
+                                data-bs-target="#@(modalId)-review">
+                            Review
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="tab" type="button" role="tab"
+                                data-bs-target="#@(modalId)-history">
+                            History
+                            <span class="badge text-bg-secondary ms-1">@Model.History.Count</span>
+                        </button>
+                    </li>
+                </ul>
 
-                    <dt class="col-sm-4">Mobile</dt>
-                    <dd class="col-sm-8 mono">@Model.Phone</dd>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="@(modalId)-review" role="tabpanel">
+                        <dl class="row mb-3 small">
+                            <dt class="col-sm-4">Partner ID</dt>
+                            <dd class="col-sm-8">@partner.Id</dd>
 
-                    <dt class="col-sm-4">Email</dt>
-                    <dd class="col-sm-8">@(Model.Email ?? "—")</dd>
+                            <dt class="col-sm-4">Mobile</dt>
+                            <dd class="col-sm-8 mono">@partner.Phone</dd>
 
-                    <dt class="col-sm-4">Phone verified</dt>
-                    <dd class="col-sm-8">@(Model.IsPhoneVerified ? "Yes" : "No")</dd>
+                            <dt class="col-sm-4">Email</dt>
+                            <dd class="col-sm-8">@(partner.Email ?? "—")</dd>
 
-                    <dt class="col-sm-4">Skill category</dt>
-                    <dd class="col-sm-8">@Model.SkillCategoryName</dd>
+                            <dt class="col-sm-4">Phone verified</dt>
+                            <dd class="col-sm-8">@(partner.IsPhoneVerified ? "Yes" : "No")</dd>
 
-                    <dt class="col-sm-4">Availability</dt>
-                    <dd class="col-sm-8">@(Model.IsAvailable ? "On duty" : "Off duty")</dd>
+                            <dt class="col-sm-4">Skill category</dt>
+                            <dd class="col-sm-8">@partner.SkillCategoryName</dd>
 
-                    <dt class="col-sm-4">Registered</dt>
-                    <dd class="col-sm-8">@Model.CreatedAt.ToString("dd MMM yyyy, HH:mm") UTC</dd>
-                </dl>
+                            <dt class="col-sm-4">Availability</dt>
+                            <dd class="col-sm-8">@(partner.IsAvailable ? "On duty" : "Off duty")</dd>
 
-                @if (!string.IsNullOrWhiteSpace(Model.KycReviewNote))
-                {
-                    <div class="alert alert-primary small">
-                        <strong>Why this is in the queue:</strong> @Model.KycReviewNote
-                    </div>
-                }
+                            <dt class="col-sm-4">Registered</dt>
+                            <dd class="col-sm-8">@partner.CreatedAt.ToString("dd MMM yyyy, HH:mm") UTC</dd>
+                        </dl>
 
-                <h6 class="small fw-semibold">KYC documents</h6>
-                <p class="text-secondary small">
-                    Check that the selfie matches the photo on the Aadhaar card, and that the
-                    number below matches the card. Click any image to open it full size.
-                </p>
-
-                <partial name="_KycReview" model="Model" />
-
-                @if (Model.IsRejected)
-                {
-                    <div class="alert alert-danger small mt-3 mb-0">
-                        <strong>You rejected this partner</strong>
-                        @if (Model.KycReviewedAt is not null)
+                        @if (!string.IsNullOrWhiteSpace(partner.KycReviewNote))
                         {
-                            <text> on @Model.KycReviewedAt.Value.ToString("dd MMM yyyy, HH:mm") UTC</text>
-                        }.
-                        <div>Reason given: @Model.KycRejectionReason</div>
-                        <div class="mt-1">
-                            They can fix it and resubmit, which brings them back into this queue.
-                        </div>
-                    </div>
-                }
+                            <div class="alert alert-primary small">
+                                <strong>Why this is in the queue:</strong> @partner.KycReviewNote
+                            </div>
+                        }
 
-                @if (!Model.HasCompleteKyc)
-                {
-                    <div class="alert alert-warning small mt-3 mb-0">
-                        Documents are incomplete, so this partner cannot be approved yet.
+                        <h6 class="small fw-semibold">KYC documents</h6>
+                        <p class="text-secondary small">
+                            Check that the selfie matches the photo on the Aadhaar card, and that the
+                            number below matches the card. Click any image to open it full size.
+                        </p>
+
+                        <partial name="_KycReview" model="partner" />
+
+                        @if (partner.IsRejected)
+                        {
+                            <div class="alert alert-danger small mt-3 mb-0">
+                                <strong>You rejected this partner</strong>
+                                @if (partner.KycReviewedAt is not null)
+                                {
+                                    <text> on @partner.KycReviewedAt.Value.ToString("dd MMM yyyy, HH:mm") UTC</text>
+                                }.
+                                <div>Reason given: @partner.KycRejectionReason</div>
+                                <div class="mt-1">
+                                    They can fix it and resubmit, which brings them back into this queue.
+                                </div>
+                            </div>
+                        }
+
+                        @if (!partner.HasCompleteKyc)
+                        {
+                            <div class="alert alert-warning small mt-3 mb-0">
+                                Documents are incomplete, so this partner cannot be approved yet.
+                            </div>
+                        }
                     </div>
-                }
+
+                    <div class="tab-pane fade" id="@(modalId)-history" role="tabpanel">
+                        <partial name="_KycHistory" model="Model.History" />
+                    </div>
+                </div>
             </div>
 
             <div class="modal-footer flex-wrap gap-2">
-                <form method="post" action="/admin/approvals/@Model.Id/verify" class="w-100">
+                <form method="post" action="/admin/approvals/@partner.Id/verify" class="w-100">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="returnTo" value="@returnTo" />
 
                     <div class="mb-2">
-                        <label for="reason-@Model.Id" class="form-label small mb-1">
+                        <label for="reason-@partner.Id" class="form-label small mb-1">
                             Reason <span class="text-secondary">(required to reject)</span>
                         </label>
-                        <input id="reason-@Model.Id" name="reason" class="form-control form-control-sm"
+                        <input id="reason-@partner.Id" name="reason" class="form-control form-control-sm"
                                maxlength="1000" placeholder="e.g. Selfie does not match the Aadhaar photo" />
                     </div>
 
@@ -96,11 +124,16 @@
 
                         <button type="submit" name="isVerified" value="false"
                                 class="btn btn-sm btn-outline-danger">
-                            @(Model.IsRejected ? "Reject again" : "Reject")
+                            @(partner.IsRejected ? "Reject again" : "Reject")
                         </button>
 
                         <button type="submit" name="isVerified" value="true"
-                                class="btn btn-sm btn-success" @(Model.HasCompleteKyc ? "" : "disabled")>
+                                class="btn btn-sm btn-success"
+                                data-confirm="@approveConfirm"
+                                data-confirm-title="Approve a rejected partner?"
+                                data-confirm-icon="question"
+                                data-confirm-ok="Yes, approve"
+                                @(partner.HasCompleteKyc ? "" : "disabled")>
                             Approve
                         </button>
                     </div>

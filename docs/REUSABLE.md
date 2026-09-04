@@ -223,10 +223,13 @@ Forms carrying a file need `enctype="multipart/form-data"`; API actions need
 | `_Pagination` | `PagerModel` | Bootstrap pager plus a "Showing X–Y of Z" line. |
 | `_LoginCard` | `LoginViewModel` | Shared sign-in card for all three portals. Heading, subtitle and footer come from `ViewData`. |
 | `_PartnerTable` | `AdminPartnersViewModel` | Partner list with an eye button per row and a pager. Fill `Accounts` to add a super-admin "Manage" column. |
-| `_KycModal` | `PartnerDto` | Admin review modal — all KYC images, Aadhaar number, Approve/Reject. |
+| `_KycModal` | `KycModalViewModel` | Admin review modal — Review and History tabs, Approve/Reject. |
 | `_KycReview` | `PartnerDto` | Just the three KYC images plus the Aadhaar number. |
 | `_PartnerInfoModal` | `PartnerPublicDto` | Customer-facing partner card. **Never pass a PartnerDto here.** |
 | `_UserAccountModal` | `UserDto` | Super-admin password reset and activate/deactivate. Render it only when `ViewData["IsSuperAdmin"] is true`. |
+| `_KycHistory` | `IReadOnlyList<KycHistoryEntryDto>` | Read-only KYC timeline, newest first. |
+| `_ProfileBody` | `ProfilePageViewModel` | Profile shell: left menu plus the section named by `Model.Section`. |
+| `_ProfileDetails` / `_ProfileBank` / `_ProfileKyc` / `_ProfileSettings` | `ProfilePageViewModel` | The four profile sections. Add a new one by adding to `ProfileSections`, the menu list in `_ProfileBody`, and a `GET` on `PortalControllerBase`. |
 
 ### Which partner DTO to use
 
@@ -238,6 +241,33 @@ Forms carrying a file need `enctype="multipart/form-data"`; API actions need
 `GET /api/partners/{id}/public` returns the public one and refuses unless the
 caller is an admin, that partner, or a customer who shares a task with them —
 otherwise anyone signed in could walk the ids and harvest phone numbers.
+
+### KYC history — `Services/Kyc/KycHistoryService.cs`
+
+There is **no separate KYC history table**. The history is a read over `TrackingLogs`, filtered to
+`FormType = "Partner"` with the partner id as `DocNo`.
+
+```csharp
+await _kycHistory.ForPartnerAsync(partnerId, ct)            // one partner
+await _kycHistory.ForPartnersAsync(partnerIds, ct)          // a whole page, one query
+```
+
+Each row becomes a `KycHistoryEntryDto` with `Action`, `Detail`, `By`, `Remark` and the `Status` the
+event produced, so the caller renders it without parsing anything.
+
+A new action only appears in the history if it is tagged `[TrackForm(KycHistoryService.FormType)]`
+and its `DocNo` resolves to the **partner** id — a route `{id}`, a returned `PartnerDto`, or an
+explicit `TrackDoc(partner.Id, …)`.
+
+### Bank account — `Services/Banking/BankAccountService.cs`
+
+One account per user, `BankAccounts.UserId` unique. `GetAsync` returns a `BankAccountDto` whose
+account number is already masked; the full number never leaves the service.
+
+```csharp
+await BankAccounts.GetAsync(userId, ct)
+await BankAccounts.SaveAsync(userId, request, ct)           // inserts or updates, whichever applies
+```
 
 ### KYC transitions — `Models/PartnerKyc.cs`
 

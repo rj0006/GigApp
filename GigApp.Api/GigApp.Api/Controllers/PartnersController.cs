@@ -3,6 +3,7 @@ using GigApp.Api.Dtos;
 using GigApp.Api.Models;
 using GigApp.Api.Services;
 using GigApp.Api.Services.Files;
+using GigApp.Api.Services.Kyc;
 using GigApp.Api.Services.Tracking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -125,6 +126,7 @@ namespace GigApp.Api.Controllers
         // PUT: api/partners/me  -> Partner edits their own skill category
         [HttpPut("me")]
         [Authorize(Policy = Policies.PartnerOnly)]
+        [TrackForm(KycHistoryService.FormType)]
         public async Task<ActionResult<PartnerDto>> UpdateMyProfile(
             UpdatePartnerProfileRequest request, CancellationToken ct)
         {
@@ -166,7 +168,7 @@ namespace GigApp.Api.Controllers
         // POST: api/partners/me/kyc  -> Partner uploads a document for review
         [HttpPost("me/kyc")]
         [TrackEntry(TrackingEntryType.Update)]
-        [TrackForm("Partner")]
+        [TrackForm(KycHistoryService.FormType)]
         [Authorize(Policy = Policies.PartnerOnly)]
         [Consumes("multipart/form-data")]
         public async Task<ActionResult<PartnerDto>> SubmitKyc(
@@ -213,6 +215,7 @@ namespace GigApp.Api.Controllers
         // PUT: api/partners/5/verify  -> Admin approves or revokes verification
         [HttpPut("{id:int}/verify")]
         [Authorize(Policy = Policies.AdminOnly)]
+        [TrackForm(KycHistoryService.FormType)]
         public async Task<ActionResult<PartnerDto>> SetVerification(
             int id, VerifyPartnerRequest request, CancellationToken ct)
         {

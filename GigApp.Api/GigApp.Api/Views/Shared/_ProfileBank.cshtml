@@ -1,0 +1,100 @@
+@model ProfilePageViewModel
+@{
+    var saved = Model.BankAccount;
+}
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h6 mb-1">Bank account</h2>
+        <p class="text-secondary small">
+            @(Model.User.Role == UserRoles.Partner
+                ? "Your earnings are paid into this account. Keep it accurate — a wrong IFSC delays a payout by several days."
+                : "Used for refunds when a booking is cancelled after payment.")
+        </p>
+
+        @if (saved is not null)
+        {
+            <div class="alert alert-light border small">
+                <div class="row g-2">
+                    <div class="col-md-6"><span class="text-secondary">Account holder</span><br />@saved.AccountHolderName</div>
+                    <div class="col-md-6"><span class="text-secondary">Account number</span><br /><span class="mono">@saved.MaskedAccountNumber</span></div>
+                    <div class="col-md-6"><span class="text-secondary">IFSC</span><br /><span class="mono">@saved.IfscCode</span></div>
+                    <div class="col-md-6"><span class="text-secondary">Bank</span><br />@saved.BankName @(saved.BranchName is null ? "" : $"({saved.BranchName})")</div>
+                    @if (!string.IsNullOrWhiteSpace(saved.UpiId))
+                    {
+                        <div class="col-md-6"><span class="text-secondary">UPI ID</span><br />@saved.UpiId</div>
+                    }
+                    <div class="col-md-6">
+                        <span class="text-secondary">Last updated</span><br />
+                        @((saved.UpdatedAt ?? saved.CreatedAt).ToString("dd MMM yyyy, HH:mm")) UTC
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-warning small">
+                No bank account is on file yet.
+            </div>
+        }
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h2 class="h6 mb-3">@(saved is null ? "Add bank account" : "Update bank account")</h2>
+
+        <partial name="_ValidationSummary" />
+
+        <form method="post" action="/@Model.PortalSlug/profile/bank" class="gig-form row g-3"
+              data-confirm-title="@(saved is null ? "Save bank account?" : "Change bank account?")"
+              data-confirm="Money is paid into this account. Check the account number and IFSC once more before saving."
+              data-confirm-icon="question"
+              data-confirm-ok="Yes, save it">
+            @Html.AntiForgeryToken()
+
+            <div class="col-md-6">
+                <label asp-for="BankForm.AccountHolderName" class="form-label required"></label>
+                <input asp-for="BankForm.AccountHolderName" class="form-control"
+                       placeholder="Exactly as printed in the passbook" />
+                <div class="form-text">Must match the name on the bank record, not a nickname.</div>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="BankForm.AccountNumber" class="form-label required"></label>
+                <input asp-for="BankForm.AccountNumber" class="form-control mono"
+                       inputmode="numeric" maxlength="18" autocomplete="off" />
+                <div class="form-text">@ValidationPatterns.BankAccountNumberMessage</div>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="BankForm.IfscCode" class="form-label required"></label>
+                <input asp-for="BankForm.IfscCode" class="form-control mono text-uppercase"
+                       maxlength="11" placeholder="HDFC0001234" />
+                <div class="form-text">@ValidationPatterns.IfscMessage</div>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="BankForm.BankName" class="form-label required"></label>
+                <input asp-for="BankForm.BankName" class="form-control" placeholder="State Bank of India" />
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="BankForm.BranchName" class="form-label"></label>
+                <input asp-for="BankForm.BranchName" class="form-control" placeholder="Hisar Main" />
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="BankForm.UpiId" class="form-label"></label>
+                <input asp-for="BankForm.UpiId" class="form-control" placeholder="name@bank" />
+                <div class="form-text">Optional. Small payouts can be sent here instead.</div>
+            </div>
+
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">
+                    @(saved is null ? "Save bank account" : "Update bank account")
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

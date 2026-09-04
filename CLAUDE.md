@@ -28,13 +28,17 @@ How the user wants help delivered on this project. These override default respon
    single-line comment is allowed, and that is the ceiling.
    - **Never write the same comment twice.** If an explanation belongs in more than one file it is
      not a comment, it is a rule — put it in this file or in [docs/REUSABLE.md](docs/REUSABLE.md)
-     once. Repeating it is the same duplication that rule 8 bans for code, and it rots faster,
+     once. Repeating it is the same duplication that rule 9 bans for code, and it rots faster,
      because the copies drift as soon as one of them is edited.
    - The "why" belongs in this file and in [docs/REUSABLE.md](docs/REUSABLE.md), not scattered
      through the source.
 7. **Alerts use SweetAlert2, never the browser dialogs.** No `alert()`, `confirm()` or `prompt()`.
    Go through `App.confirmAction`, `App.notify` or `showToast` in `wwwroot/js/global.js`.
-8. **Repeated code → reusable helper.** If the same code appears in more than two places, extract it
+8. **Record every business rule in [docs/IMPLEMENTATION-LOG.md](docs/IMPLEMENTATION-LOG.md).**
+   Whenever a specific behaviour is asked for — a validation, a state change, who may see what —
+   write it there before moving on. The Flutter apps have to reproduce the same rules, so this file
+   is the contract between the portals and mobile. Newest entry first.
+9. **Repeated code → reusable helper.** If the same code appears in more than two places, extract it
    into a reusable function, partial or utility instead of copy-pasting. Record every new helper in
    [docs/REUSABLE.md](docs/REUSABLE.md) with its signature and a usage snippet, so next time it can be
    called directly without reading the implementation again.
@@ -96,6 +100,17 @@ role strings case-insensitively as a workaround — fix the data.
 **Task lifecycle is a state machine.** `GigTaskStatus.CanTransition` is the single authority:
 `pending → accepted → in_progress → completed`, with `cancelled` reachable from any non-terminal state.
 Both the API and the Razor portals call it. A DB check constraint backs the allowed values.
+
+**Profile is a section shell, not one page.** `/{portal}/profile` renders `_ProfileBody`, which draws
+the left menu and switches on `ProfilePageViewModel.Section`. Sections: Profile, Account details
+(bank), KYC (partners only), Manage devices (disabled — no session table to revoke against yet) and
+Settings, which is where password change lives. Adding one means a `ProfileSections` constant, a row
+in the menu list, a partial, and a `GET` on `PortalControllerBase`. A portal supplies extra data by
+overriding `LoadProfileExtrasAsync` — that is how the partner portal adds its KYC.
+
+**KYC lives in the profile, and an unapproved partner sees nothing else.** `/provider` renders only
+a greeting and the KYC status until `KycStatus == approved` — no available work, no bids, no jobs.
+The skill picker and document upload moved to `/provider/profile/kyc`.
 
 **Partner KYC is a four-state column, not a boolean.** `Partner.KycStatus` holds
 `not_submitted → pending → approved | rejected`, backed by `CK_Partners_KycStatus`. The old

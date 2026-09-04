@@ -15,6 +15,7 @@ namespace GigApp.Api.Data
         public DbSet<TaskBid> TaskBids => Set<TaskBid>();
         public DbSet<ServiceItem> ServiceItems => Set<ServiceItem>();
         public DbSet<Address> Addresses => Set<Address>();
+        public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -37,6 +38,20 @@ namespace GigApp.Api.Data
                 e.ToTable(t => t.HasCheckConstraint(
                     "CK_Users_Role",
                     "\"Role\" IN ('customer','partner','admin','superadmin')"));
+            });
+
+            modelBuilder.Entity<BankAccount>(e =>
+            {
+                e.Property(a => a.AccountHolderName).HasMaxLength(100).IsRequired();
+                e.Property(a => a.AccountNumber).HasMaxLength(18).IsRequired();
+                e.Property(a => a.IfscCode).HasMaxLength(11).IsRequired();
+                e.Property(a => a.BankName).HasMaxLength(100).IsRequired();
+                e.Property(a => a.BranchName).HasMaxLength(100);
+                e.Property(a => a.UpiId).HasMaxLength(100);
+                e.Ignore(a => a.MaskedAccountNumber);
+                e.HasIndex(a => a.UserId).IsUnique();
+                e.HasOne(a => a.User).WithOne().HasForeignKey<BankAccount>(a => a.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<Address>(e =>

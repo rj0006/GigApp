@@ -2,8 +2,10 @@ using GigApp.Api.Data;
 using GigApp.Api.Dtos;
 using GigApp.Api.Models;
 using GigApp.Api.Services;
+using GigApp.Api.Services.Kyc;
 using GigApp.Api.Services.Pricing;
 using GigApp.Api.Services.Addresses;
+using GigApp.Api.Services.Banking;
 using GigApp.Api.Services.Profile;
 using GigApp.Api.Services.Tracking;
 using GigApp.Api.Services.UserAdmin;
@@ -31,6 +33,7 @@ namespace GigApp.Api.Controllers
         private readonly ICategoryLookup _categories;
         private readonly IPriceInsightService _priceInsights;
         private readonly IUserAdminService _userAdmin;
+        private readonly IKycHistoryService _kycHistory;
 
         public AdminController(
             IAuthService authService,
@@ -39,13 +42,16 @@ namespace GigApp.Api.Controllers
             AppDbContext context,
             ICategoryLookup categories,
             IPriceInsightService priceInsights,
-            IUserAdminService userAdmin)
-            : base(authService, profileService, addressService)
+            IUserAdminService userAdmin,
+            IKycHistoryService kycHistory,
+            IBankAccountService bankAccounts)
+            : base(authService, profileService, addressService, bankAccounts)
         {
             _context = context;
             _categories = categories;
             _priceInsights = priceInsights;
             _userAdmin = userAdmin;
+            _kycHistory = kycHistory;
         }
 
         protected override string PortalSlug => "admin";
@@ -697,11 +703,14 @@ namespace GigApp.Api.Controllers
                 Partners = page.Map(PartnerDto.From),
                 Categories = await _categories.GetActiveOptionsAsync(ct),
                 VerifiedFilter = false,
+                KycHistory = await _kycHistory.ForPartnersAsync(
+                    page.Items.Select(p => p.Id).ToList(), ct),
             });
         }
 
         [HttpPost("approvals/{id:int}/verify")]
         [Authorize(Policy = Policies.AdminOnly)]
+        [TrackForm(KycHistoryService.FormType)]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SetVerification(
             int id, bool isVerified, string? reason, string? returnTo, CancellationToken ct)
@@ -859,6 +868,8 @@ namespace GigApp.Api.Controllers
                 Accounts = page.Items
                     .Where(p => p.User is not null)
                     .ToDictionary(p => p.Id, p => UserDto.From(p.User!)),
+                KycHistory = await _kycHistory.ForPartnersAsync(
+                    page.Items.Select(p => p.Id).ToList(), ct),
             });
         }
 

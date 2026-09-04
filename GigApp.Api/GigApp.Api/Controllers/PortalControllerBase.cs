@@ -2,6 +2,7 @@ using GigApp.Api.Dtos;
 using GigApp.Api.Models;
 using GigApp.Api.Services;
 using GigApp.Api.Services.Addresses;
+using GigApp.Api.Services.Banking;
 using GigApp.Api.Services.Profile;
 using GigApp.Api.Services.Tracking;
 using GigApp.Api.ViewModels;
@@ -22,15 +23,18 @@ namespace GigApp.Api.Controllers
         protected readonly IAuthService AuthService;
         protected readonly IProfileService ProfileService;
         protected readonly IAddressService AddressService;
+        protected readonly IBankAccountService BankAccounts;
 
         protected PortalControllerBase(
             IAuthService authService,
             IProfileService profileService,
-            IAddressService addressService)
+            IAddressService addressService,
+            IBankAccountService bankAccounts)
         {
             AuthService = authService;
             ProfileService = profileService;
             AddressService = addressService;
+            BankAccounts = bankAccounts;
         }
 
         protected string ProfilePath => $"/{PortalSlug}/profile";
@@ -75,7 +79,51 @@ namespace GigApp.Api.Controllers
 
         [HttpGet("profile")]
         [Authorize]
-        public async Task<IActionResult> Profile(CancellationToken ct)
+        public Task<IActionResult> Profile(CancellationToken ct) =>
+            ProfileSectionAsync(ProfileSections.Details, ct);
+
+        [HttpGet("profile/bank")]
+        [Authorize]
+        public Task<IActionResult> ProfileBank(CancellationToken ct) =>
+            ProfileSectionAsync(ProfileSections.Bank, ct);
+
+        [HttpGet("profile/settings")]
+        [Authorize]
+        public Task<IActionResult> ProfileSettings(CancellationToken ct) =>
+            ProfileSectionAsync(ProfileSections.Settings, ct);
+
+        [HttpPost("profile/bank")]
+        [Authorize]
+        [ValidateAntiForgeryToken]
+        [TrackForm("BankAccount")]
+        public async Task<IActionResult> SaveBankAccount(
+            SaveBankAccountRequest bankForm, CancellationToken ct)
+        {
+            var bankPath = $"{ProfilePath}/{ProfileSections.Bank}";
+
+            if (!ModelState.IsValid)
+            {
+                TempData["Error"] = FirstError() ?? "Could not save the bank account.";
+                return Redirect(bankPath);
+            }
+
+            var result = await BankAccounts.SaveAsync(User.GetRequiredUserId(), bankForm, ct);
+
+            if (!result.Succeeded)
+            {
+                TempData["Error"] = result.Error;
+                return Redirect(bankPath);
+            }
+
+            TrackDoc(result.Account!.Id, result.Account);
+            TempData["Success"] = "Bank account saved.";
+            return Redirect(bankPath);
+        }
+
+        protected virtual Task<ProfileExtras> LoadProfileExtrasAsync(
+            string section, CancellationToken ct) => Task.FromResult(new ProfileExtras());
+
+        protected async Task<IActionResult> ProfileSectionAsync(string section, CancellationToken ct)
         {
             ViewData["Title"] = "My profile";
 
@@ -84,16 +132,36 @@ namespace GigApp.Api.Controllers
 
             if (user is null) return Redirect(LoginPath);
 
+            var extras = await LoadProfileExtrasAsync(section, ct);
+            var bank = await BankAccounts.GetAsync(userId, ct);
+
             return View("Profile", new ProfilePageViewModel
             {
                 User = user,
+                Section = section,
+                PortalSlug = PortalSlug,
                 Form = new UpdateProfileRequest
                 {
                     Name = user.Name,
                     Phone = user.Phone,
                     Email = user.Email,
                 },
-                History = await ProfileService.GetHistoryAsync(userId, 20, ct),
+                History = section == ProfileSections.Details
+                    ? await ProfileService.GetHistoryAsync(userId, 20, ct)
+                    : Array.Empty<ProfileChangeDto>(),
+                BankAccount = bank,
+                BankForm = bank is null
+                    ? new SaveBankAccountRequest { AccountHolderName = user.Name }
+                    : new SaveBankAccountRequest
+                    {
+                        AccountHolderName = bank.AccountHolderName,
+                        IfscCode = bank.IfscCode,
+                        BankName = bank.BankName,
+                        BranchName = bank.BranchName,
+                        UpiId = bank.UpiId,
+                    },
+                Partner = extras.Partner,
+                KycHistory = extras.KycHistory,
             });
         }
 
@@ -286,11 +354,8 @@ namespace GigApp.Api.Controllers
         /// so unlike the API there is no returned DTO for the filter to read —
         /// call this after a successful save.
         /// </summary>
-        protected void TrackDoc(object? docNo, object? result = null)
-        {
-            HttpContext.Items[TrackingKeys.DocNo] = docNo;
-            HttpContext.Items[TrackingKeys.Result] = result;
-        }
+        protected void TrackDoc(object? docNo, object? result = null) =>
+            HttpContext.TrackDoc(docNo, result);
 
         /// <summary>
         /// Only follow a return URL that stays on this site, and never one that

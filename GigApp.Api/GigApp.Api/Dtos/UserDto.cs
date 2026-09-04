@@ -54,6 +54,8 @@ namespace GigApp.Api.Dtos
 
         /// <summary>Empty unless the SkillCategory navigation was Included.</summary>
         public string SkillCategoryName { get; set; } = string.Empty;
+        public string KycStatus { get; set; } = Models.KycStatus.NotSubmitted;
+        public string? KycReviewNote { get; set; }
         public bool IsVerified { get; set; }
         public bool IsAvailable { get; set; }
 
@@ -69,6 +71,8 @@ namespace GigApp.Api.Dtos
             Id = partner.Id,
             SkillCategoryId = partner.SkillCategoryId,
             SkillCategoryName = partner.SkillCategory?.Name ?? string.Empty,
+            KycStatus = partner.KycStatus,
+            KycReviewNote = partner.KycReviewNote,
             IsVerified = partner.IsVerified,
             IsAvailable = partner.IsAvailable,
             HasCompleteKyc = partner.HasCompleteKyc,

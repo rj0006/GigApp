@@ -148,6 +148,16 @@ namespace GigApp.Api.ViewModels
         /// </summary>
         public IReadOnlyDictionary<int, UserDto> Accounts { get; set; } =
             new Dictionary<int, UserDto>();
+
+        public IReadOnlyDictionary<int, IReadOnlyList<KycHistoryEntryDto>> KycHistory { get; set; } =
+            new Dictionary<int, IReadOnlyList<KycHistoryEntryDto>>();
+    }
+
+    public class KycModalViewModel
+    {
+        public PartnerDto Partner { get; set; } = new();
+        public IReadOnlyList<KycHistoryEntryDto> History { get; set; } =
+            Array.Empty<KycHistoryEntryDto>();
     }
 
     public class AdminUsersViewModel

@@ -2,6 +2,11 @@
 @{
     Layout = "_AdminLayout";
     var list = Model.Partners;
+
+    IReadOnlyList<KycHistoryEntryDto> History(int partnerId) =>
+        Model.KycHistory.TryGetValue(partnerId, out var entries)
+            ? entries
+            : Array.Empty<KycHistoryEntryDto>();
 }
 
 <h1 class="h4">Partner approvals</h1>
@@ -87,5 +92,5 @@
 @* One modal per row on this page — the page is paged, so the count stays small. *@
 @foreach (var partner in list.Items)
 {
-    <partial name="_KycModal" model="partner" />
+    <partial name="_KycModal" model="@(new KycModalViewModel { Partner = partner, History = History(partner.Id) })" />
 }

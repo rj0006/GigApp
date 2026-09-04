@@ -5,6 +5,11 @@
     // Only the user-management list fills Accounts, and only a super admin may
     // act on them. The endpoints check the policy again — this is convenience.
     var showAccounts = Model.Accounts.Count > 0 && ViewData["IsSuperAdmin"] is true;
+
+    IReadOnlyList<KycHistoryEntryDto> History(int partnerId) =>
+        Model.KycHistory.TryGetValue(partnerId, out var entries)
+            ? entries
+            : Array.Empty<KycHistoryEntryDto>();
 }
 
 @if (list.TotalCount == 0)
@@ -77,7 +82,7 @@ else
 
     @foreach (var partner in list.Items)
     {
-        <partial name="_KycModal" model="partner" />
+        <partial name="_KycModal" model="@(new KycModalViewModel { Partner = partner, History = History(partner.Id) })" />
     }
 
     @if (showAccounts)

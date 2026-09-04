@@ -5,8 +5,10 @@ using GigApp.Api.Data;
 using GigApp.Api.Models;
 using GigApp.Api.Services;
 using GigApp.Api.Services.Addresses;
+using GigApp.Api.Services.Banking;
 using GigApp.Api.Services.Bidding;
 using GigApp.Api.Services.Files;
+using GigApp.Api.Services.Kyc;
 using GigApp.Api.Services.Masters;
 using GigApp.Api.Services.Pricing;
 using GigApp.Api.Services.Profile;
@@ -156,6 +158,8 @@ builder.Services.AddScoped<IServiceItemLookup, ServiceItemLookup>();
 builder.Services.AddScoped<IPriceInsightService, PriceInsightService>();
 builder.Services.AddScoped<IAddressService, AddressService>();
 builder.Services.AddScoped<IUserAdminService, UserAdminService>();
+builder.Services.AddScoped<IKycHistoryService, KycHistoryService>();
+builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 
 // Masters: add a new one by implementing IMasterSource and registering it here.
 // The /api/masters/{key} endpoint and global.js pick it up automatically.

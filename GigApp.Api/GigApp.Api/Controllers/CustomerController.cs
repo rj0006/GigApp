@@ -4,6 +4,7 @@ using GigApp.Api.Models;
 using GigApp.Api.Services;
 using GigApp.Api.Services.Bidding;
 using GigApp.Api.Services.Addresses;
+using GigApp.Api.Services.Banking;
 using GigApp.Api.Services.Profile;
 using GigApp.Api.Services.Tracking;
 using GigApp.Api.ViewModels;
@@ -28,8 +29,9 @@ namespace GigApp.Api.Controllers
             AppDbContext context,
             ICategoryLookup categories,
             IServiceItemLookup serviceItems,
-            IBidService bids)
-            : base(authService, profileService, addressService)
+            IBidService bids,
+            IBankAccountService bankAccounts)
+            : base(authService, profileService, addressService, bankAccounts)
         {
             _context = context;
             _categories = categories;
