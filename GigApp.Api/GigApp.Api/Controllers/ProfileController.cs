@@ -1,6 +1,7 @@
 using GigApp.Api.Dtos;
 using GigApp.Api.Models;
 using GigApp.Api.Services;
+using GigApp.Api.Services.Banking;
 using GigApp.Api.Services.Profile;
 using GigApp.Api.Services.Tracking;
 using Microsoft.AspNetCore.Authorization;
@@ -20,8 +21,35 @@ namespace GigApp.Api.Controllers
     public class ProfileController : ControllerBase
     {
         private readonly IProfileService _profile;
+        private readonly IBankAccountService _bankAccounts;
 
-        public ProfileController(IProfileService profile) => _profile = profile;
+        public ProfileController(IProfileService profile, IBankAccountService bankAccounts)
+        {
+            _profile = profile;
+            _bankAccounts = bankAccounts;
+        }
+
+        // GET: api/profile/bank
+        [HttpGet("bank")]
+        [TrackForm("BankAccount")]
+        public async Task<ActionResult<BankAccountDto>> GetBankAccount(CancellationToken ct)
+        {
+            var account = await _bankAccounts.GetAsync(User.GetRequiredUserId(), ct);
+            return account is null ? NoContent() : Ok(account);
+        }
+
+        // PUT: api/profile/bank
+        [HttpPut("bank")]
+        [TrackForm("BankAccount")]
+        public async Task<ActionResult<BankAccountDto>> SaveBankAccount(
+            SaveBankAccountRequest request, CancellationToken ct)
+        {
+            var result = await _bankAccounts.SaveAsync(User.GetRequiredUserId(), request, ct);
+
+            return result.Succeeded
+                ? Ok(result.Account)
+                : BadRequest(new ProblemDetails { Title = result.Error, Status = 400 });
+        }
 
         // GET: api/profile
         [HttpGet]

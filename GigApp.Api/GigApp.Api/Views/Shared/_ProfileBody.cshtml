@@ -6,6 +6,7 @@
     {
         (ProfileSections.Details, "Profile", "&#128100;", true, null),
         (ProfileSections.Bank, "Account details", "&#127974;", true, null),
+        (ProfileSections.Addresses, "My addresses", "&#128205;", true, null),
     };
 
     if (Model.ShowKyc)
@@ -80,6 +81,10 @@
         {
             case ProfileSections.Bank:
                 <partial name="_ProfileBank" model="Model" />
+                break;
+
+            case ProfileSections.Addresses:
+                <partial name="_ProfileAddresses" model="Model" />
                 break;
 
             case ProfileSections.Kyc:

@@ -6,6 +6,7 @@ namespace GigApp.Api.ViewModels
     {
         public const string Details = "details";
         public const string Bank = "bank";
+        public const string Addresses = "addresses";
         public const string Kyc = "kyc";
         public const string Devices = "devices";
         public const string Settings = "settings";
@@ -28,6 +29,8 @@ namespace GigApp.Api.ViewModels
         public SaveBankAccountRequest BankForm { get; set; } = new();
 
         public PartnerDto? Partner { get; set; }
+
+        public AddressBookViewModel Addresses { get; set; } = new();
 
         public IReadOnlyList<KycHistoryEntryDto> KycHistory { get; set; } =
             Array.Empty<KycHistoryEntryDto>();

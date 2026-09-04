@@ -1,0 +1,6 @@
+@model ProfilePageViewModel
+@{
+    ViewData["PortalSlug"] = Model.PortalSlug;
+}
+
+<partial name="_AddressBook" model="Model.Addresses" />

@@ -20,11 +20,14 @@ left-side menu, and add a bank account section.
 |---|---|---|
 | Profile | `/{portal}/profile` | everyone |
 | Account details | `/{portal}/profile/bank` | everyone |
+| My addresses | `/{portal}/profile/addresses` | everyone |
 | KYC | `/provider/profile/kyc` | partners only |
 | Manage devices | — | **not built yet**, see Scope below |
 | Settings | `/{portal}/profile/settings` | everyone |
 
 - Password change moved from the profile form into **Settings**.
+- The address book moved from its own page into the **My addresses** section. `/{portal}/addresses`
+  still answers, but redirects there, so old links keep working. The POST routes did not move.
 - **Bank account**: one per user, stored in `BankAccounts` with a unique `UserId`. Fields are
   account holder name, account number, IFSC, bank name, branch and an optional UPI id. IFSC is
   validated as `^[A-Z]{4}0[A-Z0-9]{6}$`; the account number is stored as typed and shown masked

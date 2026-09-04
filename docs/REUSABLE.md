@@ -229,7 +229,7 @@ Forms carrying a file need `enctype="multipart/form-data"`; API actions need
 | `_UserAccountModal` | `UserDto` | Super-admin password reset and activate/deactivate. Render it only when `ViewData["IsSuperAdmin"] is true`. |
 | `_KycHistory` | `IReadOnlyList<KycHistoryEntryDto>` | Read-only KYC timeline, newest first. |
 | `_ProfileBody` | `ProfilePageViewModel` | Profile shell: left menu plus the section named by `Model.Section`. |
-| `_ProfileDetails` / `_ProfileBank` / `_ProfileKyc` / `_ProfileSettings` | `ProfilePageViewModel` | The four profile sections. Add a new one by adding to `ProfileSections`, the menu list in `_ProfileBody`, and a `GET` on `PortalControllerBase`. |
+| `_ProfileDetails` / `_ProfileBank` / `_ProfileAddresses` / `_ProfileKyc` / `_ProfileSettings` | `ProfilePageViewModel` | The profile sections. Add a new one by adding to `ProfileSections`, the menu list in `_ProfileBody`, and a `GET` on `PortalControllerBase`. |
 
 ### Which partner DTO to use
 

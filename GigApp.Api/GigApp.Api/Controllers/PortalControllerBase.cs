@@ -38,7 +38,7 @@ namespace GigApp.Api.Controllers
         }
 
         protected string ProfilePath => $"/{PortalSlug}/profile";
-        protected string AddressesPath => $"/{PortalSlug}/addresses";
+        protected string AddressesPath => $"{ProfilePath}/{ProfileSections.Addresses}";
 
         /// <summary>
         /// Every portal view needs its own home link, so the navbar brand points
@@ -86,6 +86,11 @@ namespace GigApp.Api.Controllers
         [Authorize]
         public Task<IActionResult> ProfileBank(CancellationToken ct) =>
             ProfileSectionAsync(ProfileSections.Bank, ct);
+
+        [HttpGet("profile/addresses")]
+        [Authorize]
+        public Task<IActionResult> ProfileAddresses(CancellationToken ct) =>
+            ProfileSectionAsync(ProfileSections.Addresses, ct);
 
         [HttpGet("profile/settings")]
         [Authorize]
@@ -162,6 +167,12 @@ namespace GigApp.Api.Controllers
                     },
                 Partner = extras.Partner,
                 KycHistory = extras.KycHistory,
+                Addresses = section == ProfileSections.Addresses
+                    ? new AddressBookViewModel
+                      {
+                          Addresses = await AddressService.ListAsync(userId, ct),
+                      }
+                    : new AddressBookViewModel(),
             });
         }
 
@@ -218,15 +229,7 @@ namespace GigApp.Api.Controllers
 
         [HttpGet("addresses")]
         [Authorize]
-        public async Task<IActionResult> Addresses(CancellationToken ct)
-        {
-            ViewData["Title"] = "My addresses";
-
-            return View("Addresses", new AddressBookViewModel
-            {
-                Addresses = await AddressService.ListAsync(User.GetRequiredUserId(), ct),
-            });
-        }
+        public IActionResult Addresses() => Redirect(AddressesPath);
 
         [HttpPost("addresses")]
         [Authorize]

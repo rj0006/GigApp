@@ -103,8 +103,9 @@ Both the API and the Razor portals call it. A DB check constraint backs the allo
 
 **Profile is a section shell, not one page.** `/{portal}/profile` renders `_ProfileBody`, which draws
 the left menu and switches on `ProfilePageViewModel.Section`. Sections: Profile, Account details
-(bank), KYC (partners only), Manage devices (disabled — no session table to revoke against yet) and
-Settings, which is where password change lives. Adding one means a `ProfileSections` constant, a row
+(bank), My addresses, KYC (partners only), Manage devices (disabled — no session table to revoke
+against yet) and Settings, which is where password change lives. Adding one means a
+`ProfileSections` constant, a row
 in the menu list, a partial, and a `GET` on `PortalControllerBase`. A portal supplies extra data by
 overriding `LoadProfileExtrasAsync` — that is how the partner portal adds its KYC.
 
