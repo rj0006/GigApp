@@ -99,6 +99,95 @@ the partner.
 
 ---
 
+## Infrastructure — the six pieces that are not written yet
+
+Everything above is application code. These are the outside services and libraries the
+application needs before it can run for real customers. Nothing here is optional at launch
+except where marked.
+
+Ordered by **lead time first, then dependency** — two of these need paperwork from somebody
+else, so they start before the code that uses them.
+
+### 1. SMS and OTP — start this week, it is the longest pole
+
+| | |
+|---|---|
+| **What** | MSG91 or Twilio, plus **DLT registration with an Indian telecom operator** |
+| **Why now** | DLT approval of the entity, the sender id and every template takes **one to two weeks**, and it is paperwork, not code. Nothing can be coded around it |
+| **Blocks** | Phone verification, partner assignment alerts, booking reminders — nearly every notification |
+| **Ready for it** | `User.IsPhoneVerified` and `PhoneVerifiedAt` exist and are enforced nowhere. A challenge table and the provider client are what is missing |
+
+Register the templates for OTP, task assigned, task completed and payout sent at the same
+time. Each one is approved separately, so submitting them together saves a second wait.
+
+### 2. Payments and partner payouts — Razorpay
+
+| | |
+|---|---|
+| **What** | Razorpay Checkout for customers, Razorpay Route or Payouts for paying partners |
+| **Why Razorpay** | UPI, cards and netbanking in one integration, and payouts straight to a bank account. In India the alternative is stitching a PSP to a separate payout rail |
+| **Lead time** | KYC of the business entity. Days, not weeks, but it is not instant |
+| **Ready for it** | `BankAccounts` holds account number, IFSC and UPI id per user |
+| **Depends on** | The ledger described under **Wallet is a money system** below. Do not connect a payment gateway to a balance column |
+
+Webhooks are the part people get wrong: every payment event has to be **idempotent**, because
+Razorpay retries. One `PaymentEvent` table keyed on the provider's event id, checked before
+anything is applied.
+
+### 3. Background jobs — Hangfire
+
+| | |
+|---|---|
+| **What** | Hangfire, backed by the same Postgres database |
+| **Why** | Payout scheduling, reminder sends, auto-cancelling stale tasks and retrying failed webhooks all need to happen **outside a web request**. Right now the application has nowhere to put them |
+| **Free win** | Hangfire's dashboard shows failed jobs and retries them, which is the whole reason not to hand-roll a timer |
+
+This one has no external dependency, so it can be built the moment it is needed. It is listed
+third because payments and SMS are what create the jobs.
+
+### 4. Push notifications — Firebase Cloud Messaging
+
+| | |
+|---|---|
+| **What** | FCM for both Flutter apps, plus a `DeviceToken` table and a `Notification` table |
+| **Why** | A partner who is not told about a new task in their category will not bid on it. This is the difference between a marketplace and a listings site |
+| **Depends on** | The Flutter apps existing, so it lands with the mobile phase |
+| **Note** | The **notification preferences** screen has no meaning until this exists — see the section below |
+
+### 5. Geo matching — PostGIS
+
+| | |
+|---|---|
+| **What** | Enable the PostGIS extension, store a `geography(Point)` alongside the existing lat/lon |
+| **Why** | "Nearest partner" is the assignment algorithm. Computing distance in C# over every partner does not survive a few thousand rows |
+| **Ready for it** | Addresses and `Partner.BaseLatitude` / `BaseLongitude` / `ServiceRadiusKm` already exist |
+| **Cost of waiting** | Low. `earthdistance` works for a first version; PostGIS is the upgrade when radius searches get slow |
+
+This is the one item that can be deferred safely. Phase A's distance query can ship without it.
+
+### 6. File storage — object storage instead of local disk
+
+| | |
+|---|---|
+| **What** | Cloudflare R2 or Amazon S3 behind the existing `IFileStorageService` |
+| **Why** | KYC documents currently sit on one server's disk. That disk is a single point of failure holding Aadhaar images, and it cannot be shared once there is more than one application server |
+| **Effort** | Small — `IFileStorageService` already hides the storage detail, so this is one new implementation and a config switch |
+| **Urgency** | Before the second server, or before the first real partner uploads a real Aadhaar card. Whichever comes first |
+
+---
+
+### Suggested order
+
+1. **Start DLT registration now** — it runs in the background while everything else is built
+2. Ratings (Phase B) — needed as an input to assignment
+3. The **money ledger**, then Razorpay on top of it
+4. Hangfire, once there are scheduled payouts to run
+5. Object storage, before real KYC documents arrive
+6. FCM and the notification screens, with the Flutter phase
+7. PostGIS, when radius search gets slow
+
+---
+
 ## Two things to settle before building them
 
 ### Wallet is a money system, not a balance column
