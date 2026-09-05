@@ -147,6 +147,29 @@ but is now a computed `KycStatus == approved` and is `Ignore`d by EF — never m
 this a promotion to `superadmin` (or a demotion) would do nothing until the token expired — which
 is exactly what made the super-admin screens invisible after the seeder promoted the founder.
 
+**PostgreSQL, not SQL Server — and the schema now depends on it.** The stack is Microsoft
+everywhere else, so this was a deliberate choice, not an accident.
+
+- **Licensing.** SQL Server Express caps a database at **10 GB**. `TrackingLogs` takes a row with a
+  jsonb payload on every write, so it is the fastest-growing table in the system and would reach
+  that cap first. Standard licensing costs several lakh rupees up front. Postgres costs nothing at
+  any size.
+- **PostGIS.** Matching a task to the nearest partner is the core algorithm, and this is where
+  Postgres is genuinely ahead rather than merely cheaper.
+- **jsonb.** `TrackingLogs.Payload` is a real jsonb column and can be indexed and queried inside.
+  SQL Server stores JSON as `nvarchar`.
+- **Functional indexes.** `UX_SkillCategories_Name_Lower` indexes `LOWER(Name)` directly. SQL Server
+  needs a persisted computed column first.
+
+**A migration back to SQL Server would break the schema, not just the provider.** Postgres allows
+any number of NULLs in a unique index, which is what lets `(Email, Role)` coexist with phone-only
+accounts. SQL Server treats NULLs as equal and permits only one, so every nullable unique index
+here would have to become a filtered index.
+
+What is given up: SSMS is better than any Postgres client, and Npgsql is a step behind the EF Core
+SQL Server provider — the UTC `DateTime` rule under **Gotchas** is an example of that. Neither is
+worth the licence.
+
 **One category master, referenced by FK.** `SkillCategory` is admin-managed; both `Partner.SkillCategoryId`
 and `GigTask.CategoryId` point at it. They deliberately share one taxonomy — matching a task to a partner
 is impossible if "Plumbing" and "Plumber" can both exist. Free-text category columns were migrated away
