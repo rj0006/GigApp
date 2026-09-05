@@ -119,13 +119,14 @@ new row. `PartnerWallets.Balance` is a cache of the ledger, written in the same 
 | Entry type | Direction | Raised when |
 |---|---|---|
 | `job_earning` | credit | The task moves to `completed`, for the agreed amount |
-| `platform_commission` | debit | Same moment, at **15%** of the agreed amount |
+| `platform_commission` | debit | Same moment, at the rate of the partner's plan |
+| `tax` | debit | Same moment, one line per tax rule in force |
+| `subscription_fee` | debit | When a plan with a fee is assigned |
 | `payout` | debit | An administrator records a bank transfer that has already gone out |
 | `adjustment` | credit or debit | Super admin only, and a reason is required |
 
-- **Gross and commission are separate lines.** The partner always sees the full amount the customer
-  agreed, and changing the rate later does not rewrite history. `PlatformFees.CommissionPercent`
-  holds the rate; it becomes a master when tiered commission is needed.
+- **Gross, commission and each tax are separate lines.** The partner always sees the full amount the
+  customer agreed. The rate comes from the commission plan — see the plans and tax entry above.
 - **Every entry carries an `IdempotencyKey` with a unique index.** A job earning is keyed
   `job_earning:{taskId}`, so completing the same task twice cannot pay twice. A payout is keyed on
   the bank reference, so a retry with the same UTR is refused. This is what makes the ledger safe to
