@@ -166,6 +166,9 @@ builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 builder.Services.AddScoped<IMenuService, MenuService>();
 builder.Services.AddScoped<IErrorLogService, ErrorLogService>();
 builder.Services.AddScoped<IEarningsService, EarningsService>();
+builder.Services.AddScoped<IPlanService, PlanService>();
+builder.Services.AddScoped<ITaxService, TaxService>();
+builder.Services.Configure<PlatformOptions>(builder.Configuration.GetSection(PlatformOptions.SectionName));
 builder.Services.AddHttpContextAccessor();
 
 // Masters: add a new one by implementing IMasterSource and registering it here.

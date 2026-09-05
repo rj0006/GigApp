@@ -1,7 +1,9 @@
 using GigApp.Api.Data;
 using GigApp.Api.Dtos;
 using GigApp.Api.Models;
+using GigApp.Api.Configuration;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace GigApp.Api.Services.Earnings
 {
@@ -12,6 +14,9 @@ namespace GigApp.Api.Services.Earnings
         Task<LedgerResult> PostPayoutAsync(
             int partnerId, RecordPayoutRequest request, int byUserId, string? byName,
             CancellationToken ct = default);
+
+        Task<LedgerResult> PostSubscriptionFeeAsync(
+            int partnerId, int planId, int byUserId, string? byName, CancellationToken ct = default);
 
         Task<LedgerResult> PostAdjustmentAsync(
             int partnerId, RecordAdjustmentRequest request, int byUserId, string? byName,
@@ -28,11 +33,22 @@ namespace GigApp.Api.Services.Earnings
     public class EarningsService : IEarningsService
     {
         private readonly AppDbContext _context;
+        private readonly IPlanService _plans;
+        private readonly ITaxService _taxes;
+        private readonly PlatformOptions _options;
         private readonly ILogger<EarningsService> _logger;
 
-        public EarningsService(AppDbContext context, ILogger<EarningsService> logger)
+        public EarningsService(
+            AppDbContext context,
+            IPlanService plans,
+            ITaxService taxes,
+            IOptions<PlatformOptions> options,
+            ILogger<EarningsService> logger)
         {
             _context = context;
+            _plans = plans;
+            _taxes = taxes;
+            _options = options.Value;
             _logger = logger;
         }
 
@@ -48,19 +64,29 @@ namespace GigApp.Api.Services.Earnings
             var gross = task.AgreedAmount ?? task.Budget;
             if (gross <= 0) return LedgerResult.Fail("This task settled at zero.");
 
-            var commission = PlatformFees.CommissionOn(gross);
-
             var earningKey = Key(LedgerEntryTypes.JobEarning, task.Id);
             if (await _context.LedgerEntries.AnyAsync(e => e.IdempotencyKey == earningKey, ct))
                 return LedgerResult.AlreadyPosted();
 
+            var partnerId = task.PartnerId.Value;
+
+            // The rate is read once, here, and written onto the entry. A later
+            // plan change or tax revision must never alter a settled job.
+            var subscription = await _plans.ResolveActivePlanAsync(partnerId, ct);
+            var rate = subscription.CommissionPercent;
+            var commission = Money.Percent(gross, rate);
+
+            var settledAt = task.CompletedAt ?? DateTime.UtcNow;
+            var rules = await _taxes.RulesInForceAsync(_options.CountryCode, settledAt, ct);
+            var charges = _taxes.Compute(rules, gross, commission, subscriptionFee: 0m);
+
             await using var transaction = await _context.Database.BeginTransactionAsync(ct);
 
-            var wallet = await LoadWalletAsync(task.PartnerId.Value, ct);
+            var wallet = await LoadWalletAsync(partnerId, ct);
 
             var earning = Append(wallet, new LedgerEntry
             {
-                PartnerId = wallet.PartnerId,
+                PartnerId = partnerId,
                 EntryType = LedgerEntryTypes.JobEarning,
                 Direction = LedgerDirection.Credit,
                 Amount = gross,
@@ -69,33 +95,56 @@ namespace GigApp.Api.Services.Earnings
                 IdempotencyKey = earningKey,
             });
 
-            LedgerEntry? commissionEntry = null;
-
             if (commission > 0)
             {
-                commissionEntry = Append(wallet, new LedgerEntry
+                Append(wallet, new LedgerEntry
                 {
-                    PartnerId = wallet.PartnerId,
+                    PartnerId = partnerId,
                     EntryType = LedgerEntryTypes.PlatformCommission,
                     Direction = LedgerDirection.Debit,
                     Amount = commission,
                     GigTaskId = task.Id,
-                    Description = $"Platform commission at {PlatformFees.CommissionPercent:0.##}%",
+                    CommissionPlanId = subscription.CommissionPlanId,
+                    AppliedPercent = rate,
+                    BaseAmount = gross,
+                    Description = $"Platform commission at {rate:0.##}% on the {subscription.CommissionPlan?.Name} plan",
                     IdempotencyKey = Key(LedgerEntryTypes.PlatformCommission, task.Id),
                 });
             }
 
+            var taxTotal = 0m;
+
+            foreach (var charge in charges)
+            {
+                Append(wallet, new LedgerEntry
+                {
+                    PartnerId = partnerId,
+                    EntryType = LedgerEntryTypes.Tax,
+                    Direction = LedgerDirection.Debit,
+                    Amount = charge.Amount,
+                    GigTaskId = task.Id,
+                    TaxRuleId = charge.Rule.Id,
+                    AppliedPercent = charge.Rule.Percent,
+                    BaseAmount = charge.BaseAmount,
+                    Description = $"{charge.Rule.Name} at {charge.Rule.Percent:0.##}% on {TaxBase.Label(charge.Rule.AppliesTo).ToLowerInvariant()}",
+                    IdempotencyKey = Key($"{LedgerEntryTypes.Tax}:{charge.Rule.Code}", task.Id),
+                });
+
+                taxTotal += charge.Amount;
+            }
+
             wallet.LifetimeEarned += gross;
             wallet.LifetimeCommission += commission;
+            wallet.LifetimeTax += taxTotal;
 
             await _context.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
 
             _logger.LogInformation(
-                "Posted earning of {Gross} less {Commission} for partner {PartnerId} on task {TaskId}",
-                gross, commission, wallet.PartnerId, task.Id);
+                "Posted {Gross} for partner {PartnerId} on task {TaskId}: commission {Commission}, tax {Tax}",
+                gross, partnerId, task.Id, commission, taxTotal);
 
-            return LedgerResult.Ok(LedgerEntryDto.From(commissionEntry ?? earning));
+            return LedgerResult.Ok(LedgerEntryDto.From(earning));
         }
 
         public async Task<LedgerResult> PostPayoutAsync(
@@ -134,6 +183,66 @@ namespace GigApp.Api.Services.Earnings
             });
 
             wallet.LifetimePaidOut += request.Amount;
+
+            await _context.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+
+            return LedgerResult.Ok(LedgerEntryDto.From(entry));
+        }
+
+        public async Task<LedgerResult> PostSubscriptionFeeAsync(
+            int partnerId, int planId, int byUserId, string? byName, CancellationToken ct = default)
+        {
+            var plan = await _context.CommissionPlans.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == planId, ct);
+
+            if (plan is null) return LedgerResult.Fail("That plan no longer exists.");
+            if (plan.SubscriptionFee <= 0) return LedgerResult.AlreadyPosted();
+
+            var period = DateTime.UtcNow.ToString("yyyyMM");
+            var key = Key(LedgerEntryTypes.SubscriptionFee, $"{partnerId}-{plan.Code}-{period}");
+
+            if (await _context.LedgerEntries.AnyAsync(e => e.IdempotencyKey == key, ct))
+                return LedgerResult.AlreadyPosted();
+
+            var rules = await _taxes.RulesInForceAsync(_options.CountryCode, DateTime.UtcNow, ct);
+            var charges = _taxes.Compute(rules, 0m, 0m, plan.SubscriptionFee);
+
+            await using var transaction = await _context.Database.BeginTransactionAsync(ct);
+
+            var wallet = await LoadWalletAsync(partnerId, ct);
+
+            var entry = Append(wallet, new LedgerEntry
+            {
+                PartnerId = partnerId,
+                EntryType = LedgerEntryTypes.SubscriptionFee,
+                Direction = LedgerDirection.Debit,
+                Amount = plan.SubscriptionFee,
+                CommissionPlanId = plan.Id,
+                Description = $"{plan.Name} plan fee, {PlanBillingPeriod.Label(plan.BillingPeriod).ToLowerInvariant()}",
+                IdempotencyKey = key,
+                CreatedByUserId = byUserId,
+                CreatedByName = byName,
+            });
+
+            foreach (var charge in charges)
+            {
+                Append(wallet, new LedgerEntry
+                {
+                    PartnerId = partnerId,
+                    EntryType = LedgerEntryTypes.Tax,
+                    Direction = LedgerDirection.Debit,
+                    Amount = charge.Amount,
+                    TaxRuleId = charge.Rule.Id,
+                    CommissionPlanId = plan.Id,
+                    AppliedPercent = charge.Rule.Percent,
+                    BaseAmount = charge.BaseAmount,
+                    Description = $"{charge.Rule.Name} at {charge.Rule.Percent:0.##}% on the plan fee",
+                    IdempotencyKey = Key($"{LedgerEntryTypes.Tax}:{charge.Rule.Code}", $"plan-{partnerId}-{plan.Code}-{period}"),
+                });
+
+                wallet.LifetimeTax += charge.Amount;
+            }
 
             await _context.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
@@ -200,15 +309,18 @@ namespace GigApp.Api.Services.Earnings
                 .CountAsync(e => e.PartnerId == partnerId
                               && e.EntryType == LedgerEntryTypes.JobEarning, ct);
 
+            var plan = await _plans.GetPartnerPlanAsync(partnerId, ct);
+
             return new EarningsSummaryDto
             {
                 Balance = wallet?.Balance ?? 0m,
                 LifetimeEarned = wallet?.LifetimeEarned ?? 0m,
                 LifetimeCommission = wallet?.LifetimeCommission ?? 0m,
+                LifetimeTax = wallet?.LifetimeTax ?? 0m,
                 LifetimePaidOut = wallet?.LifetimePaidOut ?? 0m,
                 EarnedThisMonth = thisMonth,
                 JobsPaid = jobsPaid,
-                CommissionPercent = PlatformFees.CommissionPercent,
+                Plan = plan,
             };
         }
 

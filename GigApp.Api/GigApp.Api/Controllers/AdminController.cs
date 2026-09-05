@@ -31,6 +31,8 @@ namespace GigApp.Api.Controllers
         private const string PricingPath = "/admin/masters/pricing";
         private const string ApprovalsPath = "/admin/approvals";
         private const string MenuPath = "/admin/masters/menu";
+        private const string PlansPath = "/admin/masters/plans";
+        private const string TaxesPath = "/admin/masters/taxes";
 
         private readonly AppDbContext _context;
         private readonly ICategoryLookup _categories;
@@ -39,6 +41,8 @@ namespace GigApp.Api.Controllers
         private readonly IKycHistoryService _kycHistory;
         private readonly IMenuService _menus;
         private readonly IEarningsService _earnings;
+        private readonly IPlanService _plans;
+        private readonly ITaxService _taxes;
 
         public AdminController(
             IAuthService authService,
@@ -51,7 +55,9 @@ namespace GigApp.Api.Controllers
             IKycHistoryService kycHistory,
             IBankAccountService bankAccounts,
             IMenuService menus,
-            IEarningsService earnings)
+            IEarningsService earnings,
+            IPlanService plans,
+            ITaxService taxes)
             : base(authService, profileService, addressService, bankAccounts)
         {
             _context = context;
@@ -61,6 +67,8 @@ namespace GigApp.Api.Controllers
             _kycHistory = kycHistory;
             _menus = menus;
             _earnings = earnings;
+            _plans = plans;
+            _taxes = taxes;
         }
 
         protected override string PortalSlug => "admin";
@@ -1006,6 +1014,186 @@ namespace GigApp.Api.Controllers
         public Task<IActionResult> Admins([FromQuery] PageRequest paging, CancellationToken ct) =>
             UserListAsync(UserRoles.Admin, "Administrators", paging, ct, includeSuperAdmins: true);
 
+        [HttpGet("masters/plans")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        public async Task<IActionResult> Plans(bool showInactive = false, CancellationToken ct = default)
+        {
+            ViewData["Title"] = "Commission plans";
+
+            return View(new AdminPlansViewModel
+            {
+                Plans = await _plans.GetPlansAsync(!showInactive, ct),
+                ShowInactive = showInactive,
+            });
+        }
+
+        [HttpGet("masters/plans/new")]
+        [Authorize(Policy = Policies.SuperAdminOnly)]
+        public IActionResult NewPlan()
+        {
+            ViewData["Title"] = "New plan";
+            return View("PlanForm", new PlanFormViewModel { Form = new SaveCommissionPlanRequest() });
+        }
+
+        [HttpPost("masters/plans/new")]
+        [Authorize(Policy = Policies.SuperAdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("CommissionPlan")]
+        public Task<IActionResult> NewPlan(SaveCommissionPlanRequest form, CancellationToken ct) =>
+            SavePlanAsync(null, form, "New plan", ct);
+
+        [HttpGet("masters/plans/{id:int}")]
+        [Authorize(Policy = Policies.SuperAdminOnly)]
+        public async Task<IActionResult> EditPlan(int id, CancellationToken ct)
+        {
+            var plan = await _plans.GetPlanAsync(id, ct);
+            if (plan is null) return NotFound();
+
+            ViewData["Title"] = "Edit plan";
+
+            return View("PlanForm", new PlanFormViewModel
+            {
+                Id = id,
+                Form = SaveCommissionPlanRequest.From(plan),
+            });
+        }
+
+        [HttpPost("masters/plans/{id:int}")]
+        [Authorize(Policy = Policies.SuperAdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("CommissionPlan")]
+        public Task<IActionResult> EditPlan(int id, SaveCommissionPlanRequest form, CancellationToken ct) =>
+            SavePlanAsync(id, form, "Edit plan", ct);
+
+        private async Task<IActionResult> SavePlanAsync(
+            int? id, SaveCommissionPlanRequest form, string title, CancellationToken ct)
+        {
+            ViewData["Title"] = title;
+            var model = new PlanFormViewModel { Id = id, Form = form };
+
+            if (!ModelState.IsValid) return View("PlanForm", model);
+
+            var result = await _plans.SavePlanAsync(id, form, ct);
+
+            if (!result.Succeeded)
+            {
+                ModelState.AddModelError(string.Empty, result.Error!);
+                return View("PlanForm", model);
+            }
+
+            TrackDoc(result.Plan!.Id, result.Plan);
+            TempData["Success"] = $"'{result.Plan.Name}' saved.";
+            return Redirect(PlansPath);
+        }
+
+        [HttpPost("payouts/{id:int}/plan")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("CommissionPlan")]
+        public async Task<IActionResult> AssignPlan(int id, AssignPlanRequest form, CancellationToken ct)
+        {
+            var target = $"/admin/payouts/{id}";
+
+            if (!ModelState.IsValid)
+            {
+                TempData["Error"] = FirstError() ?? "Could not change the plan.";
+                return Redirect(target);
+            }
+
+            var result = await _plans.AssignPlanAsync(
+                id, form, User.GetRequiredUserId(), User.Identity?.Name, ct);
+
+            if (!result.Succeeded)
+            {
+                TempData["Error"] = result.Error;
+                return Redirect(target);
+            }
+
+            if (result.ChargeFee)
+            {
+                await _earnings.PostSubscriptionFeeAsync(
+                    id, result.PlanId, User.GetRequiredUserId(), User.Identity?.Name, ct);
+            }
+
+            TrackDoc(id, PartnerPlanDto.From(result.Subscription!));
+            TempData["Success"] = "Plan changed. It applies to jobs completed from now on.";
+            return Redirect(target);
+        }
+
+        [HttpGet("masters/taxes")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        public async Task<IActionResult> Taxes(
+            string? country, bool showInactive = false, CancellationToken ct = default)
+        {
+            ViewData["Title"] = "Tax rules";
+
+            return View(new AdminTaxesViewModel
+            {
+                Rules = await _taxes.GetRulesAsync(country, !showInactive, ct),
+                CountryFilter = country,
+                ShowInactive = showInactive,
+            });
+        }
+
+        [HttpGet("masters/taxes/new")]
+        [Authorize(Policy = Policies.SuperAdminOnly)]
+        public IActionResult NewTax()
+        {
+            ViewData["Title"] = "New tax rule";
+            return View("TaxForm", new TaxFormViewModel { Form = new SaveTaxRuleRequest() });
+        }
+
+        [HttpPost("masters/taxes/new")]
+        [Authorize(Policy = Policies.SuperAdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("TaxRule")]
+        public Task<IActionResult> NewTax(SaveTaxRuleRequest form, CancellationToken ct) =>
+            SaveTaxAsync(null, form, "New tax rule", ct);
+
+        [HttpGet("masters/taxes/{id:int}")]
+        [Authorize(Policy = Policies.SuperAdminOnly)]
+        public async Task<IActionResult> EditTax(int id, CancellationToken ct)
+        {
+            var rule = await _taxes.GetRuleAsync(id, ct);
+            if (rule is null) return NotFound();
+
+            ViewData["Title"] = "Edit tax rule";
+
+            return View("TaxForm", new TaxFormViewModel
+            {
+                Id = id,
+                Form = SaveTaxRuleRequest.From(rule),
+            });
+        }
+
+        [HttpPost("masters/taxes/{id:int}")]
+        [Authorize(Policy = Policies.SuperAdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("TaxRule")]
+        public Task<IActionResult> EditTax(int id, SaveTaxRuleRequest form, CancellationToken ct) =>
+            SaveTaxAsync(id, form, "Edit tax rule", ct);
+
+        private async Task<IActionResult> SaveTaxAsync(
+            int? id, SaveTaxRuleRequest form, string title, CancellationToken ct)
+        {
+            ViewData["Title"] = title;
+            var model = new TaxFormViewModel { Id = id, Form = form };
+
+            if (!ModelState.IsValid) return View("TaxForm", model);
+
+            var result = await _taxes.SaveRuleAsync(id, form, ct);
+
+            if (!result.Succeeded)
+            {
+                ModelState.AddModelError(string.Empty, result.Error!);
+                return View("TaxForm", model);
+            }
+
+            TrackDoc(result.Rule!.Id, result.Rule);
+            TempData["Success"] = $"'{result.Rule.Name}' saved.";
+            return Redirect(TaxesPath);
+        }
+
         [HttpGet("payouts")]
         [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> Payouts(CancellationToken ct)
@@ -1034,6 +1222,9 @@ namespace GigApp.Api.Controllers
                 Summary = await _earnings.GetSummaryAsync(id, ct),
                 Entries = await _earnings.GetEntriesAsync(id, paging, entryType, ct),
                 BankAccount = await BankAccounts.GetAsync(partner.UserId, ct),
+                CurrentPlan = await _plans.GetPartnerPlanAsync(id, ct),
+                AvailablePlans = await _plans.GetPlansAsync(true, ct),
+                PlanHistory = await _plans.GetPartnerPlanHistoryAsync(id, ct),
             });
         }
 

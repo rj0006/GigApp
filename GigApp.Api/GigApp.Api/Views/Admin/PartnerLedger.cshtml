@@ -73,6 +73,101 @@
 
         <div class="card mb-3">
             <div class="card-body">
+                <h2 class="h6 mb-2">Commission plan</h2>
+
+                @if (Model.CurrentPlan is null)
+                {
+                    <div class="alert alert-warning small">
+                        No plan assigned. The default plan is applied when the next job settles.
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-light border small mb-3">
+                        <div class="fw-semibold">@Model.CurrentPlan.PlanName</div>
+                        <div>
+                            @if (Model.CurrentPlan.IsZeroCommission)
+                            {
+                                <span class="text-success">Keeps the whole job amount</span>
+                            }
+                            else
+                            {
+                                <text>@Model.CurrentPlan.CommissionPercent.ToString("0.##")% commission per job</text>
+                            }
+                        </div>
+                        <div class="text-secondary">
+                            Since @Model.CurrentPlan.StartsOn.ToString("dd MMM yyyy")
+                            @if (Model.CurrentPlan.EndsOn is not null)
+                            {
+                                <text>· runs out @Model.CurrentPlan.EndsOn.Value.ToString("dd MMM yyyy")</text>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <form method="post" action="/admin/payouts/@Model.Partner.Id/plan" class="gig-form row g-2"
+                      data-confirm-title="Change the plan?"
+                      data-confirm="The new rate applies to jobs completed from now on. Jobs already settled keep the rate they were charged."
+                      data-confirm-icon="question"
+                      data-confirm-ok="Yes, change it">
+                    @Html.AntiForgeryToken()
+
+                    <div class="col-12">
+                        <label for="CommissionPlanId" class="form-label required">Move to</label>
+                        <select id="CommissionPlanId" name="CommissionPlanId" class="form-select form-select-sm">
+                            @foreach (var plan in Model.AvailablePlans)
+                            {
+                                <option value="@plan.Id">
+                                    @plan.Name — @plan.Headline@(plan.SubscriptionFee > 0 ? $", ₹{plan.SubscriptionFee:N0} {plan.BillingLabel.ToLowerInvariant()}" : "")
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-12">
+                        <input id="Remark" name="Remark" class="form-control form-control-sm"
+                               maxlength="300" placeholder="Remark, optional" />
+                    </div>
+
+                    <div class="col-12">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="ChargeFee"
+                                   name="ChargeFee" value="true" checked />
+                            <label class="form-check-label small" for="ChargeFee">
+                                Debit the plan fee from the balance now
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-sm btn-outline-primary">Change plan</button>
+                    </div>
+                </form>
+
+                @if (Model.PlanHistory.Count > 1)
+                {
+                    <hr />
+                    <h3 class="small fw-semibold">Plan history</h3>
+                    <ul class="list-unstyled small mb-0">
+                        @foreach (var past in Model.PlanHistory)
+                        {
+                            <li class="text-secondary">
+                                @past.StartsOn.ToString("dd MMM yyyy") —
+                                <span class="text-body">@past.PlanName</span>
+                                at @past.CommissionPercent.ToString("0.##")%
+                                @if (past.IsActive)
+                                {
+                                    <span class="badge text-bg-success">current</span>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
                 <h2 class="h6 mb-2">Record a payout</h2>
                 <p class="text-secondary small">
                     Send the money through your bank first, then record it here with the bank

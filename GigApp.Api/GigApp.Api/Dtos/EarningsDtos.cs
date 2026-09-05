@@ -54,12 +54,14 @@ namespace GigApp.Api.Dtos
         public decimal Balance { get; set; }
         public decimal LifetimeEarned { get; set; }
         public decimal LifetimeCommission { get; set; }
+        public decimal LifetimeTax { get; set; }
         public decimal LifetimePaidOut { get; set; }
         public decimal EarnedThisMonth { get; set; }
         public int JobsPaid { get; set; }
-        public decimal CommissionPercent { get; set; }
+        public PartnerPlanDto? Plan { get; set; }
 
-        public decimal LifetimeNet => LifetimeEarned - LifetimeCommission;
+        public decimal CommissionPercent => Plan?.CommissionPercent ?? 0m;
+        public decimal LifetimeNet => LifetimeEarned - LifetimeCommission - LifetimeTax;
     }
 
     public class PartnerBalanceDto

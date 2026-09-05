@@ -1,0 +1,109 @@
+@model AdminTaxesViewModel
+@{
+    Layout = "_AdminLayout";
+    var isSuperAdmin = ViewData["IsSuperAdmin"] is true;
+}
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+    <h1 class="h4 mb-0">Tax rules</h1>
+    @if (isSuperAdmin)
+    {
+        <a class="btn btn-primary btn-sm ms-auto" href="/admin/masters/taxes/new">+ New rule</a>
+    }
+</div>
+<p class="text-secondary small">
+    What is deducted from a partner earning, and what it is calculated on. Rules are per country and
+    date ranged, so a rate change is a new row with a start date — never an edit to the old one,
+    which would rewrite settled jobs.
+</p>
+
+<div class="card">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end mb-3" data-auto-submit>
+            <div class="col-auto">
+                <label class="form-label" for="country">Country</label>
+                <select id="country" name="country" class="form-select form-select-sm">
+                    <option value="">All countries</option>
+                    @foreach (var code in TaxCountries.All)
+                    {
+                        <option value="@code" selected="@(Model.CountryFilter == code)">@code</option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto">
+                <label class="form-label" for="showInactive">Show</label>
+                <select id="showInactive" name="showInactive" class="form-select form-select-sm">
+                    <option value="false" selected="@(!Model.ShowInactive)">Active rules</option>
+                    <option value="true" selected="@Model.ShowInactive">Include retired</option>
+                </select>
+            </div>
+        </form>
+
+        @if (Model.Rules.Count == 0)
+        {
+            <p class="text-center text-secondary py-4 mb-0">No tax rules for this filter.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>#</th><th>Country</th><th>Rule</th><th class="text-end">Rate</th>
+                            <th>Calculated on</th><th>In force</th><th>Status</th><th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var rule in Model.Rules)
+                    {
+                        <tr>
+                            <td class="text-secondary">@rule.Id</td>
+                            <td><span class="badge text-bg-light border">@rule.CountryCode</span></td>
+                            <td>
+                                <div class="fw-semibold">@rule.Name</div>
+                                <div class="small text-secondary mono">@rule.Code</div>
+                                @if (!string.IsNullOrWhiteSpace(rule.Note))
+                                {
+                                    <div class="small text-secondary">@rule.Note</div>
+                                }
+                            </td>
+                            <td class="text-end fw-semibold">@rule.Percent.ToString("0.##")%</td>
+                            <td class="small">
+                                @rule.AppliesToLabel
+                                @if (rule.ThresholdAmount > 0)
+                                {
+                                    <div class="text-secondary">
+                                        Only above @rule.ThresholdAmount.ToString("N0")
+                                    </div>
+                                }
+                            </td>
+                            <td class="small text-secondary">
+                                @rule.EffectiveFrom.ToString("dd MMM yyyy")
+                                @if (rule.EffectiveTo is not null)
+                                {
+                                    <text>&mdash; @rule.EffectiveTo.Value.ToString("dd MMM yyyy")</text>
+                                }
+                                else
+                                {
+                                    <text>onwards</text>
+                                }
+                            </td>
+                            <td>
+                                <span class="badge @(rule.IsInForce ? "text-bg-success" : "text-bg-secondary")">
+                                    @(rule.IsInForce ? "In force" : rule.IsActive ? "Not in force today" : "Retired")
+                                </span>
+                            </td>
+                            <td class="text-end">
+                                @if (isSuperAdmin)
+                                {
+                                    <a class="btn btn-sm btn-outline-primary" href="/admin/masters/taxes/@rule.Id">Edit</a>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

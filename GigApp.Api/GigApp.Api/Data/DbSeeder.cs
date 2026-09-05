@@ -52,6 +52,93 @@ namespace GigApp.Api.Data
             await SeedServiceItemsAsync(context, logger, ct);
             await SeedAccountsAsync(context, logger, ct);
             await SeedMenuAsync(context, logger, ct);
+            await SeedPlansAndTaxesAsync(context, logger, ct);
+        }
+
+        private static async Task SeedPlansAndTaxesAsync(
+            AppDbContext context, ILogger logger, CancellationToken ct)
+        {
+            if (!await context.CommissionPlans.AnyAsync(ct))
+            {
+                context.CommissionPlans.AddRange(
+                    new CommissionPlan
+                    {
+                        Name = "Standard",
+                        Code = "STD",
+                        Description = "No fee to join. The platform keeps a share of every job.",
+                        CommissionPercent = 15m,
+                        SubscriptionFee = 0m,
+                        BillingPeriod = PlanBillingPeriod.None,
+                        IsDefault = true,
+                        DisplayOrder = 1,
+                    },
+                    new CommissionPlan
+                    {
+                        Name = "Lite",
+                        Code = "LITE",
+                        Description = "A small monthly fee brings the commission down.",
+                        CommissionPercent = 8m,
+                        SubscriptionFee = 499m,
+                        BillingPeriod = PlanBillingPeriod.Monthly,
+                        DisplayOrder = 2,
+                    },
+                    new CommissionPlan
+                    {
+                        Name = "Zero commission",
+                        Code = "ZERO",
+                        Description = "Keep the whole job amount. Only the monthly fee is charged.",
+                        CommissionPercent = 0m,
+                        SubscriptionFee = 1499m,
+                        BillingPeriod = PlanBillingPeriod.Monthly,
+                        DisplayOrder = 3,
+                    });
+
+                await context.SaveChangesAsync(ct);
+                logger.LogInformation("Seeded 3 commission plans");
+            }
+
+            if (!await context.TaxRules.AnyAsync(ct))
+            {
+                var start = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc);
+
+                context.TaxRules.AddRange(
+                    new TaxRule
+                    {
+                        Name = "GST on platform commission",
+                        Code = "GST_COMM",
+                        CountryCode = TaxCountries.India,
+                        Percent = 18m,
+                        AppliesTo = TaxBase.Commission,
+                        EffectiveFrom = start,
+                        SortOrder = 1,
+                        Note = "The platform charges the partner for a service, so GST applies to the commission, not the job.",
+                    },
+                    new TaxRule
+                    {
+                        Name = "GST on plan fee",
+                        Code = "GST_PLAN",
+                        CountryCode = TaxCountries.India,
+                        Percent = 18m,
+                        AppliesTo = TaxBase.SubscriptionFee,
+                        EffectiveFrom = start,
+                        SortOrder = 2,
+                    },
+                    new TaxRule
+                    {
+                        Name = "TDS under section 194-O",
+                        Code = "TDS_194O",
+                        CountryCode = TaxCountries.India,
+                        Percent = 1m,
+                        AppliesTo = TaxBase.GrossEarning,
+                        ThresholdAmount = 0m,
+                        EffectiveFrom = start,
+                        SortOrder = 3,
+                        Note = "Income tax withheld by the operator on the gross amount paid to the partner. Confirm the current rate and threshold before going live.",
+                    });
+
+                await context.SaveChangesAsync(ct);
+                logger.LogInformation("Seeded 3 tax rules for India");
+            }
         }
 
         private static async Task SeedMenuAsync(AppDbContext context, ILogger logger, CancellationToken ct)
@@ -86,7 +173,9 @@ namespace GigApp.Api.Data
                 new MenuItem { Label = "Skill categories", ControllerName = "Admin", ActionName = "Categories", Icon = "☰", SortOrder = 1, ParentId = groups["Masters"].Id },
                 new MenuItem { Label = "Services", ControllerName = "Admin", ActionName = "Services", Icon = "☰", SortOrder = 2, ParentId = groups["Masters"].Id },
                 new MenuItem { Label = "Price insights", ControllerName = "Admin", ActionName = "Pricing", Icon = "₹", SortOrder = 3, ParentId = groups["Masters"].Id },
-                new MenuItem { Label = "Menu", ControllerName = "Admin", ActionName = "Menus", Icon = "☰", SortOrder = 4, ParentId = groups["Masters"].Id, Visibility = MenuVisibility.SuperAdmin },
+                new MenuItem { Label = "Commission plans", ControllerName = "Admin", ActionName = "Plans", Icon = "₹", SortOrder = 4, ParentId = groups["Masters"].Id },
+                new MenuItem { Label = "Tax rules", ControllerName = "Admin", ActionName = "Taxes", Icon = "%", SortOrder = 5, ParentId = groups["Masters"].Id },
+                new MenuItem { Label = "Menu", ControllerName = "Admin", ActionName = "Menus", Icon = "☰", SortOrder = 6, ParentId = groups["Masters"].Id, Visibility = MenuVisibility.SuperAdmin },
                 new MenuItem { Label = "Partner KYC", ControllerName = "Admin", ActionName = "Approvals", Icon = "✓", SortOrder = 1, ParentId = groups["Approvals"].Id, BadgeKey = MenuBadgeKeys.PendingKyc },
                 new MenuItem { Label = "Customers", ControllerName = "Admin", ActionName = "Customers", Icon = "◔", SortOrder = 1, ParentId = groups["User management"].Id },
                 new MenuItem { Label = "Partners", ControllerName = "Admin", ActionName = "Partners", Icon = "◑", SortOrder = 2, ParentId = groups["User management"].Id },

@@ -1,0 +1,88 @@
+@model PlanFormViewModel
+@{
+    Layout = "_AdminLayout";
+    var postTo = Model.IsNew ? "/admin/masters/plans/new" : $"/admin/masters/plans/{Model.Id}";
+}
+
+<h1 class="h4">@(Model.IsNew ? "New plan" : "Edit plan")</h1>
+<p class="text-secondary small">
+    A commission plan takes a percentage of every job. A subscription plan charges a fee and lowers
+    or removes that percentage. Set the commission to zero for a plan where the partner keeps
+    everything.
+</p>
+
+<div class="card">
+    <div class="card-body">
+        <partial name="_ValidationSummary" />
+
+        <form method="post" action="@postTo" class="gig-form row g-3">
+            @Html.AntiForgeryToken()
+
+            <div class="col-md-6">
+                <label asp-for="Form.Name" class="form-label required"></label>
+                <input asp-for="Form.Name" class="form-control" placeholder="Zero commission" />
+                <span asp-validation-for="Form.Name" class="text-danger small"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="Form.Code" class="form-label required"></label>
+                <input asp-for="Form.Code" class="form-control mono text-uppercase" placeholder="ZERO" />
+                <div class="form-text">Short and permanent. It appears on ledger entries.</div>
+            </div>
+
+            <div class="col-12">
+                <label asp-for="Form.Description" class="form-label"></label>
+                <input asp-for="Form.Description" class="form-control"
+                       placeholder="Keep the whole job amount for a fixed monthly fee" />
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="Form.CommissionPercent" class="form-label required"></label>
+                <input asp-for="Form.CommissionPercent" type="number" step="0.01" min="0" max="100"
+                       class="form-control" />
+                <div class="form-text">Zero means the partner keeps the whole job amount.</div>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="Form.SubscriptionFee" class="form-label"></label>
+                <input asp-for="Form.SubscriptionFee" type="number" step="0.01" min="0"
+                       class="form-control" />
+                <div class="form-text">Leave at zero for a pure commission plan.</div>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="Form.BillingPeriod" class="form-label required"></label>
+                <select asp-for="Form.BillingPeriod" class="form-select">
+                    @foreach (var period in PlanBillingPeriod.All)
+                    {
+                        <option value="@period">@PlanBillingPeriod.Label(period)</option>
+                    }
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="Form.DisplayOrder" class="form-label"></label>
+                <input asp-for="Form.DisplayOrder" type="number" min="0" max="999" class="form-control" />
+            </div>
+
+            <div class="col-md-8">
+                <div class="form-check">
+                    <input asp-for="Form.IsDefault" class="form-check-input" />
+                    <label asp-for="Form.IsDefault" class="form-check-label"></label>
+                    <div class="form-text">
+                        Only one plan can be the default. Setting this clears it from the other one.
+                    </div>
+                </div>
+                <div class="form-check">
+                    <input asp-for="Form.IsActive" class="form-check-input" />
+                    <label asp-for="Form.IsActive" class="form-check-label"></label>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <a class="btn btn-outline-secondary" href="/admin/masters/plans">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>

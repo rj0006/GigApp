@@ -246,6 +246,25 @@ Forms carrying a file need `enctype="multipart/form-data"`; API actions need
 caller is an admin, that partner, or a customer who shares a task with them —
 otherwise anyone signed in could walk the ids and harvest phone numbers.
 
+### Commission plans and tax — `Services/Earnings/PlanService.cs`, `TaxService.cs`
+
+```csharp
+await _plans.GetPlansAsync(activeOnly, ct)
+await _plans.SavePlanAsync(id, request, ct)                       // id null inserts
+await _plans.AssignPlanAsync(partnerId, request, byId, byName, ct)
+await _plans.ResolveActivePlanAsync(partnerId, ct)               // falls back to the default plan
+await _plans.GetPartnerPlanAsync(partnerId, ct)
+
+await _taxes.GetRulesAsync(countryCode, activeOnly, ct)
+await _taxes.SaveRuleAsync(id, request, ct)
+await _taxes.RulesInForceAsync(countryCode, moment, ct)          // date-filtered
+_taxes.Compute(rules, gross, commission, subscriptionFee)        // pure, returns TaxCharge rows
+```
+
+`Compute` is deliberately pure — no database, no clock — so the deduction for any combination can be
+checked without posting anything. `RulesInForceAsync` takes the **moment the job settled**, never
+`DateTime.UtcNow` at read time.
+
 ### Partner earnings — `Services/Earnings/EarningsService.cs`
 
 Nothing writes to `LedgerEntries` or `PartnerWallets` directly. Every posting goes through here, in

@@ -20,6 +20,9 @@ namespace GigApp.Api.Data
         public DbSet<ErrorLog> ErrorLogs => Set<ErrorLog>();
         public DbSet<PartnerWallet> PartnerWallets => Set<PartnerWallet>();
         public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
+        public DbSet<CommissionPlan> CommissionPlans => Set<CommissionPlan>();
+        public DbSet<PartnerPlanSubscription> PartnerPlanSubscriptions => Set<PartnerPlanSubscription>();
+        public DbSet<TaxRule> TaxRules => Set<TaxRule>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -44,6 +47,59 @@ namespace GigApp.Api.Data
                     "\"Role\" IN ('customer','partner','admin','superadmin')"));
             });
 
+            modelBuilder.Entity<CommissionPlan>(e =>
+            {
+                e.Property(p => p.Name).HasMaxLength(80).IsRequired();
+                e.Property(p => p.Code).HasMaxLength(30).IsRequired();
+                e.Property(p => p.Description).HasMaxLength(400);
+                e.Property(p => p.CommissionPercent).HasPrecision(5, 2);
+                e.Property(p => p.SubscriptionFee).HasPrecision(10, 2);
+                e.Property(p => p.BillingPeriod).HasMaxLength(20).IsRequired();
+                e.Ignore(p => p.IsZeroCommission);
+                e.Ignore(p => p.IsSubscription);
+                e.HasIndex(p => p.Code).IsUnique();
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("CK_CommissionPlans_Percent",
+                        "\"CommissionPercent\" >= 0 AND \"CommissionPercent\" <= 100");
+                    t.HasCheckConstraint("CK_CommissionPlans_Fee", "\"SubscriptionFee\" >= 0");
+                });
+            });
+
+            modelBuilder.Entity<PartnerPlanSubscription>(e =>
+            {
+                e.Property(s => s.CommissionPercent).HasPrecision(5, 2);
+                e.Property(s => s.FeeCharged).HasPrecision(10, 2);
+                e.Property(s => s.Remark).HasMaxLength(300);
+                e.Property(s => s.AssignedByName).HasMaxLength(100);
+                e.Ignore(s => s.HasExpired);
+                e.HasIndex(s => new { s.PartnerId, s.IsActive });
+                e.HasOne(s => s.Partner).WithMany().HasForeignKey(s => s.PartnerId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(s => s.CommissionPlan).WithMany(p => p.Subscriptions)
+                    .HasForeignKey(s => s.CommissionPlanId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<TaxRule>(e =>
+            {
+                e.Property(t => t.Name).HasMaxLength(80).IsRequired();
+                e.Property(t => t.Code).HasMaxLength(30).IsRequired();
+                e.Property(t => t.CountryCode).HasMaxLength(2).IsRequired();
+                e.Property(t => t.AppliesTo).HasMaxLength(30).IsRequired();
+                e.Property(t => t.Percent).HasPrecision(5, 2);
+                e.Property(t => t.ThresholdAmount).HasPrecision(12, 2);
+                e.Property(t => t.Note).HasMaxLength(400);
+                e.HasIndex(t => new { t.CountryCode, t.Code }).IsUnique();
+                e.HasIndex(t => new { t.CountryCode, t.IsActive, t.SortOrder });
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("CK_TaxRules_Percent",
+                        "\"Percent\" >= 0 AND \"Percent\" <= 100");
+                    t.HasCheckConstraint("CK_TaxRules_AppliesTo",
+                        "\"AppliesTo\" IN ('commission','gross_earning','subscription_fee')");
+                });
+            });
+
             modelBuilder.Entity<ErrorLog>(e =>
             {
                 e.Property(l => l.Reference).HasMaxLength(20).IsRequired();
@@ -66,6 +122,7 @@ namespace GigApp.Api.Data
                 e.Property(w => w.Balance).HasPrecision(12, 2);
                 e.Property(w => w.LifetimeEarned).HasPrecision(12, 2);
                 e.Property(w => w.LifetimeCommission).HasPrecision(12, 2);
+                e.Property(w => w.LifetimeTax).HasPrecision(12, 2);
                 e.Property(w => w.LifetimePaidOut).HasPrecision(12, 2);
                 e.HasIndex(w => w.PartnerId).IsUnique();
                 e.HasOne(w => w.Partner).WithOne().HasForeignKey<PartnerWallet>(w => w.PartnerId)
@@ -89,6 +146,12 @@ namespace GigApp.Api.Data
                     .OnDelete(DeleteBehavior.Restrict);
                 e.HasOne(l => l.GigTask).WithMany().HasForeignKey(l => l.GigTaskId)
                     .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(l => l.TaxRule).WithMany().HasForeignKey(l => l.TaxRuleId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(l => l.CommissionPlan).WithMany().HasForeignKey(l => l.CommissionPlanId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.Property(l => l.AppliedPercent).HasPrecision(5, 2);
+                e.Property(l => l.BaseAmount).HasPrecision(12, 2);
                 e.ToTable(t =>
                 {
                     t.HasCheckConstraint("CK_LedgerEntries_Direction",

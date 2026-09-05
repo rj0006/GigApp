@@ -7,10 +7,33 @@
 
 <h1 class="h4">My earnings</h1>
 <p class="text-secondary small">
-    A job is credited the moment you mark it complete. The platform commission of
-    @summary.CommissionPercent.ToString("0.##")% is taken off as a separate line, so you can always
-    see the full amount the customer agreed.
+    A job is credited the moment you mark it complete. Commission and tax come off as separate
+    lines, so you can always see the full amount the customer agreed.
 </p>
+
+@if (summary.Plan is not null)
+{
+    <div class="alert @(summary.Plan.IsZeroCommission ? "alert-success" : "alert-light border") d-flex flex-wrap align-items-center gap-2">
+        <div>
+            <strong>@summary.Plan.PlanName plan.</strong>
+            @if (summary.Plan.IsZeroCommission)
+            {
+                <text>You keep the whole job amount — no commission is taken.</text>
+            }
+            else
+            {
+                <text>@summary.Plan.CommissionPercent.ToString("0.##")% commission is taken from each job.</text>
+            }
+        </div>
+
+        @if (summary.Plan.EndsOn is not null)
+        {
+            <span class="badge text-bg-warning ms-auto">
+                Runs out @summary.Plan.EndsOn.Value.ToString("dd MMM yyyy")
+            </span>
+        }
+    </div>
+}
 
 <div class="row g-3 mb-3">
     <div class="col-6 col-lg-3">
@@ -29,7 +52,7 @@
         <div class="card h-100"><div class="card-body py-3">
             <div class="h4 mb-0">₹@summary.LifetimeNet.ToString("N2")</div>
             <div class="text-secondary text-uppercase" style="font-size:.68rem">
-                Lifetime, after commission
+                Lifetime, after deductions
             </div>
         </div></div>
     </div>

@@ -19,6 +19,15 @@ namespace GigApp.Api.Models
         public string Description { get; set; } = string.Empty;
         public string IdempotencyKey { get; set; } = string.Empty;
 
+        public int? TaxRuleId { get; set; }
+        public TaxRule? TaxRule { get; set; }
+
+        public int? CommissionPlanId { get; set; }
+        public CommissionPlan? CommissionPlan { get; set; }
+
+        public decimal? AppliedPercent { get; set; }
+        public decimal? BaseAmount { get; set; }
+
         public string? Reference { get; set; }
         public string? Remark { get; set; }
 
@@ -31,11 +40,13 @@ namespace GigApp.Api.Models
     {
         public const string JobEarning = "job_earning";
         public const string PlatformCommission = "platform_commission";
+        public const string Tax = "tax";
+        public const string SubscriptionFee = "subscription_fee";
         public const string Payout = "payout";
         public const string Adjustment = "adjustment";
 
         public static readonly string[] All =
-            { JobEarning, PlatformCommission, Payout, Adjustment };
+            { JobEarning, PlatformCommission, Tax, SubscriptionFee, Payout, Adjustment };
 
         public static bool IsValid(string? value) => value is not null && All.Contains(value);
 
@@ -43,6 +54,8 @@ namespace GigApp.Api.Models
         {
             JobEarning => "Job earning",
             PlatformCommission => "Platform commission",
+            Tax => "Tax",
+            SubscriptionFee => "Plan fee",
             Payout => "Payout",
             _ => "Adjustment",
         };
@@ -51,6 +64,8 @@ namespace GigApp.Api.Models
         {
             JobEarning => "text-bg-success",
             PlatformCommission => "text-bg-secondary",
+            Tax => "text-bg-dark",
+            SubscriptionFee => "text-bg-info",
             Payout => "text-bg-primary",
             _ => "text-bg-warning",
         };
@@ -66,11 +81,9 @@ namespace GigApp.Api.Models
         public static bool IsValid(string? value) => value is not null && All.Contains(value);
     }
 
-    public static class PlatformFees
+    public static class Money
     {
-        public const decimal CommissionPercent = 15m;
-
-        public static decimal CommissionOn(decimal amount) =>
-            Math.Round(amount * CommissionPercent / 100m, 2, MidpointRounding.AwayFromZero);
+        public static decimal Percent(decimal amount, decimal percent) =>
+            Math.Round(amount * percent / 100m, 2, MidpointRounding.AwayFromZero);
     }
 }

@@ -1,0 +1,105 @@
+@model TaxFormViewModel
+@{
+    Layout = "_AdminLayout";
+    var postTo = Model.IsNew ? "/admin/masters/taxes/new" : $"/admin/masters/taxes/{Model.Id}";
+}
+
+<h1 class="h4">@(Model.IsNew ? "New tax rule" : "Edit tax rule")</h1>
+<p class="text-secondary small">
+    Every rule is a percentage of one base, for one country, between two dates.
+    <strong>To change a rate, retire the old rule with an end date and add a new one</strong> —
+    editing the rate in place would change what past jobs should have deducted.
+</p>
+
+<div class="card">
+    <div class="card-body">
+        <partial name="_ValidationSummary" />
+
+        <form method="post" action="@postTo" class="gig-form row g-3">
+            @Html.AntiForgeryToken()
+
+            <div class="col-md-5">
+                <label asp-for="Form.Name" class="form-label required"></label>
+                <input asp-for="Form.Name" class="form-control" placeholder="GST on commission" />
+                <span asp-validation-for="Form.Name" class="text-danger small"></span>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="Form.Code" class="form-label required"></label>
+                <input asp-for="Form.Code" class="form-control mono text-uppercase" placeholder="GST_COMM" />
+            </div>
+
+            <div class="col-md-3">
+                <label asp-for="Form.CountryCode" class="form-label required"></label>
+                <select asp-for="Form.CountryCode" class="form-select">
+                    @foreach (var code in TaxCountries.All)
+                    {
+                        <option value="@code">@code</option>
+                    }
+                </select>
+                <div class="form-text">Only rules for the platform country are applied.</div>
+            </div>
+
+            <div class="col-md-3">
+                <label asp-for="Form.Percent" class="form-label required"></label>
+                <input asp-for="Form.Percent" type="number" step="0.01" min="0" max="100"
+                       class="form-control" />
+            </div>
+
+            <div class="col-md-5">
+                <label asp-for="Form.AppliesTo" class="form-label required"></label>
+                <select asp-for="Form.AppliesTo" class="form-select">
+                    @foreach (var option in TaxBase.All)
+                    {
+                        <option value="@option">@TaxBase.Label(option)</option>
+                    }
+                </select>
+                <div class="form-text">
+                    GST on the platform fee is calculated on the commission. Income tax withheld from
+                    the partner is usually calculated on the full job amount.
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="Form.ThresholdAmount" class="form-label"></label>
+                <input asp-for="Form.ThresholdAmount" type="number" step="0.01" min="0"
+                       class="form-control" />
+                <div class="form-text">Zero applies it to every amount.</div>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="Form.EffectiveFrom" class="form-label required"></label>
+                <input asp-for="Form.EffectiveFrom" type="date" class="form-control" />
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="Form.EffectiveTo" class="form-label"></label>
+                <input asp-for="Form.EffectiveTo" type="date" class="form-control" />
+                <div class="form-text">Leave empty while the rule is current.</div>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="Form.SortOrder" class="form-label"></label>
+                <input asp-for="Form.SortOrder" type="number" min="0" max="999" class="form-control" />
+            </div>
+
+            <div class="col-12">
+                <label asp-for="Form.Note" class="form-label"></label>
+                <input asp-for="Form.Note" class="form-control"
+                       placeholder="Section under which this is deducted, and anything a future administrator needs" />
+            </div>
+
+            <div class="col-12">
+                <div class="form-check">
+                    <input asp-for="Form.IsActive" class="form-check-input" />
+                    <label asp-for="Form.IsActive" class="form-check-label"></label>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <a class="btn btn-outline-secondary" href="/admin/masters/taxes">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>

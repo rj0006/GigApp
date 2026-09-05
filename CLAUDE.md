@@ -105,6 +105,20 @@ role strings case-insensitively as a workaround — fix the data.
 `pending → accepted → in_progress → completed`, with `cancelled` reachable from any non-terminal state.
 Both the API and the Razor portals call it. A DB check constraint backs the allowed values.
 
+**Commission is a plan, and tax is a dated country rule.** `CommissionPlans` decides what the
+platform keeps — zero percent with a monthly fee is the subscription model. `TaxRules` is a
+percentage of one base (`commission`, `gross_earning` or `subscription_fee`), for one country,
+between two dates. Running in another country is a data change: add rules with that `CountryCode`
+and set `Platform:CountryCode`.
+
+- **The rate is snapshotted onto the ledger when the job settles** — `AppliedPercent`, `BaseAmount`,
+  `CommissionPlanId` and `TaxRuleId` are written on the entry. A plan change or a tax revision must
+  never alter a job that is already finished.
+- **A rate change is a new rule, not an edit.** End the old one with `EffectiveTo` and add its
+  replacement. Editing a percentage in place would misstate what past jobs deducted.
+- A tax whose base is zero is skipped, so a zero-commission partner pays no GST on commission but
+  still has tax deducted on the gross where the law says so.
+
 **Partner earnings run on an append-only ledger.** `LedgerEntries` is never updated or deleted — a
 correction is a new row, and `PartnerWallets.Balance` is a cache written in the same transaction.
 Completing a task posts the gross earning and the platform commission as **two separate lines**, so

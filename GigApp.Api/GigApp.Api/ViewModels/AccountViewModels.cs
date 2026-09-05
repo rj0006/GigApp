@@ -178,6 +178,38 @@ namespace GigApp.Api.ViewModels
         public PagedResult<LedgerEntryDto> Entries { get; set; } = new();
         public BankAccountDto? BankAccount { get; set; }
         public RecordPayoutRequest PayoutForm { get; set; } = new();
+        public PartnerPlanDto? CurrentPlan { get; set; }
+        public IReadOnlyList<CommissionPlanDto> AvailablePlans { get; set; } =
+            Array.Empty<CommissionPlanDto>();
+        public IReadOnlyList<PartnerPlanDto> PlanHistory { get; set; } =
+            Array.Empty<PartnerPlanDto>();
+    }
+
+    public class AdminPlansViewModel
+    {
+        public IReadOnlyList<CommissionPlanDto> Plans { get; set; } = Array.Empty<CommissionPlanDto>();
+        public bool ShowInactive { get; set; }
+    }
+
+    public class PlanFormViewModel
+    {
+        public int? Id { get; set; }
+        public SaveCommissionPlanRequest Form { get; set; } = new();
+        public bool IsNew => Id is null;
+    }
+
+    public class AdminTaxesViewModel
+    {
+        public IReadOnlyList<TaxRuleDto> Rules { get; set; } = Array.Empty<TaxRuleDto>();
+        public string? CountryFilter { get; set; }
+        public bool ShowInactive { get; set; }
+    }
+
+    public class TaxFormViewModel
+    {
+        public int? Id { get; set; }
+        public SaveTaxRuleRequest Form { get; set; } = new();
+        public bool IsNew => Id is null;
     }
 
     public class AdminErrorLogsViewModel

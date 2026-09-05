@@ -1,0 +1,89 @@
+@model AdminPlansViewModel
+@{
+    Layout = "_AdminLayout";
+    var isSuperAdmin = ViewData["IsSuperAdmin"] is true;
+}
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+    <h1 class="h4 mb-0">Commission plans</h1>
+    @if (isSuperAdmin)
+    {
+        <a class="btn btn-primary btn-sm ms-auto" href="/admin/masters/plans/new">+ New plan</a>
+    }
+</div>
+<p class="text-secondary small">
+    What the platform keeps from each job. A plan with a fee and zero commission is the subscription
+    model — the partner pays up front and keeps everything they earn. Changing a plan never touches
+    jobs that are already settled; the rate is written onto the ledger when the job completes.
+</p>
+
+<div class="card">
+    <div class="card-body">
+        <form method="get" class="mb-3" data-auto-submit>
+            <select name="showInactive" class="form-select form-select-sm" style="max-width:16rem">
+                <option value="false" selected="@(!Model.ShowInactive)">Active plans</option>
+                <option value="true" selected="@Model.ShowInactive">Include retired plans</option>
+            </select>
+        </form>
+
+        @if (Model.Plans.Count == 0)
+        {
+            <p class="text-center text-secondary py-4 mb-0">No plans yet.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>#</th><th>Plan</th><th class="text-end">Commission</th>
+                            <th class="text-end">Fee</th><th>Charged</th>
+                            <th class="text-end">Partners</th><th>Status</th><th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var plan in Model.Plans)
+                    {
+                        <tr>
+                            <td class="text-secondary">@plan.Id</td>
+                            <td>
+                                <div class="fw-semibold">
+                                    @plan.Name
+                                    @if (plan.IsDefault)
+                                    {
+                                        <span class="badge text-bg-primary ms-1">Default</span>
+                                    }
+                                </div>
+                                <div class="small text-secondary mono">@plan.Code</div>
+                                @if (!string.IsNullOrWhiteSpace(plan.Description))
+                                {
+                                    <div class="small text-secondary">@plan.Description</div>
+                                }
+                            </td>
+                            <td class="text-end fw-semibold @(plan.IsZeroCommission ? "text-success" : "")">
+                                @plan.CommissionPercent.ToString("0.##")%
+                            </td>
+                            <td class="text-end">
+                                @(plan.SubscriptionFee > 0 ? $"₹{plan.SubscriptionFee:N2}" : "—")
+                            </td>
+                            <td class="small text-secondary">@plan.BillingLabel</td>
+                            <td class="text-end">@plan.PartnersOnPlan</td>
+                            <td>
+                                <span class="badge @(plan.IsActive ? "text-bg-success" : "text-bg-secondary")">
+                                    @(plan.IsActive ? "Active" : "Retired")
+                                </span>
+                            </td>
+                            <td class="text-end">
+                                @if (isSuperAdmin)
+                                {
+                                    <a class="btn btn-sm btn-outline-primary" href="/admin/masters/plans/@plan.Id">Edit</a>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

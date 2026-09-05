@@ -9,6 +9,79 @@ developer can call the same thing.
 
 ---
 
+## 2026-09-06 — Commission plans, and tax as a country-aware master
+
+**Asked:** let a partner take a plan that earns with zero commission, manage those plans from the
+admin portal, and deduct GST per government rules through a master that would also work in another
+country.
+
+### Commission plans
+
+`CommissionPlans` is the master, at `/admin/masters/plans`. Any administrator may look; only a
+super admin may add or change one.
+
+| Field | Meaning |
+|---|---|
+| `CommissionPercent` | What the platform keeps per job. **Zero is the subscription model** |
+| `SubscriptionFee` + `BillingPeriod` | A recurring fee. Zero for a pure commission plan |
+| `IsDefault` | Where a partner lands with no plan of their own. Exactly one plan holds it |
+
+Seeded: **Standard** 15% and no fee, **Lite** 8% with ₹499 a month, **Zero commission** 0% with
+₹1,499 a month.
+
+`PartnerPlanSubscriptions` records who is on what, and when. Only one row is active per partner. A
+plan with a billing period gets an `EndsOn`; once that passes the partner falls back to the default
+plan rather than keeping a discount they have stopped paying for.
+
+Assigning a plan optionally debits the fee immediately as a `subscription_fee` ledger line.
+
+### Tax
+
+`TaxRules` is the master, at `/admin/masters/taxes`. One rule is **a percentage of one base, for one
+country, between two dates**. That shape is what makes it portable: any country's deduction on a
+marketplace payout fits it.
+
+| Field | Meaning |
+|---|---|
+| `CountryCode` | Only rules for `Platform:CountryCode` are applied |
+| `AppliesTo` | `commission`, `gross_earning` or `subscription_fee` |
+| `Percent` | The rate |
+| `ThresholdAmount` | Skip the rule below this amount |
+| `EffectiveFrom` / `EffectiveTo` | When the rule was law |
+
+Seeded for India: **GST 18% on the commission** (the platform sells a service to the partner, so GST
+is on the fee, not the job), **GST 18% on the plan fee**, and **TDS 1% on the gross** under section
+194-O. The rates are a starting point and the note on each says to confirm them before going live.
+
+**Running in another country is a data change, not a code change.** Add rules with that
+`CountryCode` and set `Platform:CountryCode` in configuration.
+
+### The two rules that matter
+
+**The rate is snapshotted onto the ledger when the job settles.** `LedgerEntry` carries
+`AppliedPercent`, `BaseAmount`, `CommissionPlanId` and `TaxRuleId`. Moving a partner to a new plan,
+or a government changing GST, must never alter what a finished job earned.
+
+**A rate change is a new rule, not an edit.** End the old rule with `EffectiveTo` and add a new one
+starting the next day. Editing the percentage in place would misstate what past jobs should have
+deducted. The tax form says so.
+
+### What a completed job now posts
+
+A ₹4,500 job on the Standard plan:
+
+| Line | Amount | Balance |
+|---|---|---|
+| Job earning | +4,500.00 | 4,500.00 |
+| Platform commission at 15% | −675.00 | 3,825.00 |
+| GST on commission at 18% of 675 | −121.50 | 3,703.50 |
+| TDS at 1% of 4,500 | −45.00 | 3,658.50 |
+
+The same job on the Zero commission plan posts the earning and the TDS only — there is no commission,
+so there is no GST on it either, because a tax whose base is zero is skipped.
+
+---
+
 ## 2026-09-06 — Partner earnings run on an append-only ledger
 
 **Asked:** a partner earnings tab with the order details behind each amount, and the money ledger,

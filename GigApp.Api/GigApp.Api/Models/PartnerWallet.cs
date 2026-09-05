@@ -10,6 +10,7 @@ namespace GigApp.Api.Models
         public decimal Balance { get; set; }
         public decimal LifetimeEarned { get; set; }
         public decimal LifetimeCommission { get; set; }
+        public decimal LifetimeTax { get; set; }
         public decimal LifetimePaidOut { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
