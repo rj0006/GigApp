@@ -6,6 +6,7 @@ using GigApp.Api.Services.Bidding;
 using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Banking;
 using GigApp.Api.Services.Profile;
+using GigApp.Api.Services.Ratings;
 using GigApp.Api.Services.Tracking;
 using GigApp.Api.ViewModels;
 using Microsoft.AspNetCore.Authorization;
@@ -21,6 +22,7 @@ namespace GigApp.Api.Controllers
         private readonly ICategoryLookup _categories;
         private readonly IServiceItemLookup _serviceItems;
         private readonly IBidService _bids;
+        private readonly IRatingService _ratings;
 
         public CustomerController(
             IAuthService authService,
@@ -30,6 +32,7 @@ namespace GigApp.Api.Controllers
             ICategoryLookup categories,
             IServiceItemLookup serviceItems,
             IBidService bids,
+            IRatingService ratings,
             IBankAccountService bankAccounts)
             : base(authService, profileService, addressService, bankAccounts)
         {
@@ -37,6 +40,7 @@ namespace GigApp.Api.Controllers
             _categories = categories;
             _serviceItems = serviceItems;
             _bids = bids;
+            _ratings = ratings;
         }
 
         protected override string PortalSlug => "customer";
@@ -180,6 +184,7 @@ namespace GigApp.Api.Controllers
                     .ToList(),
                 BidsByTask = bidsByTask,
                 Addresses = await AddressService.ListAsync(userId, ct),
+                MyRatings = await _ratings.ForTasksAsync(taskIds, RatedBy.Customer, ct),
             });
         }
 
@@ -258,6 +263,30 @@ namespace GigApp.Api.Controllers
             TempData["Success"] = service.IsInstant
                 ? $"Booked at the fixed price of ₹{service.FixedPrice:N0}. The first available partner will take it, so there is nothing to compare."
                 : "Your task has been posted. Partners can now bid on it.";
+
+            return Redirect(DashboardPath);
+        }
+
+        [HttpPost("tasks/{id:int}/rate")]
+        [Authorize(Policy = Policies.CustomerOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("TaskRating")]
+        public async Task<IActionResult> RateTask(
+            int id, RateTaskRequest form, CancellationToken ct)
+        {
+            if (!ModelState.IsValid)
+            {
+                TempData["Error"] = "Choose between one and five stars.";
+                return Redirect(DashboardPath);
+            }
+
+            var result = await _ratings.RateAsync(
+                User.GetRequiredUserId(), RatedBy.Customer, id, form.Stars, form.Feedback, ct);
+
+            if (result.Succeeded)
+                TempData["Success"] = "Thank you. Your rating helps other customers choose well.";
+            else
+                TempData["Error"] = result.Error;
 
             return Redirect(DashboardPath);
         }

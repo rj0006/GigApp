@@ -128,6 +128,19 @@ var amount = service.IsInstant ? service.FixedPrice : request.Budget;
 Both return `TaskClaimResult`, whose `Outcome` maps straight onto HTTP: `Claimed` 200, `NotFound`
 404, `Taken` 409, `NotAllowed` 403. Portals just read `Succeeded` and `Error`.
 
+### Ratings — `Services/Ratings/RatingService.cs`
+
+| Method | Purpose |
+|---|---|
+| `RateAsync(raterUserId, raterRole, taskId, stars, feedback)` | The standalone path. Saves the rating and refreshes the average. Use it for the customer. |
+| `BuildAsync(raterUserId, raterRole, task, stars, feedback)` | Validates and returns an unsaved row, or null. Use it when the rating must be saved **with** something else — the partner's rating rides along with the completion. Call `RefreshAverageAsync` yourself afterwards. |
+| `RefreshAverageAsync(ratedUserId)` | Recomputes `User.AverageRating` and `User.RatingCount` from the full history. |
+| `ForTasksAsync(taskIds, raterRole)` | Ratings already given, keyed by task id — for hiding the "Rate" button on a row that has one. |
+
+Averages live on `User`, not `Partner`, so the same two columns serve both sides. Read them through
+`PartnerDto` / `PartnerPublicDto`, both of which expose `AverageRating`, `RatingCount` and a
+`RoundedRating` ready for `_Stars`.
+
 ---
 
 ## C# — pagination
@@ -260,7 +273,9 @@ Forms carrying a file need `enctype="multipart/form-data"`; API actions need
 | `_AddAddressModal` | `string` portal slug | The one add-address dialog. Renders `_AddressForm` in a modal and returns to the page it was opened from. Use it anywhere an address is needed. |
 | `_UserMenu` | `UserMenuViewModel` | Navbar avatar with a Profile / Sign out box, plus an optional notification bell. Used by both layouts. |
 | `_LedgerTable` | `PagedResult<LedgerEntryDto>` | Money statement with the task behind each row. Shared by the partner and admin screens. |
-| `_MyJobs` | `ProviderDashboardViewModel` | Partner job table with Start / Complete / Cancel. Flags any job whose category no longer matches the partner's skill. |
+| `_MyJobs` | `ProviderDashboardViewModel` | Partner job table with Start / Complete / Cancel. Flags any job whose category no longer matches the partner's skill. Complete opens a modal that takes the required rating. |
+| `_StarInput` | `string` group id | Five radio buttons posting as `Stars`, styled as clickable stars. The group id must be unique on the page. Pair it with a textarea named `Feedback`. |
+| `_Stars` | `int?` | Read-only star row. Renders "Not rated yet" for null or zero. |
 | `_ProfileBody` | `ProfilePageViewModel` | Profile shell: left menu plus the section named by `Model.Section`. |
 | `_ProfileDetails` / `_ProfileBank` / `_ProfileAddresses` / `_ProfileKyc` / `_ProfileSettings` | `ProfilePageViewModel` | The profile sections. Add a new one by adding to `ProfileSections`, the menu list in `_ProfileBody`, and a `GET` on `PortalControllerBase`. |
 

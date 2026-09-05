@@ -40,6 +40,9 @@ namespace GigApp.Api.Models
 
         public string Role { get; set; } = UserRoles.Customer;
 
+        public decimal? AverageRating { get; set; }
+        public int RatingCount { get; set; }
+
         /// <summary>
         /// Deactivated accounts cannot sign in and existing tokens stop working
         /// on their next request. Deactivating is preferred over deleting: the

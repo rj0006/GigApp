@@ -1,0 +1,18 @@
+@model int?
+@{
+    var stars = Model ?? 0;
+}
+
+@if (stars <= 0)
+{
+    <span class="text-secondary small">Not rated yet</span>
+}
+else
+{
+    <span class="stars-read" title="@RatingScale.Label(stars) — @stars out of @RatingScale.Maximum">
+        @for (var n = 1; n <= RatingScale.Maximum; n++)
+        {
+            <span class="@(n <= stars ? "" : "star-off")">&#9733;</span>
+        }
+    </span>
+}

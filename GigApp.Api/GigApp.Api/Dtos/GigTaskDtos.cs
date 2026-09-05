@@ -42,6 +42,12 @@ namespace GigApp.Api.Dtos
     {
         [Required]
         public string Status { get; set; } = string.Empty;
+
+        /// <summary>Required when a partner moves a task to completed.</summary>
+        public int Stars { get; set; }
+
+        [StringLength(500)]
+        public string? Feedback { get; set; }
     }
 
     public class GigTaskDto

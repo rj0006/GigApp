@@ -1,0 +1,12 @@
+@model string
+@{
+    var group = Model ?? "stars";
+}
+
+<div class="star-input">
+    @for (var n = RatingScale.Maximum; n >= RatingScale.Minimum; n--)
+    {
+        <input type="radio" name="Stars" value="@n" id="@($"{group}-{n}")" required />
+        <label for="@($"{group}-{n}")" title="@RatingScale.Label(n)">&#9733;</label>
+    }
+</div>

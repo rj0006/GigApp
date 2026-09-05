@@ -9,6 +9,10 @@ namespace GigApp.Api.Dtos
         public int UserId { get; set; }
 
         public string Name { get; set; } = string.Empty;
+
+        public decimal? AverageRating { get; set; }
+        public int RatingCount { get; set; }
+        public int RoundedRating => AverageRating is null ? 0 : (int)Math.Round(AverageRating.Value, MidpointRounding.AwayFromZero);
         public string Phone { get; set; } = string.Empty;
         public string? Email { get; set; }
         public bool IsPhoneVerified { get; set; }
@@ -60,6 +64,8 @@ namespace GigApp.Api.Dtos
             Id = partner.Id,
             UserId = partner.UserId,
             Name = partner.User?.Name ?? string.Empty,
+            AverageRating = partner.User?.AverageRating,
+            RatingCount = partner.User?.RatingCount ?? 0,
             Phone = partner.User?.Phone ?? string.Empty,
             Email = partner.User?.Email,
             IsPhoneVerified = partner.User?.IsPhoneVerified ?? false,

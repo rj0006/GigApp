@@ -69,19 +69,29 @@ else if (!profile.IsVerified)
 else
 {
     <div class="row g-3 mb-3">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card h-100"><div class="card-body py-3">
                 <div class="h6 mb-0">@profile.SkillCategoryName</div>
                 <div class="text-secondary text-uppercase" style="font-size:.68rem">Skill category</div>
             </div></div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card h-100"><div class="card-body py-3">
                 <span class="badge @profile.KycBadgeClass">@profile.KycLabel</span>
                 <div class="text-secondary text-uppercase mt-1" style="font-size:.68rem">KYC status</div>
             </div></div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
+            <div class="card h-100"><div class="card-body py-3">
+                <partial name="_Stars" model="profile.RoundedRating" />
+                <div class="text-secondary text-uppercase mt-1" style="font-size:.68rem">
+                    @(profile.RatingCount > 0
+                        ? $"{profile.AverageRating:0.0} from {profile.RatingCount} customer{(profile.RatingCount == 1 ? "" : "s")}"
+                        : "Your rating — no customer has rated you yet")
+                </div>
+            </div></div>
+        </div>
+        <div class="col-md-3">
             <div class="card h-100"><div class="card-body py-3">
                 <form method="post" asp-action="ToggleAvailability" class="d-inline">
                     <input type="hidden" name="isAvailable" value="@(profile.IsAvailable ? "false" : "true")" />

@@ -5,6 +5,7 @@ using GigApp.Api.Services;
 using GigApp.Api.Services.Earnings;
 using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Booking;
+using GigApp.Api.Services.Ratings;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +22,7 @@ namespace GigApp.Api.Controllers
         private readonly IAddressService _addresses;
         private readonly IEarningsService _earnings;
         private readonly ITaskClaimService _claims;
+        private readonly IRatingService _ratings;
         private readonly ILogger<GigTasksController> _logger;
 
         public GigTasksController(
@@ -29,6 +31,7 @@ namespace GigApp.Api.Controllers
             IAddressService addresses,
             IEarningsService earnings,
             ITaskClaimService claims,
+            IRatingService ratings,
             ILogger<GigTasksController> logger)
         {
             _context = context;
@@ -36,6 +39,7 @@ namespace GigApp.Api.Controllers
             _addresses = addresses;
             _earnings = earnings;
             _claims = claims;
+            _ratings = ratings;
             _logger = logger;
         }
 
@@ -227,17 +231,63 @@ namespace GigApp.Api.Controllers
                     Status = 409,
                 });
 
+            var isCompleting = newStatus == GigTaskStatus.Completed;
+            var isPartner = User.IsInRole(UserRoles.Partner);
+
+            if (isCompleting && isPartner)
+            {
+                if (!RatingScale.IsValid(request.Stars))
+                    return BadRequest(new ProblemDetails
+                    {
+                        Title = "Rate the customer before you close this job.",
+                        Status = 400,
+                    });
+
+                await _context.Entry(task).Reference(t => t.Partner).LoadAsync(ct);
+
+                var rating = await _ratings.BuildAsync(
+                    User.GetRequiredUserId(), RatedBy.Partner, task,
+                    request.Stars, request.Feedback, ct);
+
+                if (rating is not null) _context.TaskRatings.Add(rating);
+            }
+
             task.Status = newStatus;
-            task.CompletedAt = newStatus == GigTaskStatus.Completed ? DateTime.UtcNow : null;
+            task.CompletedAt = isCompleting ? DateTime.UtcNow : null;
 
             await _context.SaveChangesAsync(ct);
 
-            if (newStatus == GigTaskStatus.Completed)
+            if (isCompleting)
+            {
                 await _earnings.PostJobEarningAsync(task, ct);
+                if (isPartner) await _ratings.RefreshAverageAsync(task.CustomerId, ct);
+            }
 
             _logger.LogInformation("Task {TaskId} moved to {Status}", id, newStatus);
 
             return Ok(GigTaskDto.From(await LoadDetailedAsync(id, ct)));
+        }
+
+        // POST: api/gigtasks/5/rate  -> Either side rates a finished job
+        [HttpPost("{id:int}/rate")]
+        public async Task<IActionResult> RateTask(
+            int id, RateTaskRequest request, CancellationToken ct)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Choose between one and five stars.",
+                    Status = 400,
+                });
+
+            var role = User.IsInRole(UserRoles.Partner) ? RatedBy.Partner : RatedBy.Customer;
+
+            var result = await _ratings.RateAsync(
+                User.GetRequiredUserId(), role, id, request.Stars, request.Feedback, ct);
+
+            return result.Succeeded
+                ? Ok(GigTaskDto.From(await LoadDetailedAsync(id, ct)))
+                : BadRequest(new ProblemDetails { Title = result.Error, Status = 400 });
         }
 
         /// <summary>

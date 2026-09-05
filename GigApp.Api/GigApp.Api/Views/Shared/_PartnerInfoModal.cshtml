@@ -50,6 +50,18 @@
                     <dt class="col-5">Jobs completed</dt>
                     <dd class="col-7">@Model.CompletedJobs</dd>
 
+                    <dt class="col-5">Rating</dt>
+                    <dd class="col-7">
+                        <partial name="_Stars" model="Model.RoundedRating" />
+                        @if (Model.RatingCount > 0)
+                        {
+                            <span class="small text-secondary">
+                                @Model.AverageRating!.Value.ToString("0.0")
+                                from @Model.RatingCount customer@(Model.RatingCount == 1 ? "" : "s")
+                            </span>
+                        }
+                    </dd>
+
                     <dt class="col-5">Currently</dt>
                     <dd class="col-7">@(Model.IsAvailable ? "Accepting work" : "Off duty")</dd>
 

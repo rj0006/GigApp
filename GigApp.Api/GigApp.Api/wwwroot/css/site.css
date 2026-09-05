@@ -290,3 +290,44 @@ body {
     from { transform: scaleX(1); }
     to   { transform: scaleX(0); }
 }
+
+.star-input {
+    display: inline-flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    gap: .15rem;
+}
+
+.star-input input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.star-input label {
+    font-size: 1.9rem;
+    line-height: 1;
+    cursor: pointer;
+    color: #d5d9e0;
+    transition: color .12s ease-in-out;
+}
+
+.star-input label:hover,
+.star-input label:hover ~ label,
+.star-input input:checked ~ label {
+    color: #f5a623;
+}
+
+.star-input input:focus-visible ~ label {
+    outline: 2px solid #0d6efd;
+    outline-offset: 2px;
+}
+
+.stars-read {
+    color: #f5a623;
+    letter-spacing: .05em;
+    white-space: nowrap;
+}
+
+.stars-read .star-off { color: #d5d9e0; }

@@ -9,6 +9,37 @@ developer can call the same thing.
 
 ---
 
+## 2026-09-06 — Both sides rate a finished job, but only one of them has to
+
+**Asked:** a rating must be required when the partner completes the work, and optional for the
+customer, with a feedback message.
+
+**Rule.** One rating per side per task, held in `TaskRatings` with a unique index on
+`(GigTaskId, RaterRole)` and a check constraint keeping stars between one and five.
+
+| Who | When | Required? | Sees |
+|---|---|---|---|
+| Partner rates the customer | While closing the job | **Yes** — the job will not close without it | Only administrators |
+| Customer rates the partner | Any time after it is completed | No | Everyone, as the partner's average |
+
+- **The partner's rating is written in the same save as the completion.** The status change and
+  the rating go through one `SaveChangesAsync`, so a completed job can never exist without one.
+  `POST /provider/tasks/{id}/status` and `PUT /api/gigtasks/{id}/status` both refuse with "Rate the
+  customer before you close this job." when stars are missing or out of range.
+- **The customer can only rate a completed job**, and only their own. `RatingService.BuildAsync`
+  checks both. The partner is exempt from the completed check because they rate mid-transition.
+- **Nobody rates twice.** A second attempt is refused rather than overwriting, so a rating cannot
+  be revised after the fact.
+- **Averages are a cache on `User`,** not on `Partner` — `AverageRating` and `RatingCount` are the
+  person's, and the same two columns serve a customer's rating and a partner's. They are recomputed
+  from the whole history by `RatingService.RefreshAverageAsync` after each new rating, never
+  incremented, so a bad write cannot drift them permanently.
+
+Ratings exist because assignment needs them. The matching algorithm ranks on rating and distance,
+and until this landed there was nothing to rank on.
+
+---
+
 ## 2026-09-06 — Support can assign a partner to a pending task
 
 **Asked:** when a customer states a requirement to the support team, an administrator should be able

@@ -205,6 +205,21 @@
                                         <button type="submit" class="btn btn-sm btn-outline-danger">Cancel</button>
                                     </form>
                                 }
+                                else if (task.Status == GigTaskStatus.Completed)
+                                {
+                                    var given = Model.RatingFor(task.Id);
+                                    if (given is null)
+                                    {
+                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                                data-bs-toggle="modal" data-bs-target="#rate-modal-@task.Id">
+                                            Rate partner
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <partial name="_Stars" model="given.Stars" />
+                                    }
+                                }
                             </td>
                         </tr>
                     }
@@ -223,5 +238,42 @@
 
 @* Bid lists for tasks still open for bidding. *@
 <partial name="_TaskBidsModal" model="Model" />
+
+@foreach (var task in Model.Tasks.Where(t => t.Status == GigTaskStatus.Completed
+                                          && Model.RatingFor(t.Id) is null))
+{
+    <div class="modal fade" id="rate-modal-@task.Id" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="post" asp-action="RateTask" asp-route-id="@task.Id" class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Rate task #@task.Id</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body gig-form">
+                    <p class="small text-secondary mb-3">
+                        @(task.ServiceItemName ?? task.CategoryName) ·
+                        <span class="text-body">@(task.PartnerName ?? "your partner")</span>
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label required d-block">How was the work?</label>
+                        <partial name="_StarInput" model="@($"rate-{task.Id}")" />
+                        <div class="form-text">
+                            Ratings are how the next customer knows who to trust.
+                        </div>
+                    </div>
+                    <div>
+                        <label for="rate-note-@task.Id" class="form-label">Feedback</label>
+                        <textarea id="rate-note-@task.Id" name="Feedback" class="form-control" rows="2"
+                                  maxlength="500" placeholder="Came on time and cleaned up afterwards"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Not now</button>
+                    <button type="submit" class="btn btn-sm btn-primary">Send rating</button>
+                </div>
+            </form>
+        </div>
+    </div>
+}
 
 <partial name="_AddAddressModal" model="@("customer")" />

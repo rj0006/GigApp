@@ -115,10 +115,17 @@ everything else books as `bidding`. Nothing else sets the mode, and the customer
   `ExecuteUpdateAsync` lock as before, extended with `BookingMode = instant` so a bidding task can
   never be grabbed this way.
 - **Bidding** is unchanged: partners quote, the customer accepts one.
-- **There is no automatic partner selection, on purpose.** Ranking partners needs ratings and
-  distance and neither exists yet. Until they do, `ITaskClaimService.AssignAsync` lets support put a
-  named partner on a pending task, with a required note, closing any open bids. Build the matching
-  algorithm after ratings, not before — an arbitrary auto-assign would have to be rewritten wholesale.
+- **There is no automatic partner selection yet.** Ranking partners needs rating **and** distance;
+  ratings now exist, distance does not. Until it does, `ITaskClaimService.AssignAsync` lets support
+  put a named partner on a pending task, with a required note, closing any open bids.
+
+**A rating is one row per side per task, and the average is a cache on `User`.** `TaskRatings` is
+unique on `(GigTaskId, RaterRole)`, so neither side rates twice and neither can revise. The partner
+must rate the customer to close a job — the rating and the status change are written in one save —
+while the customer's rating of the partner is optional and can be left until later. `User.AverageRating`
+and `User.RatingCount` belong to the person, not the `Partner` profile, so one pair of columns serves
+both sides; `RatingService.RefreshAverageAsync` recomputes them from the full history rather than
+incrementing, so a bad write cannot drift them permanently.
 
 **Commission is a plan, and tax is a dated country rule.** `CommissionPlans` decides what the
 platform keeps — zero percent with a monthly fee is the subscription model. `TaxRules` is a

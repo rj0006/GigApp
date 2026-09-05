@@ -13,6 +13,7 @@ namespace GigApp.Api.Data
         public DbSet<SkillCategory> SkillCategories => Set<SkillCategory>();
         public DbSet<TrackingLog> TrackingLogs => Set<TrackingLog>();
         public DbSet<TaskBid> TaskBids => Set<TaskBid>();
+        public DbSet<TaskRating> TaskRatings => Set<TaskRating>();
         public DbSet<ServiceItem> ServiceItems => Set<ServiceItem>();
         public DbSet<Address> Addresses => Set<Address>();
         public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
@@ -38,6 +39,7 @@ namespace GigApp.Api.Data
                 e.Property(u => u.DeactivationReason).HasMaxLength(300);
                 e.HasIndex(u => new { u.Role, u.IsActive });
                 e.Property(u => u.Role).HasMaxLength(20).IsRequired();
+                e.Property(u => u.AverageRating).HasPrecision(3, 2);
 
                 e.HasIndex(u => new { u.Email, u.Role }).IsUnique();
                 e.HasIndex(u => new { u.Phone, u.Role }).IsUnique();
@@ -345,6 +347,33 @@ namespace GigApp.Api.Data
                 e.ToTable(t => t.HasCheckConstraint(
                     "CK_Partners_KycStatus",
                     "\"KycStatus\" IN ('not_submitted','pending','approved','rejected')"));
+            });
+
+            modelBuilder.Entity<TaskRating>(e =>
+            {
+                e.Property(r => r.RaterRole).HasMaxLength(20).IsRequired();
+                e.Property(r => r.Feedback).HasMaxLength(500);
+
+                e.HasOne(r => r.GigTask)
+                 .WithMany(t => t.Ratings)
+                 .HasForeignKey(r => r.GigTaskId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(r => r.RaterUser)
+                 .WithMany()
+                 .HasForeignKey(r => r.RaterUserId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(r => new { r.GigTaskId, r.RaterRole }).IsUnique();
+
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint(
+                        "CK_TaskRatings_Stars", "\"Stars\" BETWEEN 1 AND 5");
+
+                    t.HasCheckConstraint(
+                        "CK_TaskRatings_RaterRole", "\"RaterRole\" IN ('customer','partner')");
+                });
             });
 
             modelBuilder.Entity<GigTask>(e =>

@@ -29,6 +29,10 @@ namespace GigApp.Api.Dtos
         /// <summary>Completed jobs across the platform — a simple trust signal.</summary>
         public int CompletedJobs { get; set; }
 
+        public decimal? AverageRating { get; set; }
+        public int RatingCount { get; set; }
+        public int RoundedRating => AverageRating is null ? 0 : (int)Math.Round(AverageRating.Value, MidpointRounding.AwayFromZero);
+
         /// <summary>Initials for the avatar placeholder when there is no photo.</summary>
         public string Initials
         {
@@ -54,6 +58,8 @@ namespace GigApp.Api.Dtos
             MemberSince = partner.CreatedAt,
             ProfileImageFileName = partner.User?.ProfileImageFileName,
             CompletedJobs = completedJobs,
+            AverageRating = partner.User?.AverageRating,
+            RatingCount = partner.User?.RatingCount ?? 0,
         };
     }
 }

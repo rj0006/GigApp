@@ -10,6 +10,7 @@ using GigApp.Api.Services.Files;
 using GigApp.Api.Services.Kyc;
 using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Profile;
+using GigApp.Api.Services.Ratings;
 using GigApp.Api.Services.Tracking;
 using GigApp.Api.ViewModels;
 using Microsoft.AspNetCore.Authorization;
@@ -26,6 +27,7 @@ namespace GigApp.Api.Controllers
         private readonly IFileStorageService _storage;
         private readonly IBidService _bids;
         private readonly ITaskClaimService _claims;
+        private readonly IRatingService _ratings;
         private readonly IKycHistoryService _kycHistory;
         private readonly IEarningsService _earnings;
 
@@ -38,6 +40,7 @@ namespace GigApp.Api.Controllers
             IFileStorageService storage,
             IBidService bids,
             ITaskClaimService claims,
+            IRatingService ratings,
             IBankAccountService bankAccounts,
             IKycHistoryService kycHistory,
             IEarningsService earnings)
@@ -48,6 +51,7 @@ namespace GigApp.Api.Controllers
             _storage = storage;
             _bids = bids;
             _claims = claims;
+            _ratings = ratings;
             _kycHistory = kycHistory;
             _earnings = earnings;
         }
@@ -347,35 +351,58 @@ namespace GigApp.Api.Controllers
         [HttpPost("tasks/{id:int}/status")]
         [Authorize(Policy = Policies.PartnerOnly)]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdateStatus(int id, string status, CancellationToken ct)
+        public async Task<IActionResult> UpdateStatus(
+            int id, string status, int stars, string? feedback, CancellationToken ct)
         {
             var partner = await GetOwnPartnerAsync(ct);
             var task = partner is null
                 ? null
-                : await _context.GigTasks.FirstOrDefaultAsync(t => t.Id == id && t.PartnerId == partner.Id, ct);
+                : await _context.GigTasks
+                    .Include(t => t.Partner)
+                    .FirstOrDefaultAsync(t => t.Id == id && t.PartnerId == partner.Id, ct);
 
             if (task is null)
             {
                 TempData["Error"] = "Task not found.";
+                return Redirect(DashboardPath);
             }
-            else if (!GigTaskStatus.IsValid(status) || !GigTaskStatus.CanTransition(task.Status, status))
+
+            if (!GigTaskStatus.IsValid(status) || !GigTaskStatus.CanTransition(task.Status, status))
             {
                 TempData["Error"] = $"Cannot move task #{id} to '{status}'.";
+                return Redirect(DashboardPath);
             }
-            else
+
+            var isCompleting = status == GigTaskStatus.Completed;
+
+            if (isCompleting && !RatingScale.IsValid(stars))
             {
-                task.Status = status;
-                task.CompletedAt = status == GigTaskStatus.Completed ? DateTime.UtcNow : null;
-                await _context.SaveChangesAsync(ct);
-
-                if (status == GigTaskStatus.Completed)
-                    await _earnings.PostJobEarningAsync(task, ct);
-
-                TrackDoc(task.Id, GigTaskDto.From(task));
-                TempData["Success"] = status == GigTaskStatus.Completed
-                    ? $"Task #{id} is complete. Your earning has been added to your balance."
-                    : $"Task #{id} is now {status.Replace('_', ' ')}.";
+                TempData["Error"] = "Rate the customer before you close this job.";
+                return Redirect(DashboardPath);
             }
+
+            if (isCompleting)
+            {
+                var rating = await _ratings.BuildAsync(
+                    User.GetRequiredUserId(), RatedBy.Partner, task, stars, feedback, ct);
+
+                if (rating is not null) _context.TaskRatings.Add(rating);
+            }
+
+            task.Status = status;
+            task.CompletedAt = isCompleting ? DateTime.UtcNow : null;
+            await _context.SaveChangesAsync(ct);
+
+            if (isCompleting)
+            {
+                await _earnings.PostJobEarningAsync(task, ct);
+                await _ratings.RefreshAverageAsync(task.CustomerId, ct);
+            }
+
+            TrackDoc(task.Id, GigTaskDto.From(task));
+            TempData["Success"] = isCompleting
+                ? $"Task #{id} is complete. Your earning has been added to your balance."
+                : $"Task #{id} is now {status.Replace('_', ' ')}.";
 
             return Redirect(DashboardPath);
         }

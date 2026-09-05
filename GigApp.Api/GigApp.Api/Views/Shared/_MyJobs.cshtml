@@ -64,14 +64,10 @@
                                         }
                                         @if (GigTaskStatus.CanTransition(job.Status, GigTaskStatus.Completed))
                                         {
-                                            <form method="post" asp-action="UpdateStatus" asp-route-id="@job.Id"
-                                                  data-confirm-title="Mark this job complete?"
-                                                  data-confirm="@($"₹{job.EffectiveAmount:N0} will be credited to your balance and the customer will be asked to rate you. This cannot be undone.")"
-                                                  data-confirm-icon="question"
-                                                  data-confirm-ok="Yes, work is done">
-                                                <input type="hidden" name="status" value="@GigTaskStatus.Completed" />
-                                                <button type="submit" class="btn btn-sm btn-success">Complete</button>
-                                            </form>
+                                            <button type="button" class="btn btn-sm btn-success"
+                                                    data-bs-toggle="modal" data-bs-target="#complete-modal-@job.Id">
+                                                Complete
+                                            </button>
                                         }
                                         @if (GigTaskStatus.CanTransition(job.Status, GigTaskStatus.Cancelled))
                                         {
@@ -91,3 +87,40 @@
             }
         </div>
     </div>
+
+@foreach (var job in Model.MyJobs.Where(j => GigTaskStatus.CanTransition(j.Status, GigTaskStatus.Completed)))
+{
+    <div class="modal fade" id="complete-modal-@job.Id" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="post" asp-action="UpdateStatus" asp-route-id="@job.Id" class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Close job #@job.Id</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body gig-form">
+                    <p class="small text-secondary mb-3">
+                        ₹@job.EffectiveAmount.ToString("N0") will be credited to your balance and the
+                        customer will be asked to rate you. This cannot be undone.
+                    </p>
+                    <input type="hidden" name="status" value="@GigTaskStatus.Completed" />
+                    <div class="mb-3">
+                        <label class="form-label required d-block">How was @(job.CustomerName ?? "this customer")?</label>
+                        <partial name="_StarInput" model="@($"complete-{job.Id}")" />
+                        <div class="form-text">
+                            Your rating is required to close the job. It is not shown to the customer.
+                        </div>
+                    </div>
+                    <div>
+                        <label for="complete-note-@job.Id" class="form-label">Anything worth noting</label>
+                        <textarea id="complete-note-@job.Id" name="Feedback" class="form-control" rows="2"
+                                  maxlength="500" placeholder="Address was hard to find, payment was prompt"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-success">Yes, work is done</button>
+                </div>
+            </form>
+        </div>
+    </div>
+}
