@@ -9,6 +9,37 @@ developer can call the same thing.
 
 ---
 
+## 2026-09-06 — One image component for every upload
+
+**Asked:** the "select image" control is very old; build one reusable, modern component, because
+image fields are used in many places already and more are coming.
+
+**Rule.** No view renders a bare `<input type="file">`. Every image field is `_ImageUpload`, taking an
+`ImageUploadModel`. Seven inputs were replaced: three on partner registration, three on the KYC
+section, and the profile photo.
+
+The behaviour a mobile client must match:
+
+- **Resize before upload.** Longest edge is capped at `MaxPixels` (1600 by default) and the image is
+  re-encoded as JPEG at 0.85 quality. A file already inside both limits is uploaded untouched.
+- **EXIF orientation is applied during the resize**, so a sideways phone photo arrives upright.
+- **The extension follows the bytes.** A re-encoded PNG is renamed to `.jpg`, because the server
+  checks the extension and the magic bytes separately and a mismatch would be stored.
+- **A refused file is discarded, not just reported.** Wrong type or over the limit clears the field so
+  it cannot be posted at all.
+- Camera capture is offered for the selfie and both Aadhaar sides — those are taken on the spot, not
+  picked from a gallery.
+
+Server validation is unchanged and still authoritative: size, extension, `image/*` content type and
+the actual file signature are all re-checked in `FileStorageService.SaveAsync`. The client-side work
+is there to make a 10 MB photo uploadable on a slow connection, never to be trusted.
+
+**Fixed while testing:** `FileStorage:AllowedExtensions` was binding to eight entries rather than
+four, because a configuration array appends to a non-empty default. The upload error listed every
+type twice, and removing an extension from `appsettings.json` would have had no effect.
+
+---
+
 ## 2026-09-06 — Both sides rate a finished job, but only one of them has to
 
 **Asked:** a rating must be required when the partner completes the work, and optional for the

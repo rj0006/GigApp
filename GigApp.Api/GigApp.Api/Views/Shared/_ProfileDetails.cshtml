@@ -39,10 +39,15 @@
             @Html.AntiForgeryToken()
 
             <div class="col-md-8">
-                <label for="photo" class="form-label">Choose a new photo</label>
-                <input id="photo" name="photo" type="file" class="form-control"
-                       required accept=".jpg,.jpeg,.png,.webp" />
-                <div class="form-text">JPG, PNG or WEBP, up to 5 MB.</div>
+                <partial name="_ImageUpload" model="@(new ImageUploadModel {
+                    Name = "photo",
+                    Label = "Choose a new photo",
+                    Hint = "Pick an image to replace the one shown.",
+                    CurrentUrl = Model.User.ProfileImageUrl,
+                    Shape = ImageUploadShape.Circle,
+                    AllowCamera = true,
+                    Required = true,
+                })" />
             </div>
 
             <div class="col-12">

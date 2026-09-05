@@ -286,7 +286,14 @@ names it `list` instead.
 
 **A file upload form needs `enctype="multipart/form-data"`.** Without it the browser posts only the
 file names, every `IFormFile` binds as null, and nothing reports an error — the upload silently does
-nothing. Applies to partner registration, KYC upload and the profile photo.
+nothing. Applies to partner registration, KYC upload and the profile photo. `_ImageUpload` is still a
+file input underneath, so it does not save you from this.
+
+**Binding a configuration array onto a non-empty default appends to it.** `FileStorageOptions.AllowedExtensions`
+had `{ ".jpg", ".jpeg", ".png", ".webp" }` as its default and the same four in `appsettings.json`, so
+it bound to eight entries and the error message listed each twice — and removing one from configuration
+would have changed nothing. Any option that is a collection must default to empty, with the fallback
+expressed as a separate property.
 
 **Npgsql rejects non-UTC `DateTime` on `timestamp with time zone`.** JSON without an offset deserializes
 as `Unspecified` and throws at save time. Run every client-supplied timestamp through

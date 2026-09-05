@@ -59,20 +59,35 @@
                 </p>
             </div>
 
-            <div class="col-12">
-                <label asp-for="Selfie" class="form-label required"></label>
-                <input asp-for="Selfie" type="file" class="form-control" accept=".jpg,.jpeg,.png,.webp" />
-                <div class="form-text">A clear photo of your face, matching your Aadhaar card.</div>
+            <div class="col-md-4">
+                <partial name="_ImageUpload" model="@(new ImageUploadModel {
+                    Name = nameof(Model.Selfie),
+                    Label = "Your selfie",
+                    Hint = "A clear photo of your face, matching your Aadhaar card.",
+                    Shape = ImageUploadShape.Circle,
+                    AllowCamera = true,
+                    Required = true,
+                })" />
             </div>
 
-            <div class="col-md-6">
-                <label asp-for="AadhaarFront" class="form-label required"></label>
-                <input asp-for="AadhaarFront" type="file" class="form-control" accept=".jpg,.jpeg,.png,.webp" />
+            <div class="col-md-4">
+                <partial name="_ImageUpload" model="@(new ImageUploadModel {
+                    Name = nameof(Model.AadhaarFront),
+                    Label = "Aadhaar front",
+                    Shape = ImageUploadShape.Square,
+                    AllowCamera = true,
+                    Required = true,
+                })" />
             </div>
 
-            <div class="col-md-6">
-                <label asp-for="AadhaarBack" class="form-label required"></label>
-                <input asp-for="AadhaarBack" type="file" class="form-control" accept=".jpg,.jpeg,.png,.webp" />
+            <div class="col-md-4">
+                <partial name="_ImageUpload" model="@(new ImageUploadModel {
+                    Name = nameof(Model.AadhaarBack),
+                    Label = "Aadhaar back",
+                    Shape = ImageUploadShape.Square,
+                    AllowCamera = true,
+                    Required = true,
+                })" />
             </div>
 
             <div class="col-12">

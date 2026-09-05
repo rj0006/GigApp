@@ -1,0 +1,37 @@
+@model ImageUploadModel
+@{
+    var id = Model.FieldId;
+    var hasCurrent = !string.IsNullOrWhiteSpace(Model.CurrentUrl);
+}
+
+<div class="image-upload image-upload-@Model.Shape" data-image-upload
+     data-max-bytes="@Model.MaxBytes" data-max-pixels="@Model.MaxPixels">
+
+    @if (!string.IsNullOrWhiteSpace(Model.Label))
+    {
+        <label for="@id" class="form-label @(Model.Required ? "required" : "")">@Model.Label</label>
+    }
+
+    <div class="image-drop" data-image-drop tabindex="0" role="button"
+         aria-label="@(Model.Label ?? "Choose an image")">
+
+        <input type="file" id="@id" name="@Model.Name" class="image-file"
+               accept="image/jpeg,image/png,image/webp"
+               required="@Model.Required"
+               capture="@(Model.AllowCamera ? "environment" : null)" />
+
+        <div class="image-thumb" data-image-figure hidden="@(!hasCurrent)">
+            <img data-image-thumb src="@Model.CurrentUrl" alt="" />
+            <button type="button" class="image-clear" data-image-clear
+                    title="Remove this image" aria-label="Remove this image">&times;</button>
+        </div>
+
+        <div class="image-prompt" data-image-empty hidden="@hasCurrent">
+            <span class="image-icon" aria-hidden="true">&#128247;</span>
+            <span class="image-call">Drag an image here, or <u>browse</u></span>
+            <span class="image-limits">JPG, PNG or WEBP · up to @Model.MaxLabel</span>
+        </div>
+    </div>
+
+    <div class="form-text image-status" data-image-status>@Model.Hint</div>
+</div>

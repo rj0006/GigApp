@@ -274,10 +274,60 @@ Forms carrying a file need `enctype="multipart/form-data"`; API actions need
 | `_UserMenu` | `UserMenuViewModel` | Navbar avatar with a Profile / Sign out box, plus an optional notification bell. Used by both layouts. |
 | `_LedgerTable` | `PagedResult<LedgerEntryDto>` | Money statement with the task behind each row. Shared by the partner and admin screens. |
 | `_MyJobs` | `ProviderDashboardViewModel` | Partner job table with Start / Complete / Cancel. Flags any job whose category no longer matches the partner's skill. Complete opens a modal that takes the required rating. |
+| `_ImageUpload` | `ImageUploadModel` | **Every image field goes through this.** Drag-and-drop, paste, camera capture, live preview and client-side resizing. See below. |
 | `_StarInput` | `string` group id | Five radio buttons posting as `Stars`, styled as clickable stars. The group id must be unique on the page. Pair it with a textarea named `Feedback`. |
 | `_Stars` | `int?` | Read-only star row. Renders "Not rated yet" for null or zero. |
 | `_ProfileBody` | `ProfilePageViewModel` | Profile shell: left menu plus the section named by `Model.Section`. |
 | `_ProfileDetails` / `_ProfileBank` / `_ProfileAddresses` / `_ProfileKyc` / `_ProfileSettings` | `ProfilePageViewModel` | The profile sections. Add a new one by adding to `ProfileSections`, the menu list in `_ProfileBody`, and a `GET` on `PortalControllerBase`. |
+
+### Images — `_ImageUpload`
+
+**Never write a bare `<input type="file">` again.** Every image field on every portal renders this
+partial, so one fix reaches all of them.
+
+```razor
+<partial name="_ImageUpload" model="@(new ImageUploadModel {
+    Name = nameof(Model.Selfie),
+    Label = "Your selfie",
+    Hint = "A clear photo of your face.",
+    CurrentUrl = Model.User.ProfileImageUrl,
+    Shape = ImageUploadShape.Circle,
+    AllowCamera = true,
+    Required = true,
+})" />
+```
+
+| Property | Meaning |
+|---|---|
+| `Name` | The form field name. Binds to an `IFormFile` exactly as before. |
+| `Id` | Only when two boxes on one page share a `Name`. Defaults to `Name`. |
+| `Label` / `Hint` | Label above the box, help text below it. The hint is restored after an error. |
+| `CurrentUrl` | Shows the stored image inside the box on an edit form. |
+| `Required` | Renders the HTML `required`. Once a file is attached it is dropped, so a replacement satisfies a field whose original is gone. |
+| `Shape` | `ImageUploadShape.Wide` (16:9, default), `.Square` (4:3, documents) or `.Circle` (avatars). |
+| `AllowCamera` | Adds `capture="environment"`, so a phone opens the camera instead of the gallery. |
+| `MaxPixels` | Longest edge after resizing. Default 1600. |
+| `MaxBytes` | Client-side limit. Keep it equal to `FileStorage:MaxBytes`. |
+
+**The form still needs `enctype="multipart/form-data"`** — this is a normal file input underneath, and
+the controller keeps taking `IFormFile`. Nothing about the server side changes.
+
+What `global.js` adds on top, with no per-page JavaScript:
+
+- **Resizing before upload.** Anything over `MaxPixels` is drawn to a canvas and re-encoded as JPEG at
+  0.85, then swapped back into the input through a `DataTransfer`. A 10 MB phone photo becomes about
+  70 KB. A file that is already small is left completely untouched.
+- **EXIF orientation** is applied while resizing, so a sideways phone photo uploads upright.
+- The stored name gains a `.jpg` extension when it is re-encoded, so the extension always matches the
+  bytes the server checks.
+- **Drag and drop, clipboard paste, keyboard (Enter/Space), click to browse** and a remove button.
+- Wrong type or still-too-large is refused on the spot, **the input is emptied** so it cannot be
+  posted, and the reason appears both under the box and as a toast.
+- If the browser cannot resize, the original file uploads untouched. Nothing is ever blocked by it.
+
+There is deliberately **no background upload or progress bar**. The file leaves the browser at roughly
+70 KB, so the ordinary form post is fast enough, and keeping it means no upload endpoint, no temporary
+files and no orphan cleanup. Add one only if a genuinely large upload appears.
 
 ### Which partner DTO to use
 

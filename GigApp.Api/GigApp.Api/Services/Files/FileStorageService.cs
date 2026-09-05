@@ -20,7 +20,15 @@ namespace GigApp.Api.Services.Files
         public const string SectionName = "FileStorage";
 
         public long MaxBytes { get; set; } = 5 * 1024 * 1024;   // 5 MB
-        public string[] AllowedExtensions { get; set; } = { ".jpg", ".jpeg", ".png", ".webp" };
+
+        public static readonly string[] DefaultExtensions = { ".jpg", ".jpeg", ".png", ".webp" };
+
+        // Binding an array onto a non-empty default appends to it, so a default
+        // here would make an extension impossible to remove from configuration.
+        public string[] AllowedExtensions { get; set; } = Array.Empty<string>();
+
+        public IReadOnlyList<string> Extensions =>
+            AllowedExtensions.Length > 0 ? AllowedExtensions : DefaultExtensions;
 
         /// <summary>Public folder, relative to wwwroot.</summary>
         public string ProfileFolder { get; set; } = "uploads/profile";
@@ -79,9 +87,9 @@ namespace GigApp.Api.Services.Files
 
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
 
-            if (!_options.AllowedExtensions.Contains(extension))
+            if (!_options.Extensions.Contains(extension))
                 return FileSaveResult.Fail(
-                    $"Only {string.Join(", ", _options.AllowedExtensions)} files are allowed.");
+                    $"Only {string.Join(", ", _options.Extensions)} files are allowed.");
 
             if (!file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
                 return FileSaveResult.Fail("Only image files are allowed.");

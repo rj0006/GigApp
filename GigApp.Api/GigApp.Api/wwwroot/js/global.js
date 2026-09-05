@@ -430,6 +430,178 @@
         });
     }
 
+    var IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+    function readableSize(bytes) {
+        return bytes >= 1048576
+            ? (bytes / 1048576).toFixed(1) + ' MB'
+            : Math.max(1, Math.round(bytes / 1024)) + ' KB';
+    }
+
+    function shrinkImage(file, maxPixels, quality) {
+        if (!window.createImageBitmap || !window.HTMLCanvasElement) {
+            return Promise.resolve(null);
+        }
+
+        return createImageBitmap(file, { imageOrientation: 'from-image' })
+            .then(function (bitmap) {
+                var scale = Math.min(1, maxPixels / Math.max(bitmap.width, bitmap.height));
+                var canvas = document.createElement('canvas');
+                canvas.width = Math.round(bitmap.width * scale);
+                canvas.height = Math.round(bitmap.height * scale);
+
+                var context = canvas.getContext('2d');
+                // A transparent PNG would otherwise composite onto black.
+                context.fillStyle = '#ffffff';
+                context.fillRect(0, 0, canvas.width, canvas.height);
+                context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+                bitmap.close();
+
+                return new Promise(function (resolve) {
+                    canvas.toBlob(function (blob) { resolve(blob); }, 'image/jpeg', quality);
+                });
+            })
+            .catch(function () { return null; });
+    }
+
+    function setupImageUpload($box) {
+        var input = $box.find('input.image-file')[0];
+        if (!input) return;
+
+        var $drop = $box.find('[data-image-drop]');
+        var $figure = $box.find('[data-image-figure]');
+        var $thumb = $box.find('[data-image-thumb]');
+        var $empty = $box.find('[data-image-empty]');
+        var $status = $box.find('[data-image-status]');
+
+        var maxBytes = parseInt($box.data('max-bytes'), 10) || 5242880;
+        var maxPixels = parseInt($box.data('max-pixels'), 10) || 1600;
+        var hint = $status.text();
+        var objectUrl = null;
+        var required = input.required;
+
+        function say(message, isError) {
+            $status.text(message || hint).toggleClass('is-error', !!isError);
+        }
+
+        function show(file) {
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+            objectUrl = URL.createObjectURL(file);
+            $thumb.attr('src', objectUrl);
+            $figure.prop('hidden', false);
+            $empty.prop('hidden', true);
+        }
+
+        function clear() {
+            if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+            input.value = '';
+            input.required = required;
+            $thumb.attr('src', '');
+            $figure.prop('hidden', true);
+            $empty.prop('hidden', false);
+            say(null, false);
+        }
+
+        function put(file) {
+            var transfer = new DataTransfer();
+            transfer.items.add(file);
+            input.files = transfer.files;
+            // A replacement satisfies the field even when the original is gone.
+            input.required = false;
+        }
+
+        function reject(reason, toast) {
+            input.value = '';
+            input.required = required;
+            say(reason, true);
+            showToast('Error', toast, 'bg-danger');
+        }
+
+        function accept(file) {
+            if (!file) return;
+
+            if (IMAGE_TYPES.indexOf(file.type) === -1) {
+                reject('Choose a JPG, PNG or WEBP image.',
+                       'Only JPG, PNG and WEBP images are allowed.');
+                return;
+            }
+
+            $drop.addClass('is-busy');
+            say('Preparing…', false);
+
+            shrinkImage(file, maxPixels, 0.85).then(function (blob) {
+                $drop.removeClass('is-busy');
+
+                var useSmaller = blob && blob.size < file.size;
+                var finalFile = file;
+
+                if (useSmaller) {
+                    var base = file.name.replace(/\.[^.]+$/, '') || 'image';
+                    finalFile = new File([blob], base + '.jpg', { type: 'image/jpeg' });
+                }
+
+                if (finalFile.size > maxBytes) {
+                    reject('That image is ' + readableSize(finalFile.size)
+                           + '. The limit is ' + readableSize(maxBytes) + '.',
+                           'That image is too large to upload.');
+                    return;
+                }
+
+                put(finalFile);
+                show(finalFile);
+
+                say(useSmaller
+                    ? 'Ready — resized from ' + readableSize(file.size) + ' to ' + readableSize(finalFile.size) + '.'
+                    : 'Ready — ' + readableSize(finalFile.size) + '.', false);
+            });
+        }
+
+        $(input).on('change', function () {
+            if (input.files && input.files.length) accept(input.files[0]);
+        });
+
+        $drop.on('dragover dragenter', function (event) {
+            event.preventDefault();
+            $drop.addClass('is-dragging');
+        });
+
+        $drop.on('dragleave drop', function () { $drop.removeClass('is-dragging'); });
+
+        $drop.on('drop', function (event) {
+            event.preventDefault();
+            var dropped = event.originalEvent.dataTransfer;
+            if (dropped && dropped.files && dropped.files.length) accept(dropped.files[0]);
+        });
+
+        $drop.on('keydown', function (event) {
+            if (event.which === 13 || event.which === 32) {
+                event.preventDefault();
+                input.click();
+            }
+        });
+
+        $drop.on('paste', function (event) {
+            var items = (event.originalEvent.clipboardData || {}).items || [];
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].kind === 'file') {
+                    event.preventDefault();
+                    accept(items[i].getAsFile());
+                    return;
+                }
+            }
+        });
+
+        $box.find('[data-image-clear]').on('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            clear();
+        });
+    }
+
+    function wireImageUploads() {
+        $('[data-image-upload]').each(function () { setupImageUpload($(this)); });
+    }
+
     function wireDeclarativePickers() {
         $('input[data-master][data-target]').each(function () {
             var $el = $(this);
@@ -449,6 +621,7 @@
     App.AutoComplete = AutoComplete;
     App.masterPicker = masterPicker;
     App.localPicker = localPicker;
+    App.wireImageUploads = wireImageUploads;
     window.App = App;
     window.showToast = showToast;
     window.AutoComplete = AutoComplete;
@@ -458,6 +631,7 @@
         wireFlash();
         wireAutoSubmit();
         wireFixedPrice();
+        wireImageUploads();
         wireDeclarativePickers();
         wireLocationCapture();
     });

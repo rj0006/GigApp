@@ -95,19 +95,28 @@
             </div>
 
             <div class="col-md-4">
-                <label for="Selfie" class="form-label">Replace selfie</label>
-                <input id="Selfie" name="Selfie" type="file" class="form-control form-control-sm"
-                       accept=".jpg,.jpeg,.png,.webp" />
+                <partial name="_ImageUpload" model="@(new ImageUploadModel {
+                    Name = "Selfie",
+                    Label = "Replace selfie",
+                    Shape = ImageUploadShape.Circle,
+                    AllowCamera = true,
+                })" />
             </div>
             <div class="col-md-4">
-                <label for="AadhaarFront" class="form-label">Replace Aadhaar front</label>
-                <input id="AadhaarFront" name="AadhaarFront" type="file" class="form-control form-control-sm"
-                       accept=".jpg,.jpeg,.png,.webp" />
+                <partial name="_ImageUpload" model="@(new ImageUploadModel {
+                    Name = "AadhaarFront",
+                    Label = "Replace Aadhaar front",
+                    Shape = ImageUploadShape.Square,
+                    AllowCamera = true,
+                })" />
             </div>
             <div class="col-md-4">
-                <label for="AadhaarBack" class="form-label">Replace Aadhaar back</label>
-                <input id="AadhaarBack" name="AadhaarBack" type="file" class="form-control form-control-sm"
-                       accept=".jpg,.jpeg,.png,.webp" />
+                <partial name="_ImageUpload" model="@(new ImageUploadModel {
+                    Name = "AadhaarBack",
+                    Label = "Replace Aadhaar back",
+                    Shape = ImageUploadShape.Square,
+                    AllowCamera = true,
+                })" />
             </div>
 
             <div class="col-md-6">
