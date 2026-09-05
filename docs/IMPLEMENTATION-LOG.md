@@ -9,6 +9,37 @@ developer can call the same thing.
 
 ---
 
+## 2026-09-06 — Adding an address never leaves the page
+
+**Asked:** "You have no saved addresses. Add one before posting a task." should open a modal instead
+of sending the customer away, and the same modal should be reusable wherever an address is needed.
+
+**Rule.** `_AddAddressModal` is the one add-address dialog. It takes the portal slug and renders
+`_AddressForm` inside a Bootstrap modal, carrying a hidden `returnTo` set to the page it was opened
+from. `CreateAddress` redirects back there rather than always to the address book, so the customer
+lands back on the half-filled booking form with the new address selectable.
+
+Used on the customer dashboard, in the My addresses section of both profiles, and available for the
+partner gig screens. `_AddressBook` renders the same partial rather than its own copy.
+
+---
+
+## 2026-09-06 — A partner confirms before starting and before completing
+
+**Asked:** confirm with the partner before work starts.
+
+**Rule.** Both transitions ask, through the standard SweetAlert confirm.
+
+| Action | Dialog |
+|---|---|
+| Start | "Start this job? Start only once you have reached *the address*. The customer is told the work has begun, and the job cannot go back to accepted." |
+| Complete | "Mark this job complete? *Amount* will be credited to your balance and the customer will be asked to rate you. This cannot be undone." |
+
+Both name the consequence rather than asking "are you sure" — starting is visible to the customer,
+and completing posts money to the ledger and cannot be reversed.
+
+---
+
 ## 2026-09-06 — A typed password is the one that gets set
 
 **Asked:** typing into "Or type one" should set exactly that password; leaving it blank should

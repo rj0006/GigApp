@@ -1,0 +1,25 @@
+@model string
+@{
+    var slug = Model ?? ViewData["PortalSlug"] as string ?? "customer";
+    var returnTo = Context.Request.Path + Context.Request.QueryString;
+}
+
+<div class="modal fade" id="address-modal-new" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add an address</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-secondary small">
+                    Saved addresses are what you pick when booking, so you never retype them. A
+                    location pin is what lets us match you with the nearest partner.
+                </p>
+
+                @{ ViewData["PortalSlug"] = slug; ViewData["AddressReturnTo"] = returnTo; }
+                <partial name="_AddressForm" model="null" />
+            </div>
+        </div>
+    </div>
+</div>

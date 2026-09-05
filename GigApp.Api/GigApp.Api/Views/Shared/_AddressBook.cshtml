@@ -87,20 +87,7 @@ else
     </div>
 }
 
-@* Add modal *@
-<div class="modal fade" id="address-modal-new" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Add an address</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <partial name="_AddressForm" model="null" />
-            </div>
-        </div>
-    </div>
-</div>
+<partial name="_AddAddressModal" model="slug" />
 
 @* One edit modal per saved address *@
 @foreach (var address in Model.Addresses)

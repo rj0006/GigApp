@@ -244,16 +244,32 @@ namespace GigApp.Api.Controllers
         [Authorize]
         [ValidateAntiForgeryToken]
         [TrackForm("Address")]
-        public async Task<IActionResult> CreateAddress(SaveAddressRequest form, CancellationToken ct)
+        public async Task<IActionResult> CreateAddress(
+            SaveAddressRequest form, string? returnTo, CancellationToken ct)
         {
-            if (!ModelState.IsValid) return AddressError(FirstError());
+            // The add-address modal can be opened from anywhere, so it says where
+            // to come back to rather than always landing on the address book.
+            var target = !string.IsNullOrEmpty(returnTo) && Url.IsLocalUrl(returnTo)
+                ? returnTo
+                : AddressesPath;
+
+            if (!ModelState.IsValid)
+            {
+                TempData["Error"] = FirstError() ?? "Could not save that address.";
+                return Redirect(target);
+            }
 
             var result = await AddressService.CreateAsync(User.GetRequiredUserId(), form, ct);
-            if (!result.Succeeded) return AddressError(result.Error);
+
+            if (!result.Succeeded)
+            {
+                TempData["Error"] = result.Error;
+                return Redirect(target);
+            }
 
             TrackDoc(result.Address!.Id, result.Address);
             TempData["Success"] = $"'{result.Address.Label}' address saved.";
-            return Redirect(AddressesPath);
+            return Redirect(target);
         }
 
         [HttpPost("addresses/{id:int}/edit")]

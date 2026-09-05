@@ -9,6 +9,7 @@
 
 <form method="post" action="@action" class="gig-form row g-3">
     @Html.AntiForgeryToken()
+    <input type="hidden" name="returnTo" value="@(ViewData["AddressReturnTo"] as string)" />
 
     <div class="col-md-4">
         <label for="Label-@id" class="form-label required">Label</label>

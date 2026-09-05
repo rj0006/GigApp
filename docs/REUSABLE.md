@@ -229,6 +229,7 @@ Forms carrying a file need `enctype="multipart/form-data"`; API actions need
 | `_PartnerInfoModal` | `PartnerPublicDto` | Customer-facing partner card. **Never pass a PartnerDto here.** |
 | `_UserAccountModal` | `UserDto` | Super-admin password reset and activate/deactivate. Render it only when `ViewData["IsSuperAdmin"] is true`. |
 | `_KycHistory` | `IReadOnlyList<KycHistoryEntryDto>` | Read-only KYC timeline, newest first. |
+| `_AddAddressModal` | `string` portal slug | The one add-address dialog. Renders `_AddressForm` in a modal and returns to the page it was opened from. Use it anywhere an address is needed. |
 | `_UserMenu` | `UserMenuViewModel` | Navbar avatar with a Profile / Sign out box, plus an optional notification bell. Used by both layouts. |
 | `_LedgerTable` | `PagedResult<LedgerEntryDto>` | Money statement with the task behind each row. Shared by the partner and admin screens. |
 | `_MyJobs` | `ProviderDashboardViewModel` | Partner job table with Start / Complete / Cancel. Flags any job whose category no longer matches the partner's skill. |

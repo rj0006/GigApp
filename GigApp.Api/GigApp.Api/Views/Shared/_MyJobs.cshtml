@@ -47,14 +47,22 @@
                                     <div class="row-actions justify-end">
                                         @if (GigTaskStatus.CanTransition(job.Status, GigTaskStatus.InProgress))
                                         {
-                                            <form method="post" asp-action="UpdateStatus" asp-route-id="@job.Id">
+                                            <form method="post" asp-action="UpdateStatus" asp-route-id="@job.Id"
+                                                  data-confirm-title="Start this job?"
+                                                  data-confirm="@($"Start only once you have reached {job.Address}. The customer is told the work has begun, and the job cannot go back to accepted.")"
+                                                  data-confirm-icon="question"
+                                                  data-confirm-ok="Yes, I have reached">
                                                 <input type="hidden" name="status" value="@GigTaskStatus.InProgress" />
                                                 <button type="submit" class="btn btn-sm btn-primary">Start</button>
                                             </form>
                                         }
                                         @if (GigTaskStatus.CanTransition(job.Status, GigTaskStatus.Completed))
                                         {
-                                            <form method="post" asp-action="UpdateStatus" asp-route-id="@job.Id">
+                                            <form method="post" asp-action="UpdateStatus" asp-route-id="@job.Id"
+                                                  data-confirm-title="Mark this job complete?"
+                                                  data-confirm="@($"₹{job.EffectiveAmount:N0} will be credited to your balance and the customer will be asked to rate you. This cannot be undone.")"
+                                                  data-confirm-icon="question"
+                                                  data-confirm-ok="Yes, work is done">
                                                 <input type="hidden" name="status" value="@GigTaskStatus.Completed" />
                                                 <button type="submit" class="btn btn-sm btn-success">Complete</button>
                                             </form>

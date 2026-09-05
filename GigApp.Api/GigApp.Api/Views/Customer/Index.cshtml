@@ -61,8 +61,11 @@
                 @if (Model.Addresses.Count == 0)
                 {
                     <div class="alert alert-warning small mb-0">
-                        You have no saved addresses.
-                        <a href="/customer/addresses">Add one</a> before posting a task.
+                        You have no saved addresses yet.
+                        <button type="button" class="btn btn-sm btn-warning ms-1"
+                                data-bs-toggle="modal" data-bs-target="#address-modal-new">
+                            Add one now
+                        </button>
                     </div>
                 }
                 else
@@ -76,7 +79,12 @@
                         }
                     </select>
                     <div class="form-text">
-                        <a href="/customer/addresses">Manage addresses</a>
+                        <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none"
+                                data-bs-toggle="modal" data-bs-target="#address-modal-new">
+                            + Add another address
+                        </button>
+                        ·
+                        <a href="/customer/profile/addresses">Manage addresses</a>
                     </div>
                 }
             </div>
@@ -194,3 +202,5 @@
 
 @* Bid lists for tasks still open for bidding. *@
 <partial name="_TaskBidsModal" model="Model" />
+
+<partial name="_AddAddressModal" model="@("customer")" />
