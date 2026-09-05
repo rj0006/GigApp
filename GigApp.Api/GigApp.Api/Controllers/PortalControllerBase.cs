@@ -175,6 +175,7 @@ namespace GigApp.Api.Controllers
                     },
                 Partner = extras.Partner,
                 KycHistory = extras.KycHistory,
+                Earnings = extras.Earnings,
                 Addresses = section == ProfileSections.Addresses
                     ? new AddressBookViewModel
                       {

@@ -1,11 +1,9 @@
-@model PartnerEarningsViewModel
+@model ProfilePageViewModel
 @{
-    ViewData["Portal"] = "Partner";
-    ViewData["LogoutPath"] = "/provider/logout";
-    var summary = Model.Summary;
+    var summary = Model.Earnings!.Summary;
 }
 
-<h1 class="h4">My earnings</h1>
+<h2 class="h5 mb-1">My earnings</h2>
 <p class="text-secondary small">
     A job is credited the moment you mark it complete. Commission and tax come off as separate
     lines, so you can always see the full amount the customer agreed.
@@ -64,7 +62,7 @@
     </div>
 </div>
 
-@if (Model.BankAccount is null)
+@if (Model.Earnings!.BankAccount is null)
 {
     <div class="alert alert-warning">
         <strong>No bank account on file.</strong>
@@ -75,8 +73,8 @@
 else
 {
     <div class="alert alert-light border small">
-        Payouts go to <strong>@Model.BankAccount.BankName</strong>
-        <span class="mono">@Model.BankAccount.MaskedAccountNumber</span>.
+        Payouts go to <strong>@Model.Earnings!.BankAccount.BankName</strong>
+        <span class="mono">@Model.Earnings!.BankAccount.MaskedAccountNumber</span>.
         <a href="/provider/profile/bank">Change</a>
     </div>
 }
@@ -91,7 +89,7 @@ else
                     <option value="">All entries</option>
                     @foreach (var type in LedgerEntryTypes.All)
                     {
-                        <option value="@type" selected="@(Model.EntryTypeFilter == type)">
+                        <option value="@type" selected="@(Model.Earnings!.EntryTypeFilter == type)">
                             @LedgerEntryTypes.Label(type)
                         </option>
                     }
@@ -99,6 +97,6 @@ else
             </form>
         </div>
 
-        <partial name="_LedgerTable" model="Model.Entries" />
+        <partial name="_LedgerTable" model="Model.Earnings!.Entries" />
     </div>
 </div>

@@ -7,6 +7,7 @@ namespace GigApp.Api.ViewModels
         public const string Details = "details";
         public const string Bank = "bank";
         public const string Addresses = "addresses";
+        public const string Earnings = "earnings";
         public const string Kyc = "kyc";
         public const string Devices = "devices";
         public const string Settings = "settings";
@@ -32,6 +33,8 @@ namespace GigApp.Api.ViewModels
 
         public AddressBookViewModel Addresses { get; set; } = new();
 
+        public PartnerEarningsViewModel? Earnings { get; set; }
+
         public IReadOnlyList<KycHistoryEntryDto> KycHistory { get; set; } =
             Array.Empty<KycHistoryEntryDto>();
 
@@ -47,6 +50,7 @@ namespace GigApp.Api.ViewModels
         public PartnerDto? Partner { get; set; }
         public IReadOnlyList<KycHistoryEntryDto> KycHistory { get; set; } =
             Array.Empty<KycHistoryEntryDto>();
+        public PartnerEarningsViewModel? Earnings { get; set; }
     }
 
     public class AddressBookViewModel

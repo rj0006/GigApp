@@ -275,6 +275,9 @@ left-side menu, and add a bank account section.
   reach a section that means nothing for that role.
 - The address book moved from its own page into the **My addresses** section. `/{portal}/addresses`
   still answers, but redirects there, so old links keep working. The POST routes did not move.
+- Earnings moved the same way, into **My earnings**. `/provider/earnings` redirects to it.
+- **The navbar carries no section buttons.** Everything that belongs to an account is reached from
+  the profile menu, so Addresses and Earnings were removed from the top bar rather than duplicated.
 - **Bank account**: one per user, stored in `BankAccounts` with a unique `UserId`. Fields are
   account holder name, account number, IFSC, bank name, branch and an optional UPI id. IFSC is
   validated as `^[A-Z]{4}0[A-Z0-9]{6}$`; the account number is stored as typed and shown masked

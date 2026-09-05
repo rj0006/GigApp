@@ -17,6 +17,7 @@
 
     if (Model.ShowKyc)
     {
+        sections.Add((ProfileSections.Earnings, "My earnings", "&#8377;", true, null));
         sections.Add((ProfileSections.Kyc, "KYC", "&#128196;", true, Model.Partner!.KycLabel));
     }
 
@@ -91,6 +92,10 @@
 
             case ProfileSections.Addresses:
                 <partial name="_ProfileAddresses" model="Model" />
+                break;
+
+            case ProfileSections.Earnings:
+                <partial name="_ProfileEarnings" model="Model" />
                 break;
 
             case ProfileSections.Kyc:

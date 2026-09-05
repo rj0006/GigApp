@@ -58,6 +58,11 @@ namespace GigApp.Api.Controllers
         public Task<IActionResult> ProfileKyc(CancellationToken ct) =>
             ProfileSectionAsync(ProfileSections.Kyc, ct);
 
+        [HttpGet("profile/earnings")]
+        [Authorize(Policy = Policies.PartnerOnly)]
+        public Task<IActionResult> ProfileEarnings(CancellationToken ct) =>
+            ProfileSectionAsync(ProfileSections.Earnings, ct);
+
         protected override async Task<ProfileExtras> LoadProfileExtrasAsync(
             string section, CancellationToken ct)
         {
@@ -69,13 +74,29 @@ namespace GigApp.Api.Controllers
 
             if (partner is null) return new ProfileExtras();
 
-            return new ProfileExtras
+            var extras = new ProfileExtras
             {
                 Partner = PartnerDto.From(partner),
                 KycHistory = section == ProfileSections.Kyc
                     ? await _kycHistory.ForPartnerAsync(partner.Id, ct)
                     : Array.Empty<KycHistoryEntryDto>(),
             };
+
+            if (section == ProfileSections.Earnings)
+            {
+                var paging = new PageRequest();
+                var entryType = Request.Query["entryType"].ToString();
+
+                extras.Earnings = new PartnerEarningsViewModel
+                {
+                    Summary = await _earnings.GetSummaryAsync(partner.Id, ct),
+                    Entries = await _earnings.GetEntriesAsync(partner.Id, paging, entryType, ct),
+                    EntryTypeFilter = entryType,
+                    BankAccount = await BankAccounts.GetAsync(partner.UserId, ct),
+                };
+            }
+
+            return extras;
         }
 
         [HttpGet("login")]
@@ -337,22 +358,7 @@ namespace GigApp.Api.Controllers
 
         [HttpGet("earnings")]
         [Authorize(Policy = Policies.PartnerOnly)]
-        public async Task<IActionResult> Earnings(
-            [FromQuery] PageRequest paging, string? entryType, CancellationToken ct = default)
-        {
-            ViewData["Title"] = "My earnings";
-
-            var partner = await GetOwnPartnerAsync(ct);
-            if (partner is null) return Redirect(DashboardPath);
-
-            return View(new PartnerEarningsViewModel
-            {
-                Summary = await _earnings.GetSummaryAsync(partner.Id, ct),
-                Entries = await _earnings.GetEntriesAsync(partner.Id, paging, entryType, ct),
-                EntryTypeFilter = entryType,
-                BankAccount = await BankAccounts.GetAsync(User.GetRequiredUserId(), ct),
-            });
-        }
+        public IActionResult Earnings() => Redirect($"{ProfilePath}/{ProfileSections.Earnings}");
 
         [HttpPost("availability")]
         [Authorize(Policy = Policies.PartnerOnly)]

@@ -140,7 +140,7 @@ to compute — adding one means a `MenuBadgeKeys` constant and a line in `_Admin
 
 **Profile is a section shell, not one page.** `/{portal}/profile` renders `_ProfileBody`, which draws
 the left menu and switches on `ProfilePageViewModel.Section`. Sections: Profile, Account details
-(bank), My addresses, KYC (partners only), Manage devices (disabled — no session table to revoke
+(bank), My addresses, My earnings and KYC (both partners only), Manage devices (disabled — no session table to revoke
 against yet) and Settings, which is where password change lives. Adding one means a
 `ProfileSections` constant, a row in the menu list, a partial, and a `GET` on `PortalControllerBase`. A portal supplies extra data by
 overriding `LoadProfileExtrasAsync` — that is how the partner portal adds its KYC.
