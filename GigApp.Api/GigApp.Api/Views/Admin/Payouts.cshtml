@@ -1,0 +1,79 @@
+@model AdminPayoutsViewModel
+@{
+    Layout = "_AdminLayout";
+}
+
+<h1 class="h4">Partner payouts</h1>
+<p class="text-secondary small">
+    What the platform currently owes each partner. A balance builds up as jobs are completed and
+    clears when a payout is recorded against it.
+</p>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <div class="card h-100"><div class="card-body py-3">
+            <div class="h4 mb-0 text-danger">₹@Model.TotalOwed.ToString("N2")</div>
+            <div class="text-secondary text-uppercase" style="font-size:.68rem">Total owed</div>
+        </div></div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100"><div class="card-body py-3">
+            <div class="h4 mb-0">@Model.Balances.Count(b => b.Balance > 0)</div>
+            <div class="text-secondary text-uppercase" style="font-size:.68rem">Partners awaiting payment</div>
+        </div></div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100"><div class="card-body py-3">
+            <div class="h4 mb-0">₹@Model.Balances.Sum(b => b.LifetimePaidOut).ToString("N2")</div>
+            <div class="text-secondary text-uppercase" style="font-size:.68rem">Paid out to date</div>
+        </div></div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        @if (Model.Balances.Count == 0)
+        {
+            <p class="text-center text-secondary py-4 mb-0">
+                No partner has earned anything yet.
+            </p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>#</th><th>Partner</th><th>Skill</th>
+                            <th class="text-end">Balance</th><th class="text-end">Lifetime earned</th>
+                            <th class="text-end">Paid out</th><th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var row in Model.Balances)
+                    {
+                        <tr>
+                            <td class="text-secondary">@row.PartnerId</td>
+                            <td>
+                                <div class="fw-semibold">@row.PartnerName</div>
+                                <div class="small text-secondary mono">@row.Phone</div>
+                            </td>
+                            <td><span class="badge text-bg-light border">@row.SkillCategoryName</span></td>
+                            <td class="text-end fw-semibold @(row.Balance > 0 ? "text-success" : "text-secondary")">
+                                ₹@row.Balance.ToString("N2")
+                            </td>
+                            <td class="text-end text-secondary">₹@row.LifetimeEarned.ToString("N2")</td>
+                            <td class="text-end text-secondary">₹@row.LifetimePaidOut.ToString("N2")</td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-primary" href="/admin/payouts/@row.PartnerId">
+                                    Open
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

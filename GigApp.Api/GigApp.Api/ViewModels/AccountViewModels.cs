@@ -156,6 +156,36 @@ namespace GigApp.Api.ViewModels
             new Dictionary<int, IReadOnlyList<KycHistoryEntryDto>>();
     }
 
+    public class PartnerEarningsViewModel
+    {
+        public EarningsSummaryDto Summary { get; set; } = new();
+        public PagedResult<LedgerEntryDto> Entries { get; set; } = new();
+        public string? EntryTypeFilter { get; set; }
+        public BankAccountDto? BankAccount { get; set; }
+    }
+
+    public class AdminPayoutsViewModel
+    {
+        public IReadOnlyList<PartnerBalanceDto> Balances { get; set; } = Array.Empty<PartnerBalanceDto>();
+
+        public decimal TotalOwed => Balances.Sum(b => b.Balance);
+    }
+
+    public class AdminPartnerLedgerViewModel
+    {
+        public PartnerDto Partner { get; set; } = new();
+        public EarningsSummaryDto Summary { get; set; } = new();
+        public PagedResult<LedgerEntryDto> Entries { get; set; } = new();
+        public BankAccountDto? BankAccount { get; set; }
+        public RecordPayoutRequest PayoutForm { get; set; } = new();
+    }
+
+    public class AdminErrorLogsViewModel
+    {
+        public PagedResult<ErrorLogDto> Logs { get; set; } = new();
+        public bool ShowResolved { get; set; }
+    }
+
     public class UserMenuViewModel
     {
         public string? DisplayName { get; set; }

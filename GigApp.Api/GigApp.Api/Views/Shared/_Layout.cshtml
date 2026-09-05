@@ -28,6 +28,12 @@
                 {
                     var portalSlug = portal.ToLowerInvariant().Replace("partner", "provider");
 
+                    @if (portalSlug == "provider")
+                    {
+                        <a class="btn btn-outline-secondary btn-sm d-none d-sm-inline-block"
+                           href="/provider/earnings">Earnings</a>
+                    }
+
                     <a class="btn btn-outline-secondary btn-sm d-none d-sm-inline-block"
                        href="/@portalSlug/profile/addresses">Addresses</a>
 

@@ -16,7 +16,8 @@ Loaded by both layouts. jQuery, jQuery UI, the Bootstrap bundle and SweetAlert2 
 | `AutoComplete` | `AutoComplete(inputId, hiddenId, url, alertMsg, onSelect)` | Binds a text box to a hidden id field. Text box holds the **name**, hidden field holds the **id**. If nothing is picked from the list the hidden field stays empty, so the server rejects it. |
 | `App.masterPicker` | `App.masterPicker(inputId, hiddenId, masterKey, alertMsg, onSelect)` | Shortcut for the above; builds the master URL itself. |
 | `App.masterUrl` | `App.masterUrl(key)` → `/api/masters/{key}?term=` | Search URL for a master. |
-| `showToast` | `showToast(title, message, cssClass)` | Corner toast, auto-dismissed. Use `bg-danger`, `bg-success`, `bg-warning` or `bg-primary`. |
+| `showToast` | `showToast(title, message, kind)` | Corner toast: coloured bar, icon, title over message. `kind` is `success`, `warning`, `error` or `info`. A null title uses the kind's own word. |
+| `App.toastSuccess` and friends | `App.toastSuccess(message, title?)` | Short form for the four kinds. Also `toastError`, `toastWarning`, `toastInfo`. |
 | `App.confirmAction` | `App.confirmAction(textOrOptions)` → `Promise<bool>` | SweetAlert confirm. Options: `title`, `text`, `icon`, `confirmText`, `cancelText`. |
 | `App.notify` | `App.notify(textOrOptions)` → `Promise` | SweetAlert message box, one OK button. Replaces `alert()`. |
 
@@ -229,6 +230,7 @@ Forms carrying a file need `enctype="multipart/form-data"`; API actions need
 | `_UserAccountModal` | `UserDto` | Super-admin password reset and activate/deactivate. Render it only when `ViewData["IsSuperAdmin"] is true`. |
 | `_KycHistory` | `IReadOnlyList<KycHistoryEntryDto>` | Read-only KYC timeline, newest first. |
 | `_UserMenu` | `UserMenuViewModel` | Navbar avatar with a Profile / Sign out box, plus an optional notification bell. Used by both layouts. |
+| `_LedgerTable` | `PagedResult<LedgerEntryDto>` | Money statement with the task behind each row. Shared by the partner and admin screens. |
 | `_MyJobs` | `ProviderDashboardViewModel` | Partner job table with Start / Complete / Cancel. Flags any job whose category no longer matches the partner's skill. |
 | `_ProfileBody` | `ProfilePageViewModel` | Profile shell: left menu plus the section named by `Model.Section`. |
 | `_ProfileDetails` / `_ProfileBank` / `_ProfileAddresses` / `_ProfileKyc` / `_ProfileSettings` | `ProfilePageViewModel` | The profile sections. Add a new one by adding to `ProfileSections`, the menu list in `_ProfileBody`, and a `GET` on `PortalControllerBase`. |
@@ -243,6 +245,33 @@ Forms carrying a file need `enctype="multipart/form-data"`; API actions need
 `GET /api/partners/{id}/public` returns the public one and refuses unless the
 caller is an admin, that partner, or a customer who shares a task with them —
 otherwise anyone signed in could walk the ids and harvest phone numbers.
+
+### Partner earnings — `Services/Earnings/EarningsService.cs`
+
+Nothing writes to `LedgerEntries` or `PartnerWallets` directly. Every posting goes through here, in
+a transaction, with an idempotency key.
+
+```csharp
+await _earnings.PostJobEarningAsync(task, ct)                       // call after a task is completed
+await _earnings.PostPayoutAsync(partnerId, request, byId, byName, ct)
+await _earnings.PostAdjustmentAsync(partnerId, request, byId, byName, ct)
+await _earnings.GetSummaryAsync(partnerId, ct)                      // balance and lifetime figures
+await _earnings.GetEntriesAsync(partnerId, paging, entryType, ct)   // paged statement
+await _earnings.GetBalancesAsync(ct)                                // what the platform owes everyone
+```
+
+`PostJobEarningAsync` is safe to call twice — the second call returns `WasAlreadyPosted` instead of
+crediting again. Call it after `SaveChangesAsync`, once the task is actually `completed`.
+
+### Error log — `Services/Errors/ErrorLogService.cs`
+
+```csharp
+var reference = await _errorLog.LogAsync(exception, module, ct);
+```
+
+You will rarely call this: `GlobalExceptionFilter` is registered globally and catches everything
+that escapes an action. Call it directly only when swallowing an exception on purpose and the user
+still needs something to quote.
 
 ### Admin menu — `Services/Menus/MenuService.cs`
 

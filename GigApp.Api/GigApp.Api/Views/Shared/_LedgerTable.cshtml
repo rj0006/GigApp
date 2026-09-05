@@ -1,0 +1,68 @@
+@model PagedResult<LedgerEntryDto>
+
+@if (Model.TotalCount == 0)
+{
+    <p class="text-center text-secondary py-4 mb-0">Nothing recorded yet.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Date</th><th>Type</th><th>Details</th>
+                    <th class="text-end">Amount</th><th class="text-end">Balance</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var entry in Model.Items)
+            {
+                <tr>
+                    <td class="small text-secondary text-nowrap">
+                        @entry.CreatedAt.ToString("dd MMM yyyy")<br />
+                        <span class="text-body-tertiary">@entry.CreatedAt.ToString("HH:mm") UTC</span>
+                    </td>
+                    <td><span class="badge @entry.BadgeClass">@entry.TypeLabel</span></td>
+                    <td class="small">
+                        <div>@entry.Description</div>
+
+                        @if (entry.GigTaskId is not null)
+                        {
+                            <div class="text-secondary">
+                                @entry.TaskCategory
+                                @if (entry.CustomerName is not null)
+                                {
+                                    <text>· for @entry.CustomerName</text>
+                                }
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(entry.TaskAddress))
+                            {
+                                <div class="text-body-tertiary">@entry.TaskAddress</div>
+                            }
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(entry.Reference))
+                        {
+                            <div class="text-secondary mono">Ref @entry.Reference</div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(entry.Remark))
+                        {
+                            <div class="text-secondary">@entry.Remark</div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(entry.CreatedByName))
+                        {
+                            <div class="text-body-tertiary">Recorded by @entry.CreatedByName</div>
+                        }
+                    </td>
+                    <td class="text-end fw-semibold @(entry.IsCredit ? "text-success" : "text-danger")">
+                        @(entry.IsCredit ? "+" : "−")₹@entry.Amount.ToString("N2")
+                    </td>
+                    <td class="text-end text-secondary">₹@entry.BalanceAfter.ToString("N2")</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+
+    <partial name="_Pagination" model="PagerModel.From(Model, Context)" />
+}

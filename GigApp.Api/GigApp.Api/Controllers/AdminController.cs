@@ -2,6 +2,7 @@ using GigApp.Api.Data;
 using GigApp.Api.Dtos;
 using GigApp.Api.Models;
 using GigApp.Api.Services;
+using GigApp.Api.Services.Earnings;
 using GigApp.Api.Services.Kyc;
 using GigApp.Api.Services.Menus;
 using GigApp.Api.Services.Pricing;
@@ -37,6 +38,7 @@ namespace GigApp.Api.Controllers
         private readonly IUserAdminService _userAdmin;
         private readonly IKycHistoryService _kycHistory;
         private readonly IMenuService _menus;
+        private readonly IEarningsService _earnings;
 
         public AdminController(
             IAuthService authService,
@@ -48,7 +50,8 @@ namespace GigApp.Api.Controllers
             IUserAdminService userAdmin,
             IKycHistoryService kycHistory,
             IBankAccountService bankAccounts,
-            IMenuService menus)
+            IMenuService menus,
+            IEarningsService earnings)
             : base(authService, profileService, addressService, bankAccounts)
         {
             _context = context;
@@ -57,6 +60,7 @@ namespace GigApp.Api.Controllers
             _userAdmin = userAdmin;
             _kycHistory = kycHistory;
             _menus = menus;
+            _earnings = earnings;
         }
 
         protected override string PortalSlug => "admin";
@@ -1001,6 +1005,148 @@ namespace GigApp.Api.Controllers
         [Authorize(Policy = Policies.AdminOnly)]
         public Task<IActionResult> Admins([FromQuery] PageRequest paging, CancellationToken ct) =>
             UserListAsync(UserRoles.Admin, "Administrators", paging, ct, includeSuperAdmins: true);
+
+        [HttpGet("payouts")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        public async Task<IActionResult> Payouts(CancellationToken ct)
+        {
+            ViewData["Title"] = "Partner payouts";
+
+            return View(new AdminPayoutsViewModel
+            {
+                Balances = await _earnings.GetBalancesAsync(ct),
+            });
+        }
+
+        [HttpGet("payouts/{id:int}")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        public async Task<IActionResult> PartnerLedger(
+            int id, [FromQuery] PageRequest paging, string? entryType, CancellationToken ct = default)
+        {
+            var partner = await PartnersWithDetail.FirstOrDefaultAsync(p => p.Id == id, ct);
+            if (partner is null) return NotFound();
+
+            ViewData["Title"] = $"{partner.User?.Name} — earnings";
+
+            return View(new AdminPartnerLedgerViewModel
+            {
+                Partner = PartnerDto.From(partner),
+                Summary = await _earnings.GetSummaryAsync(id, ct),
+                Entries = await _earnings.GetEntriesAsync(id, paging, entryType, ct),
+                BankAccount = await BankAccounts.GetAsync(partner.UserId, ct),
+            });
+        }
+
+        [HttpPost("payouts/{id:int}")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("Payout")]
+        public async Task<IActionResult> RecordPayout(
+            int id, RecordPayoutRequest payoutForm, CancellationToken ct)
+        {
+            var target = $"/admin/payouts/{id}";
+
+            if (!ModelState.IsValid)
+            {
+                TempData["Error"] = FirstError() ?? "Could not record that payout.";
+                return Redirect(target);
+            }
+
+            var result = await _earnings.PostPayoutAsync(
+                id, payoutForm, User.GetRequiredUserId(), User.Identity?.Name, ct);
+
+            if (!result.Succeeded)
+            {
+                TempData["Error"] = result.Error;
+                return Redirect(target);
+            }
+
+            TrackDoc(result.Entry!.Id, result.Entry);
+            TempData["Success"] = $"Payout of {payoutForm.Amount:N2} recorded.";
+            return Redirect(target);
+        }
+
+        [HttpPost("payouts/{id:int}/adjust")]
+        [Authorize(Policy = Policies.SuperAdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("Payout")]
+        public async Task<IActionResult> RecordAdjustment(
+            int id, RecordAdjustmentRequest form, CancellationToken ct)
+        {
+            var target = $"/admin/payouts/{id}";
+
+            if (!ModelState.IsValid)
+            {
+                TempData["Error"] = FirstError() ?? "Could not record that adjustment.";
+                return Redirect(target);
+            }
+
+            var result = await _earnings.PostAdjustmentAsync(
+                id, form, User.GetRequiredUserId(), User.Identity?.Name, ct);
+
+            if (!result.Succeeded)
+            {
+                TempData["Error"] = result.Error;
+                return Redirect(target);
+            }
+
+            TrackDoc(result.Entry!.Id, result.Entry);
+            TempData["Success"] = "Adjustment recorded.";
+            return Redirect(target);
+        }
+
+        [HttpGet("errors")]
+        [Authorize(Policy = Policies.SuperAdminOnly)]
+        public async Task<IActionResult> Errors(
+            [FromQuery] PageRequest paging, bool showResolved = false, CancellationToken ct = default)
+        {
+            ViewData["Title"] = "Error log";
+
+            var query = _context.ErrorLogs.AsNoTracking();
+            if (!showResolved) query = query.Where(l => !l.IsResolved);
+
+            if (!string.IsNullOrWhiteSpace(paging.Search))
+            {
+                var term = paging.Search.Trim().ToLower();
+                query = query.Where(l => l.Reference.ToLower().Contains(term)
+                                      || l.Message.ToLower().Contains(term)
+                                      || (l.Module != null && l.Module.ToLower().Contains(term)));
+            }
+
+            var page = await query.OrderByDescending(l => l.OccurredAt).ToPagedResultAsync(paging, ct);
+
+            return View(new AdminErrorLogsViewModel
+            {
+                Logs = page.Map(ErrorLogDto.From),
+                ShowResolved = showResolved,
+            });
+        }
+
+        [HttpPost("errors/{id:long}/resolve")]
+        [Authorize(Policy = Policies.SuperAdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("ErrorLog")]
+        public async Task<IActionResult> ResolveError(long id, string? note, CancellationToken ct)
+        {
+            var log = await _context.ErrorLogs.FirstOrDefaultAsync(l => l.Id == id, ct);
+
+            if (log is null)
+            {
+                TempData["Error"] = "That entry no longer exists.";
+            }
+            else
+            {
+                log.IsResolved = true;
+                log.ResolutionNote = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+                log.ResolvedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync(ct);
+
+                TrackDoc(log.Id, ErrorLogDto.From(log));
+                TempData["Success"] = $"{log.Reference} marked as resolved.";
+            }
+
+            return Redirect("/admin/errors");
+        }
 
         [HttpGet("tasks")]
         [Authorize(Policy = Policies.AdminOnly)]

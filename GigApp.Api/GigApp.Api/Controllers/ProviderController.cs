@@ -4,6 +4,7 @@ using GigApp.Api.Models;
 using GigApp.Api.Services;
 using GigApp.Api.Services.Banking;
 using GigApp.Api.Services.Bidding;
+using GigApp.Api.Services.Earnings;
 using GigApp.Api.Services.Files;
 using GigApp.Api.Services.Kyc;
 using GigApp.Api.Services.Addresses;
@@ -24,6 +25,7 @@ namespace GigApp.Api.Controllers
         private readonly IFileStorageService _storage;
         private readonly IBidService _bids;
         private readonly IKycHistoryService _kycHistory;
+        private readonly IEarningsService _earnings;
 
         public ProviderController(
             IAuthService authService,
@@ -34,7 +36,8 @@ namespace GigApp.Api.Controllers
             IFileStorageService storage,
             IBidService bids,
             IBankAccountService bankAccounts,
-            IKycHistoryService kycHistory)
+            IKycHistoryService kycHistory,
+            IEarningsService earnings)
             : base(authService, profileService, addressService, bankAccounts)
         {
             _context = context;
@@ -42,6 +45,7 @@ namespace GigApp.Api.Controllers
             _storage = storage;
             _bids = bids;
             _kycHistory = kycHistory;
+            _earnings = earnings;
         }
 
         protected override string PortalSlug => "provider";
@@ -318,10 +322,36 @@ namespace GigApp.Api.Controllers
                 task.Status = status;
                 task.CompletedAt = status == GigTaskStatus.Completed ? DateTime.UtcNow : null;
                 await _context.SaveChangesAsync(ct);
-                TempData["Success"] = $"Task #{id} is now {status.Replace('_', ' ')}.";
+
+                if (status == GigTaskStatus.Completed)
+                    await _earnings.PostJobEarningAsync(task, ct);
+
+                TrackDoc(task.Id, GigTaskDto.From(task));
+                TempData["Success"] = status == GigTaskStatus.Completed
+                    ? $"Task #{id} is complete. Your earning has been added to your balance."
+                    : $"Task #{id} is now {status.Replace('_', ' ')}.";
             }
 
             return Redirect(DashboardPath);
+        }
+
+        [HttpGet("earnings")]
+        [Authorize(Policy = Policies.PartnerOnly)]
+        public async Task<IActionResult> Earnings(
+            [FromQuery] PageRequest paging, string? entryType, CancellationToken ct = default)
+        {
+            ViewData["Title"] = "My earnings";
+
+            var partner = await GetOwnPartnerAsync(ct);
+            if (partner is null) return Redirect(DashboardPath);
+
+            return View(new PartnerEarningsViewModel
+            {
+                Summary = await _earnings.GetSummaryAsync(partner.Id, ct),
+                Entries = await _earnings.GetEntriesAsync(partner.Id, paging, entryType, ct),
+                EntryTypeFilter = entryType,
+                BankAccount = await BankAccounts.GetAsync(User.GetRequiredUserId(), ct),
+            });
         }
 
         [HttpPost("availability")]

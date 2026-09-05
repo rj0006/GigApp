@@ -9,6 +9,83 @@ developer can call the same thing.
 
 ---
 
+## 2026-09-06 — Partner earnings run on an append-only ledger
+
+**Asked:** a partner earnings tab with the order details behind each amount, and the money ledger,
+straight away.
+
+**Rule.** `LedgerEntries` is **append-only**. A row is never updated or deleted; a correction is a
+new row. `PartnerWallets.Balance` is a cache of the ledger, written in the same transaction.
+
+| Entry type | Direction | Raised when |
+|---|---|---|
+| `job_earning` | credit | The task moves to `completed`, for the agreed amount |
+| `platform_commission` | debit | Same moment, at **15%** of the agreed amount |
+| `payout` | debit | An administrator records a bank transfer that has already gone out |
+| `adjustment` | credit or debit | Super admin only, and a reason is required |
+
+- **Gross and commission are separate lines.** The partner always sees the full amount the customer
+  agreed, and changing the rate later does not rewrite history. `PlatformFees.CommissionPercent`
+  holds the rate; it becomes a master when tiered commission is needed.
+- **Every entry carries an `IdempotencyKey` with a unique index.** A job earning is keyed
+  `job_earning:{taskId}`, so completing the same task twice cannot pay twice. A payout is keyed on
+  the bank reference, so a retry with the same UTR is refused. This is what makes the ledger safe to
+  connect a payment gateway to later.
+- A check constraint enforces `Amount > 0`; direction carries the sign, never the amount.
+- A payout larger than the balance is refused, as is an adjustment that would push the balance
+  negative.
+- **Recording a payout does not move money.** The administrator transfers through the bank first and
+  records it here with the reference.
+
+Partner sees it at `/provider/earnings`, with each row carrying the task, its category, the customer
+and the address. Admin sees what the platform owes at `/admin/payouts`, and one partner's statement
+at `/admin/payouts/{id}`.
+
+---
+
+## 2026-09-06 — Unhandled errors get a reference the user can quote
+
+**Asked:** the same error handling as the Falcon project.
+
+**Rule.** `GlobalExceptionFilter` catches everything that escapes an action and writes one
+`ErrorLogs` row with a short reference such as `E260906-A3F91C`.
+
+- `/api/*` and XHR requests get a `ProblemDetails` with the reference in `extensions.reference`.
+- Portal pages redirect to `/Home/Error?reference=...`, which shows the reference and nothing else.
+- **The message and stack trace never reach the user.** They ask about the reference; the
+  administrator searches for it at `/admin/errors`, which is super admin only.
+- A cancelled request is not an error and is not logged.
+
+**The log writes through its own DbContext scope.** The request's context is usually the thing that
+just failed — a rolled-back transaction cannot save anything more — so reusing it silently loses
+every database error. This was found in testing: the filter redirected correctly but nothing was
+written.
+
+Resolving an entry keeps the row and takes it off the open list.
+
+---
+
+## 2026-09-06 — Toasts, and the customer portal is permanent
+
+**Asked:** one reusable `showToast()` matching the supplied design, used everywhere. And the
+customer portal is not throwaway.
+
+**Rule.** `showToast(title, message, kind)` in `global.js` renders a card with a coloured left bar,
+a round icon and a title over the message. Kinds are `success`, `warning`, `error` and `info`.
+Passing a null title uses the kind's own word. `App.toastSuccess(message)` and friends are the short
+form. Every `TempData["Success"]` and `TempData["Error"]` now surfaces as a toast through `_Flash`.
+
+It is plain CSS, not SweetAlert. SweetAlert stays for `confirmAction` and `notify`, where a modal is
+the point.
+
+**The customer web portal is permanent, not a test harness.** Local services are found through
+search — "plumber in Gurugram" is free acquisition that a Flutter app cannot receive, because an app
+is not indexed. Razor server-rendered pages are better for that than a single-page app, so the
+customer portal stays and grows public category and city landing pages. The partner portal can still
+be replaced by the app, since partners do not arrive through search.
+
+---
+
 ## 2026-09-05 — The admin sidebar is a master, not markup
 
 **Asked:** build the menu dynamically from a table the admin manages, with CRUD, so new screens can

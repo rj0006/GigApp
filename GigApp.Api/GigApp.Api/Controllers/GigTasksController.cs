@@ -2,6 +2,7 @@ using GigApp.Api.Data;
 using GigApp.Api.Dtos;
 using GigApp.Api.Models;
 using GigApp.Api.Services;
+using GigApp.Api.Services.Earnings;
 using GigApp.Api.Services.Addresses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,17 +18,20 @@ namespace GigApp.Api.Controllers
         private readonly AppDbContext _context;
         private readonly IServiceItemLookup _serviceItems;
         private readonly IAddressService _addresses;
+        private readonly IEarningsService _earnings;
         private readonly ILogger<GigTasksController> _logger;
 
         public GigTasksController(
             AppDbContext context,
             IServiceItemLookup serviceItems,
             IAddressService addresses,
+            IEarningsService earnings,
             ILogger<GigTasksController> logger)
         {
             _context = context;
             _serviceItems = serviceItems;
             _addresses = addresses;
+            _earnings = earnings;
             _logger = logger;
         }
 
@@ -233,6 +237,9 @@ namespace GigApp.Api.Controllers
             task.CompletedAt = newStatus == GigTaskStatus.Completed ? DateTime.UtcNow : null;
 
             await _context.SaveChangesAsync(ct);
+
+            if (newStatus == GigTaskStatus.Completed)
+                await _earnings.PostJobEarningAsync(task, ct);
 
             _logger.LogInformation("Task {TaskId} moved to {Status}", id, newStatus);
 

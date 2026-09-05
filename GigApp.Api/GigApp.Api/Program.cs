@@ -7,6 +7,8 @@ using GigApp.Api.Services;
 using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Banking;
 using GigApp.Api.Services.Bidding;
+using GigApp.Api.Services.Earnings;
+using GigApp.Api.Services.Errors;
 using GigApp.Api.Services.Files;
 using GigApp.Api.Services.Kyc;
 using GigApp.Api.Services.Masters;
@@ -162,6 +164,9 @@ builder.Services.AddScoped<IUserAdminService, UserAdminService>();
 builder.Services.AddScoped<IKycHistoryService, KycHistoryService>();
 builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 builder.Services.AddScoped<IMenuService, MenuService>();
+builder.Services.AddScoped<IErrorLogService, ErrorLogService>();
+builder.Services.AddScoped<IEarningsService, EarningsService>();
+builder.Services.AddHttpContextAccessor();
 
 // Masters: add a new one by implementing IMasterSource and registering it here.
 // The /api/masters/{key} endpoint and global.js pick it up automatically.
@@ -208,6 +213,7 @@ builder.Services.AddControllersWithViews(options =>
     // Global so every new write endpoint is audited without anyone
     // remembering to add it. Opt out with [SkipTracking].
     options.Filters.Add<TrackingActionFilter>();
+    options.Filters.Add<GlobalExceptionFilter>();
 });
 
 builder.Services.AddEndpointsApiExplorer();

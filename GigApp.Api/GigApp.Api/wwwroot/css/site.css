@@ -177,3 +177,116 @@ body {
 
 .form-card { max-width: 720px; }
 .form-card-narrow { max-width: 420px; }
+
+/* Toasts — see docs/REUSABLE.md for the helper that renders these. */
+.gig-toast-host {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1090;
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    width: min(22rem, calc(100vw - 2rem));
+}
+
+.gig-toast {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: .75rem;
+    padding: .85rem 2rem .95rem .85rem;
+    background: var(--bs-body-bg, #fff);
+    border-left: 5px solid var(--gig-toast-color);
+    border-radius: .4rem;
+    box-shadow: 0 .5rem 1.25rem rgba(15, 23, 42, .16);
+    overflow: hidden;
+    opacity: 1;
+    animation: gig-toast-in .25s ease-out;
+}
+
+.gig-toast-leaving {
+    animation: gig-toast-out .25s ease-in forwards;
+}
+
+.gig-toast-icon {
+    flex: 0 0 auto;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    background: var(--gig-toast-color);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .95rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.gig-toast-body {
+    min-width: 0;
+}
+
+.gig-toast-title {
+    color: var(--gig-toast-color);
+    font-weight: 700;
+    font-size: .92rem;
+    line-height: 1.2;
+}
+
+.gig-toast-text {
+    font-size: .84rem;
+    color: var(--bs-secondary-color, #565e6c);
+    margin-top: .1rem;
+    overflow-wrap: anywhere;
+}
+
+.gig-toast-close {
+    position: absolute;
+    top: .35rem;
+    right: .45rem;
+    border: 0;
+    background: none;
+    color: var(--bs-secondary-color, #8a919e);
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: .1rem .25rem;
+    cursor: pointer;
+}
+
+.gig-toast-bar {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    width: 100%;
+    background: var(--gig-toast-color);
+    transform-origin: left;
+    animation: gig-toast-bar 4.5s linear forwards;
+}
+
+.gig-toast-success { --gig-toast-color: #16a34a; }
+.gig-toast-warning { --gig-toast-color: #e08e0b; }
+.gig-toast-error   { --gig-toast-color: #e11d3a; }
+.gig-toast-info    { --gig-toast-color: #2563eb; }
+
+@keyframes gig-toast-in {
+    from { transform: translateX(1.5rem); }
+    to   { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gig-toast, .gig-toast-bar { animation: none; }
+}
+
+@keyframes gig-toast-out {
+    to { opacity: 0; transform: translateX(1.5rem); }
+}
+
+.gig-toast-leaving { opacity: 0; }
+
+@keyframes gig-toast-bar {
+    from { transform: scaleX(1); }
+    to   { transform: scaleX(0); }
+}

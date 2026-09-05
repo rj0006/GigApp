@@ -1,0 +1,175 @@
+@model AdminPartnerLedgerViewModel
+@{
+    Layout = "_AdminLayout";
+    var summary = Model.Summary;
+    var isSuperAdmin = ViewData["IsSuperAdmin"] is true;
+}
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+    <h1 class="h4 mb-0">@Model.Partner.Name</h1>
+    <span class="badge text-bg-light border">@Model.Partner.SkillCategoryName</span>
+    <a class="btn btn-sm btn-outline-secondary ms-auto" href="/admin/payouts">Back to payouts</a>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg-3">
+        <div class="card h-100"><div class="card-body py-3">
+            <div class="h4 mb-0 text-success">₹@summary.Balance.ToString("N2")</div>
+            <div class="text-secondary text-uppercase" style="font-size:.68rem">Owed now</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100"><div class="card-body py-3">
+            <div class="h4 mb-0">₹@summary.LifetimeEarned.ToString("N2")</div>
+            <div class="text-secondary text-uppercase" style="font-size:.68rem">Gross earned</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100"><div class="card-body py-3">
+            <div class="h4 mb-0">₹@summary.LifetimeCommission.ToString("N2")</div>
+            <div class="text-secondary text-uppercase" style="font-size:.68rem">Commission taken</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100"><div class="card-body py-3">
+            <div class="h4 mb-0">@summary.JobsPaid</div>
+            <div class="text-secondary text-uppercase" style="font-size:.68rem">Jobs credited</div>
+        </div></div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="card mb-3">
+            <div class="card-body">
+                <h2 class="h6 mb-2">Bank account</h2>
+
+                @if (Model.BankAccount is null)
+                {
+                    <div class="alert alert-warning small mb-0">
+                        This partner has not added a bank account, so a payout cannot be sent yet.
+                    </div>
+                }
+                else
+                {
+                    <dl class="row small mb-0">
+                        <dt class="col-5">Holder</dt>
+                        <dd class="col-7">@Model.BankAccount.AccountHolderName</dd>
+                        <dt class="col-5">Account</dt>
+                        <dd class="col-7 mono">@Model.BankAccount.MaskedAccountNumber</dd>
+                        <dt class="col-5">IFSC</dt>
+                        <dd class="col-7 mono">@Model.BankAccount.IfscCode</dd>
+                        <dt class="col-5">Bank</dt>
+                        <dd class="col-7">@Model.BankAccount.BankName</dd>
+                        @if (!string.IsNullOrWhiteSpace(Model.BankAccount.UpiId))
+                        {
+                            <dt class="col-5">UPI</dt>
+                            <dd class="col-7">@Model.BankAccount.UpiId</dd>
+                        }
+                    </dl>
+                }
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <h2 class="h6 mb-2">Record a payout</h2>
+                <p class="text-secondary small">
+                    Send the money through your bank first, then record it here with the bank
+                    reference. This does not move money by itself.
+                </p>
+
+                <partial name="_ValidationSummary" />
+
+                <form method="post" action="/admin/payouts/@Model.Partner.Id" class="gig-form row g-3"
+                      data-confirm-title="Record this payout?"
+                      data-confirm="This reduces the partner's balance. Only record it once the bank transfer has actually gone out."
+                      data-confirm-ok="Yes, record it">
+                    @Html.AntiForgeryToken()
+
+                    <div class="col-12">
+                        <label asp-for="PayoutForm.Amount" class="form-label required"></label>
+                        <input asp-for="PayoutForm.Amount" type="number" step="0.01" min="1"
+                               max="@summary.Balance" class="form-control"
+                               value="@summary.Balance.ToString("0.00")" />
+                        <div class="form-text">Available: ₹@summary.Balance.ToString("N2")</div>
+                    </div>
+
+                    <div class="col-12">
+                        <label asp-for="PayoutForm.Reference" class="form-label"></label>
+                        <input asp-for="PayoutForm.Reference" class="form-control mono"
+                               placeholder="UTR or transaction id" />
+                        <div class="form-text">
+                            Recording the same reference twice is refused, so a retry cannot pay twice.
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <label asp-for="PayoutForm.Remark" class="form-label"></label>
+                        <input asp-for="PayoutForm.Remark" class="form-control" />
+                    </div>
+
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary"
+                                @(summary.Balance <= 0 ? "disabled" : "")>
+                            Record payout
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        @if (isSuperAdmin)
+        {
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h6 mb-2">Adjustment</h2>
+                    <p class="text-secondary small">
+                        Corrects a balance without a job behind it. The ledger keeps the original
+                        entries — an adjustment is a new line, never an edit.
+                    </p>
+
+                    <form method="post" action="/admin/payouts/@Model.Partner.Id/adjust" class="gig-form row g-3"
+                          data-confirm-title="Post this adjustment?"
+                          data-confirm="Adjustments change what the platform owes and stay on the ledger permanently."
+                          data-confirm-ok="Yes, post it">
+                        @Html.AntiForgeryToken()
+
+                        <div class="col-6">
+                            <label for="Direction" class="form-label required">Direction</label>
+                            <select id="Direction" name="Direction" class="form-select">
+                                <option value="@LedgerDirection.Credit">Add to balance</option>
+                                <option value="@LedgerDirection.Debit">Take from balance</option>
+                            </select>
+                        </div>
+
+                        <div class="col-6">
+                            <label for="Amount" class="form-label required">Amount</label>
+                            <input id="Amount" name="Amount" type="number" step="0.01" min="1"
+                                   class="form-control" required />
+                        </div>
+
+                        <div class="col-12">
+                            <label for="Remark" class="form-label required">Reason</label>
+                            <input id="Remark" name="Remark" class="form-control" maxlength="300" required
+                                   placeholder="e.g. Compensation for a cancelled booking" />
+                        </div>
+
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-outline-warning">Post adjustment</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h6 mb-3">Statement</h2>
+                <partial name="_LedgerTable" model="Model.Entries" />
+            </div>
+        </div>
+    </div>
+</div>

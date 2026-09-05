@@ -1,0 +1,172 @@
+@model AdminErrorLogsViewModel
+@{
+    Layout = "_AdminLayout";
+    var list = Model.Logs;
+}
+
+<h1 class="h4">Error log</h1>
+<p class="text-secondary small">
+    Every unhandled exception, with the reference the user was shown. Ask a caller for their
+    reference and search for it here instead of guessing from a description.
+</p>
+
+<div class="card">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end mb-3">
+            <div class="col-sm-5 col-md-4">
+                <label class="form-label" for="search">Search</label>
+                <input class="form-control form-control-sm" id="search" name="search"
+                       placeholder="Reference, message or module" />
+            </div>
+            <div class="col-auto">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="showResolved"
+                           name="showResolved" value="true" checked="@Model.ShowResolved" />
+                    <label class="form-check-label small" for="showResolved">Include resolved</label>
+                </div>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-primary">Search</button>
+            </div>
+        </form>
+
+        @if (list.TotalCount == 0)
+        {
+            <p class="text-center text-secondary py-4 mb-0">
+                Nothing logged. That is the result you want.
+            </p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>When</th><th>Reference</th><th>Where</th>
+                            <th>Message</th><th>Who</th><th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var log in list.Items)
+                    {
+                        <tr class="@(log.IsResolved ? "table-light" : "")">
+                            <td class="small text-secondary text-nowrap">
+                                @log.OccurredAt.ToString("dd MMM yyyy")<br />
+                                <span class="text-body-tertiary">@log.OccurredAt.ToString("HH:mm") UTC</span>
+                            </td>
+                            <td class="mono small">@log.Reference</td>
+                            <td class="small">
+                                <div>@log.Module</div>
+                                <div class="text-secondary mono">@log.RequestMethod @log.RequestPath</div>
+                            </td>
+                            <td class="small" style="max-width:26rem">
+                                <div class="fw-semibold">@log.ShortType</div>
+                                <div class="text-secondary">@log.Message</div>
+                                @if (log.IsResolved)
+                                {
+                                    <div class="mt-1">
+                                        <span class="badge text-bg-success">Resolved</span>
+                                        <span class="text-secondary">@log.ResolutionNote</span>
+                                    </div>
+                                }
+                            </td>
+                            <td class="small text-secondary">
+                                @(log.UserName ?? "anonymous")<br />
+                                <span class="mono text-body-tertiary">@log.IpAddress</span>
+                            </td>
+                            <td class="text-end">
+                                <div class="row-actions justify-end">
+                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                            data-bs-toggle="modal" data-bs-target="#error-modal-@log.Id">
+                                        Details
+                                    </button>
+                                    @if (!log.IsResolved)
+                                    {
+                                        <button type="button" class="btn btn-sm btn-outline-success"
+                                                data-bs-toggle="modal" data-bs-target="#resolve-modal-@log.Id">
+                                            Resolve
+                                        </button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+
+            <partial name="_Pagination" model="PagerModel.From(list, Context)" />
+
+            @foreach (var log in list.Items)
+            {
+                <div class="modal fade" id="error-modal-@log.Id" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title mono">@log.Reference</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <dl class="row small">
+                                    <dt class="col-sm-3">Type</dt>
+                                    <dd class="col-sm-9 mono">@log.ExceptionType</dd>
+                                    <dt class="col-sm-3">Module</dt>
+                                    <dd class="col-sm-9">@log.Module</dd>
+                                    <dt class="col-sm-3">Request</dt>
+                                    <dd class="col-sm-9 mono">@log.RequestMethod @log.RequestPath</dd>
+                                    <dt class="col-sm-3">User</dt>
+                                    <dd class="col-sm-9">@(log.UserName ?? "anonymous") · @log.IpAddress</dd>
+                                </dl>
+
+                                <h6 class="small fw-semibold">Message</h6>
+                                <pre class="small bg-body-tertiary p-2 rounded" style="white-space:pre-wrap">@log.Message</pre>
+
+                                @if (!string.IsNullOrWhiteSpace(log.InnerMessage))
+                                {
+                                    <h6 class="small fw-semibold">Inner exception</h6>
+                                    <pre class="small bg-body-tertiary p-2 rounded" style="white-space:pre-wrap">@log.InnerMessage</pre>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(log.StackTrace))
+                                {
+                                    <h6 class="small fw-semibold">Stack trace</h6>
+                                    <pre class="small bg-body-tertiary p-2 rounded" style="white-space:pre-wrap">@log.StackTrace</pre>
+                                }
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                @if (!log.IsResolved)
+                {
+                    <div class="modal fade" id="resolve-modal-@log.Id" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <form method="post" action="/admin/errors/@log.Id/resolve" class="modal-content">
+                                @Html.AntiForgeryToken()
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Resolve @log.Reference</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body gig-form">
+                                    <label for="note-@log.Id" class="form-label">What was done</label>
+                                    <input id="note-@log.Id" name="note" class="form-control" maxlength="500"
+                                           placeholder="e.g. Fixed in the address validation" />
+                                    <div class="form-text">
+                                        The entry stays on the log; this only takes it off the open list.
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="submit" class="btn btn-sm btn-success">Mark resolved</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                }
+            }
+        }
+    </div>
+</div>

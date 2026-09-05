@@ -17,6 +17,9 @@ namespace GigApp.Api.Data
         public DbSet<Address> Addresses => Set<Address>();
         public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
         public DbSet<MenuItem> MenuItems => Set<MenuItem>();
+        public DbSet<ErrorLog> ErrorLogs => Set<ErrorLog>();
+        public DbSet<PartnerWallet> PartnerWallets => Set<PartnerWallet>();
+        public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -39,6 +42,59 @@ namespace GigApp.Api.Data
                 e.ToTable(t => t.HasCheckConstraint(
                     "CK_Users_Role",
                     "\"Role\" IN ('customer','partner','admin','superadmin')"));
+            });
+
+            modelBuilder.Entity<ErrorLog>(e =>
+            {
+                e.Property(l => l.Reference).HasMaxLength(20).IsRequired();
+                e.Property(l => l.Message).HasMaxLength(2000).IsRequired();
+                e.Property(l => l.ExceptionType).HasMaxLength(200).IsRequired();
+                e.Property(l => l.StackTrace).HasMaxLength(8000);
+                e.Property(l => l.InnerMessage).HasMaxLength(2000);
+                e.Property(l => l.Module).HasMaxLength(200);
+                e.Property(l => l.RequestPath).HasMaxLength(400);
+                e.Property(l => l.RequestMethod).HasMaxLength(10);
+                e.Property(l => l.UserName).HasMaxLength(100);
+                e.Property(l => l.IpAddress).HasMaxLength(45);
+                e.Property(l => l.ResolutionNote).HasMaxLength(500);
+                e.HasIndex(l => l.Reference).IsUnique();
+                e.HasIndex(l => new { l.IsResolved, l.OccurredAt });
+            });
+
+            modelBuilder.Entity<PartnerWallet>(e =>
+            {
+                e.Property(w => w.Balance).HasPrecision(12, 2);
+                e.Property(w => w.LifetimeEarned).HasPrecision(12, 2);
+                e.Property(w => w.LifetimeCommission).HasPrecision(12, 2);
+                e.Property(w => w.LifetimePaidOut).HasPrecision(12, 2);
+                e.HasIndex(w => w.PartnerId).IsUnique();
+                e.HasOne(w => w.Partner).WithOne().HasForeignKey<PartnerWallet>(w => w.PartnerId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<LedgerEntry>(e =>
+            {
+                e.Property(l => l.EntryType).HasMaxLength(30).IsRequired();
+                e.Property(l => l.Direction).HasMaxLength(10).IsRequired();
+                e.Property(l => l.Amount).HasPrecision(12, 2);
+                e.Property(l => l.BalanceAfter).HasPrecision(12, 2);
+                e.Property(l => l.Description).HasMaxLength(200).IsRequired();
+                e.Property(l => l.IdempotencyKey).HasMaxLength(120).IsRequired();
+                e.Property(l => l.Reference).HasMaxLength(60);
+                e.Property(l => l.Remark).HasMaxLength(300);
+                e.Property(l => l.CreatedByName).HasMaxLength(100);
+                e.HasIndex(l => l.IdempotencyKey).IsUnique();
+                e.HasIndex(l => new { l.PartnerId, l.CreatedAt });
+                e.HasOne(l => l.Partner).WithMany().HasForeignKey(l => l.PartnerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(l => l.GigTask).WithMany().HasForeignKey(l => l.GigTaskId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("CK_LedgerEntries_Direction",
+                        "\"Direction\" IN ('credit','debit')");
+                    t.HasCheckConstraint("CK_LedgerEntries_Amount", "\"Amount\" > 0");
+                });
             });
 
             modelBuilder.Entity<MenuItem>(e =>

@@ -1,15 +1,11 @@
-@* PRG flash messages. Rendered by both layouts — do not repeat in a view. *@
-@if (TempData["Success"] is string success)
-{
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-        @success
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
+@{
+    var success = TempData["Success"] as string;
+    var error = TempData["Error"] as string;
 }
-@if (TempData["Error"] is string error)
+
+@if (success is not null || error is not null)
 {
-    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        @error
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
+    <div data-flash
+         data-flash-success="@success"
+         data-flash-error="@error"></div>
 }

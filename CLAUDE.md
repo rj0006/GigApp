@@ -5,6 +5,10 @@ Three-sided: customer, partner ("provider"), admin.
 
 **Stack:** ASP.NET Core 8 · PostgreSQL · vanilla JS + CSS · Flutter (mobile)
 
+**The customer web portal is permanent.** Local services are found through search, and an app cannot
+be indexed, so the Razor customer pages are an acquisition channel and grow public category and city
+landing pages. Only the partner portal is replaceable by the app.
+
 ## Working agreement
 
 How the user wants help delivered on this project. These override default response style.
@@ -100,6 +104,18 @@ role strings case-insensitively as a workaround — fix the data.
 **Task lifecycle is a state machine.** `GigTaskStatus.CanTransition` is the single authority:
 `pending → accepted → in_progress → completed`, with `cancelled` reachable from any non-terminal state.
 Both the API and the Razor portals call it. A DB check constraint backs the allowed values.
+
+**Partner earnings run on an append-only ledger.** `LedgerEntries` is never updated or deleted — a
+correction is a new row, and `PartnerWallets.Balance` is a cache written in the same transaction.
+Completing a task posts the gross earning and the platform commission as **two separate lines**, so
+the partner sees the full agreed amount and changing the rate never rewrites history. Every entry
+carries a unique `IdempotencyKey`, which is what stops a repeated completion or a retried payout
+from paying twice. `Amount > 0` is a check constraint; the direction carries the sign.
+
+**Unhandled errors get a reference, never a stack trace.** `GlobalExceptionFilter` writes one
+`ErrorLogs` row and hands the user a code such as `E260906-A3F91C`. `ErrorLogService` saves through
+**its own DbContext scope** — the request context is usually the thing that just failed, and a
+rolled-back transaction cannot save anything more.
 
 **The admin sidebar is a master, not markup.** `MenuItems` drives it, managed at
 `/admin/masters/menu` by a super admin only. A row with no controller, action or URL is a group

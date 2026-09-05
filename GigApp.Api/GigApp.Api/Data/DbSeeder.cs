@@ -73,6 +73,7 @@ namespace GigApp.Api.Data
                 ["Approvals"] = new MenuItem { Label = "Approvals", SortOrder = 20 },
                 ["User management"] = new MenuItem { Label = "User management", SortOrder = 30 },
                 ["Account"] = new MenuItem { Label = "Account", SortOrder = 40 },
+                ["Money"] = new MenuItem { Label = "Money", SortOrder = 45 },
                 ["Operations"] = new MenuItem { Label = "Operations", SortOrder = 50 },
             };
 
@@ -92,6 +93,8 @@ namespace GigApp.Api.Data
                 new MenuItem { Label = "Administrators", ControllerName = "Admin", ActionName = "Admins", Icon = "◕", SortOrder = 3, ParentId = groups["User management"].Id },
                 new MenuItem { Label = "My profile", ControllerName = "Admin", ActionName = "Profile", Icon = "☻", SortOrder = 1, ParentId = groups["Account"].Id },
                 new MenuItem { Label = "Tasks", ControllerName = "Admin", ActionName = "Tasks", Icon = "▤", SortOrder = 1, ParentId = groups["Operations"].Id },
+                new MenuItem { Label = "Partner payouts", ControllerName = "Admin", ActionName = "Payouts", Icon = "₹", SortOrder = 2, ParentId = groups["Money"].Id },
+                new MenuItem { Label = "Error log", ControllerName = "Admin", ActionName = "Errors", Icon = "⚠", SortOrder = 3, ParentId = groups["Operations"].Id, Visibility = MenuVisibility.SuperAdmin },
                 new MenuItem { Label = "API reference", Url = "/swagger", Icon = "↗", SortOrder = 2, ParentId = groups["Operations"].Id, OpensInNewTab = true },
             };
 

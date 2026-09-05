@@ -11,7 +11,11 @@
         'bg-danger': 'error',
         'bg-warning': 'warning',
         'bg-success': 'success',
-        'bg-primary': 'info'
+        'bg-primary': 'info',
+        'danger': 'error',
+        'success': 'success',
+        'warning': 'warning',
+        'info': 'info'
     };
 
     function swal() {
@@ -24,24 +28,72 @@
         }
     }
 
-    function showToast(title, message, cssClass) {
-        var text = [title, message].filter(Boolean).join(' ').trim();
+    var TOASTS = {
+        success: { title: 'Success', icon: '&#10003;' },
+        warning: { title: 'Warning', icon: '&#33;' },
+        error: { title: 'Error', icon: '&#10007;' },
+        info: { title: 'Info', icon: '&#105;' }
+    };
 
-        if (!swal()) {
-            missing('showToast');
-            return;
+    function toastHost() {
+        var host = document.getElementById('toast-host');
+
+        if (!host) {
+            host = document.createElement('div');
+            host.id = 'toast-host';
+            host.className = 'gig-toast-host';
+            document.body.appendChild(host);
         }
 
-        swal().fire({
-            toast: true,
-            position: 'top-end',
-            icon: ICONS[cssClass] || 'info',
-            title: text,
-            showConfirmButton: false,
-            timer: 4000,
-            timerProgressBar: true
-        });
+        return host;
     }
+
+    function showToast(title, message, kind) {
+        var type = ICONS[kind] || (TOASTS[kind] ? kind : 'info');
+        var preset = TOASTS[type];
+
+        var heading = title || preset.title;
+        var body = message === undefined || message === null ? '' : String(message);
+
+        // Called as showToast('Saved') — the one argument is the message.
+        if (!message && title && !TOASTS[kind]) {
+            heading = preset.title;
+            body = title;
+        }
+
+        var toast = document.createElement('div');
+        toast.className = 'gig-toast gig-toast-' + type;
+        toast.setAttribute('role', 'status');
+        toast.innerHTML =
+            '<span class="gig-toast-icon">' + preset.icon + '</span>' +
+            '<div class="gig-toast-body">' +
+                '<div class="gig-toast-title"></div>' +
+                '<div class="gig-toast-text"></div>' +
+            '</div>' +
+            '<button type="button" class="gig-toast-close" aria-label="Close">&times;</button>' +
+            '<span class="gig-toast-bar"></span>';
+
+        toast.querySelector('.gig-toast-title').textContent = heading;
+        toast.querySelector('.gig-toast-text').textContent = body;
+
+        toastHost().appendChild(toast);
+
+        var timer = window.setTimeout(dismiss, 4500);
+        toast.querySelector('.gig-toast-close').addEventListener('click', function () {
+            window.clearTimeout(timer);
+            dismiss();
+        });
+
+        function dismiss() {
+            toast.classList.add('gig-toast-leaving');
+            window.setTimeout(function () { toast.remove(); }, 250);
+        }
+    }
+
+    App.toastSuccess = function (message, title) { showToast(title, message, 'success'); };
+    App.toastError = function (message, title) { showToast(title, message, 'error'); };
+    App.toastWarning = function (message, title) { showToast(title, message, 'warning'); };
+    App.toastInfo = function (message, title) { showToast(title, message, 'info'); };
 
     function confirmAction(options) {
         var settings = typeof options === 'string' ? { text: options } : (options || {});
@@ -324,6 +376,19 @@
         });
     }
 
+    function wireFlash() {
+        $('[data-flash]').each(function () {
+            var $el = $(this);
+            var success = $el.data('flash-success');
+            var error = $el.data('flash-error');
+
+            if (success) showToast(null, success, 'success');
+            if (error) showToast(null, error, 'error');
+
+            $el.remove();
+        });
+    }
+
     function wireAutoSubmit() {
         $(document).on('change', '[data-auto-submit] select', function () {
             $(this).closest('form').submit();
@@ -355,6 +420,7 @@
 
     $(function () {
         wireConfirms();
+        wireFlash();
         wireAutoSubmit();
         wireDeclarativePickers();
         wireLocationCapture();
