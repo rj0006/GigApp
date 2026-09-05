@@ -204,6 +204,7 @@
             select: function (event, ui) {
                 $input.val(ui.item.label.replace('​', ''));
                 $hidden.val(ui.item.id).trigger('change');
+                $input.trigger('master:selected', [ui.item.raw]);
                 if (typeof onSelect === 'function') onSelect(ui.item.raw);
                 return false;
             }
@@ -219,7 +220,10 @@
 
         $input.on('focus', function () { $(this).autocomplete('search', ''); });
 
-        $input.on('input', function () { $hidden.val(''); });
+        $input.on('input', function () {
+            $hidden.val('');
+            $input.trigger('master:cleared');
+        });
 
         $input.on('blur', function () {
             if ($input.val() === '') { $hidden.val(''); return; }
@@ -237,6 +241,7 @@
 
             $input.val(item.label.replace('​', ''));
             $hidden.val(item.id).trigger('change');
+            $input.trigger('master:selected', [item.raw]);
             if (typeof onSelect === 'function') onSelect(item.raw);
         });
 
@@ -256,7 +261,7 @@
 
         if (parentFieldId) {
             $('#' + parentFieldId).on('change', function () {
-                $('#' + inputId).val('');
+                $('#' + inputId).val('').trigger('master:cleared');
                 $('#' + hiddenId).val('');
             });
         }
@@ -395,6 +400,36 @@
         });
     }
 
+    function applyFixedPrice($picker, price) {
+        var $field = $('#' + $picker.data('price-field'));
+        if (!$field.length) return;
+
+        var $note = $('#' + $picker.data('price-note'));
+        var fixed = price !== null && price !== undefined && price !== '';
+
+        $field.prop('readonly', fixed).toggleClass('bg-body-secondary', fixed);
+        if (fixed) $field.val(price);
+
+        if ($note.length) {
+            $note.text(fixed ? $picker.data('price-fixed-note') : $note.data('default'));
+        }
+    }
+
+    function wireFixedPrice() {
+        $('input[data-price-field]').each(function () {
+            var $note = $('#' + $(this).data('price-note'));
+            if ($note.length) $note.data('default', $note.text());
+        });
+
+        $(document).on('master:selected', 'input[data-price-field]', function (event, item) {
+            applyFixedPrice($(this), item && item.extra ? item.extra.fixedPrice : null);
+        });
+
+        $(document).on('master:cleared', 'input[data-price-field]', function () {
+            applyFixedPrice($(this), null);
+        });
+    }
+
     function wireDeclarativePickers() {
         $('input[data-master][data-target]').each(function () {
             var $el = $(this);
@@ -422,6 +457,7 @@
         wireConfirms();
         wireFlash();
         wireAutoSubmit();
+        wireFixedPrice();
         wireDeclarativePickers();
         wireLocationCapture();
     });

@@ -54,7 +54,8 @@
                     <thead>
                         <tr>
                             <th>#</th><th>Category</th><th>Description</th><th>Address</th>
-                            <th>Customer</th><th>Partner</th><th>Budget</th><th>Status</th><th>Created</th>
+                            <th>Customer</th><th>Partner</th><th>Amount</th><th>Status</th><th>Created</th>
+                            <th class="text-end"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -64,6 +65,10 @@
                             <td class="text-secondary">@task.Id</td>
                             <td>
                                 <span class="badge text-bg-light border">@task.CategoryName</span>
+                                @if (task.IsInstant)
+                                {
+                                    <span class="badge text-bg-success">Fixed price</span>
+                                }
                                 @if (task.Urgency != TaskUrgency.Normal)
                                 {
                                     <div class="mt-1">
@@ -74,10 +79,29 @@
                             <td class="small">@task.Description</td>
                             <td class="small text-secondary">@task.Address</td>
                             <td>@(task.CustomerName ?? "—")</td>
-                            <td>@(task.PartnerName ?? "—")</td>
-                            <td>₹@task.Budget.ToString("N0")</td>
+                            <td>
+                                @(task.PartnerName ?? "—")
+                                @if (task.AssignedAt is not null)
+                                {
+                                    <div class="small text-secondary" style="max-width:16rem">
+                                        Assigned by @(task.AssignedByName ?? "support")
+                                        on @task.AssignedAt.Value.ToString("dd MMM yyyy")
+                                        <div class="fst-italic">@task.AssignmentNote</div>
+                                    </div>
+                                }
+                            </td>
+                            <td>₹@task.EffectiveAmount.ToString("N0")</td>
                             <td><span class="badge badge-@task.Status text-white">@task.StatusLabel</span></td>
                             <td class="small text-secondary">@task.CreatedAt.ToString("dd MMM, HH:mm")</td>
+                            <td class="text-end">
+                                @if (task.Status == GigTaskStatus.Pending)
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                            data-bs-toggle="modal" data-bs-target="#assign-modal-@task.Id">
+                                        Assign
+                                    </button>
+                                }
+                            </td>
                         </tr>
                     }
                     </tbody>
@@ -85,6 +109,53 @@
             </div>
 
             <partial name="_Pagination" model="PagerModel.From(list, Context)" />
+
+            @foreach (var task in list.Items.Where(t => t.Status == GigTaskStatus.Pending))
+            {
+                <div class="modal fade" id="assign-modal-@task.Id" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <form method="post" asp-action="AssignTask" asp-route-id="@task.Id" class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Assign task #@task.Id</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body gig-form">
+                                <p class="small text-secondary mb-3">
+                                    @task.Description<br />
+                                    <span class="text-body">@task.Address</span> ·
+                                    @task.CategoryName · <strong>₹@task.EffectiveAmount.ToString("N0")</strong>
+                                </p>
+                                <div class="mb-3">
+                                    <label for="partner-picker-@task.Id" class="form-label required">Partner</label>
+                                    <input id="partner-picker-@task.Id" class="form-control"
+                                           placeholder="Search by name or mobile"
+                                           data-master="assignable-partner" data-target="partner-id-@task.Id"
+                                           data-parent="task-category-@task.Id" data-alert="partner" />
+                                    <input type="hidden" id="task-category-@task.Id" value="@task.CategoryId" />
+                                    <input type="hidden" id="partner-id-@task.Id" name="partnerId" value="" />
+                                    <div class="form-text">
+                                        Only approved partners working in @task.CategoryName are listed.
+                                    </div>
+                                </div>
+                                <div>
+                                    <label for="assign-note-@task.Id" class="form-label required">Why this partner</label>
+                                    <textarea id="assign-note-@task.Id" name="note" class="form-control" rows="2"
+                                              required maxlength="300"
+                                              placeholder="Customer called and asked for a partner who can come today"></textarea>
+                                    <div class="form-text">
+                                        The customer and the partner both see this task as assigned, so
+                                        write what the next person needs to know.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-sm btn-primary">Assign partner</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            }
         }
     </div>
 </div>

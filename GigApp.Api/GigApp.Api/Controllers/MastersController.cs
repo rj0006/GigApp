@@ -37,6 +37,9 @@ namespace GigApp.Api.Controllers
                 return NotFound(ApiResponse<IReadOnlyList<MasterItemDto>>.Fail(
                     $"Unknown master '{key}'. Known: {string.Join(", ", _registry.Keys)}"));
 
+            if (source.Roles is not null && !source.Roles.Any(User.IsInRole))
+                return Forbid();
+
             var take = limit < 1 ? DefaultLimit : Math.Min(limit, MaxLimit);
             var items = await source.SearchAsync(term, parentId, take, ct);
 

@@ -74,6 +74,11 @@ namespace GigApp.Api.Models
         /// </summary>
         public string BookingMode { get; set; } = TaskBookingMode.Bidding;
 
+        public int? AssignedByUserId { get; set; }
+        public User? AssignedBy { get; set; }
+        public DateTime? AssignedAt { get; set; }
+        public string? AssignmentNote { get; set; }
+
         public string Status { get; set; } = GigTaskStatus.Pending;
         // pending -> accepted -> in_progress -> completed -> cancelled
 

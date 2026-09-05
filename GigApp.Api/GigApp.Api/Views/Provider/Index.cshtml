@@ -116,13 +116,14 @@ else
             else
             {
                 <p class="text-secondary small">
-                    You place a bid with your own amount — the customer decides. The job only becomes
-                    yours once they accept.
+                    On a bidding job you quote your own amount and the customer decides. A
+                    <strong>fixed price</strong> job has no bidding — the first partner to accept it
+                    gets the work at the listed rate.
                 </p>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
                         <thead>
-                            <tr><th>#</th><th>Category</th><th>Description</th><th>Address</th><th>Budget</th><th>Customer</th><th class="text-end"></th></tr>
+                            <tr><th>#</th><th>Category</th><th>Description</th><th>Address</th><th>Amount</th><th>Customer</th><th class="text-end"></th></tr>
                         </thead>
                         <tbody>
                         @foreach (var task in Model.AvailableTasks)
@@ -132,6 +133,10 @@ else
                                 <td>
                                     <div>@(task.ServiceItemName ?? task.CategoryName)</div>
                                     <span class="badge text-bg-light border">@task.CategoryName</span>
+                                    @if (task.IsInstant)
+                                    {
+                                        <span class="badge text-bg-success">Fixed price</span>
+                                    }
                                     @if (task.Urgency != TaskUrgency.Normal)
                                     {
                                         <div class="mt-1">
@@ -141,13 +146,31 @@ else
                                 </td>
                                 <td class="small">@task.Description</td>
                                 <td class="small text-secondary">@task.Address</td>
-                                <td>₹@task.Budget.ToString("N0")</td>
+                                <td>
+                                    <span class="fw-semibold">₹@task.EffectiveAmount.ToString("N0")</span>
+                                    <div class="small text-secondary">@(task.IsInstant ? "fixed" : "budget")</div>
+                                </td>
                                 <td>@(task.CustomerName ?? "—")</td>
                                 <td class="text-end">
-                                    <button type="button" class="btn btn-sm btn-primary"
-                                            data-bs-toggle="modal" data-bs-target="#bid-modal-@task.Id">
-                                        Place bid
-                                    </button>
+                                    @if (task.IsInstant)
+                                    {
+                                        <form method="post" asp-action="AcceptTask" asp-route-id="@task.Id"
+                                              data-confirm-title="Take this job?"
+                                              data-confirm="@($"You will earn ₹{task.EffectiveAmount:N0} before commission for {task.ServiceItemName ?? task.CategoryName} at {task.Address}. The price is fixed and the job becomes yours immediately.")"
+                                              data-confirm-icon="question"
+                                              data-confirm-ok="Yes, take it">
+                                            <button type="submit" class="btn btn-sm btn-success">
+                                                Accept at ₹@task.EffectiveAmount.ToString("N0")
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="btn btn-sm btn-primary"
+                                                data-bs-toggle="modal" data-bs-target="#bid-modal-@task.Id">
+                                            Place bid
+                                        </button>
+                                    }
                                 </td>
                             </tr>
                         }
@@ -155,7 +178,7 @@ else
                     </table>
                 </div>
 
-                @foreach (var task in Model.AvailableTasks)
+                @foreach (var task in Model.AvailableTasks.Where(t => !t.IsInstant))
                 {
                     <div class="modal fade" id="bid-modal-@task.Id" tabindex="-1" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered">

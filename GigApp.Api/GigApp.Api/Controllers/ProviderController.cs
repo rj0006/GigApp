@@ -4,6 +4,7 @@ using GigApp.Api.Models;
 using GigApp.Api.Services;
 using GigApp.Api.Services.Banking;
 using GigApp.Api.Services.Bidding;
+using GigApp.Api.Services.Booking;
 using GigApp.Api.Services.Earnings;
 using GigApp.Api.Services.Files;
 using GigApp.Api.Services.Kyc;
@@ -24,6 +25,7 @@ namespace GigApp.Api.Controllers
         private readonly ICategoryLookup _categories;
         private readonly IFileStorageService _storage;
         private readonly IBidService _bids;
+        private readonly ITaskClaimService _claims;
         private readonly IKycHistoryService _kycHistory;
         private readonly IEarningsService _earnings;
 
@@ -35,6 +37,7 @@ namespace GigApp.Api.Controllers
             ICategoryLookup categories,
             IFileStorageService storage,
             IBidService bids,
+            ITaskClaimService claims,
             IBankAccountService bankAccounts,
             IKycHistoryService kycHistory,
             IEarningsService earnings)
@@ -44,6 +47,7 @@ namespace GigApp.Api.Controllers
             _categories = categories;
             _storage = storage;
             _bids = bids;
+            _claims = claims;
             _kycHistory = kycHistory;
             _earnings = earnings;
         }
@@ -274,6 +278,26 @@ namespace GigApp.Api.Controllers
 
             TrackDoc(result.Bid!.Id, result.Bid);
             TempData["Success"] = $"Bid of ₹{form.Amount:N0} placed on task #{id}.";
+            return Redirect(DashboardPath);
+        }
+
+        [HttpPost("tasks/{id:int}/accept")]
+        [Authorize(Policy = Policies.PartnerOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("InstantAccept")]
+        public async Task<IActionResult> AcceptTask(int id, CancellationToken ct)
+        {
+            var result = await _claims.ClaimAsync(User.GetRequiredUserId(), id, ct);
+
+            if (!result.Succeeded)
+            {
+                TempData["Error"] = result.Error;
+                return Redirect(DashboardPath);
+            }
+
+            TempData["Success"] =
+                $"Job #{id} is yours at ₹{result.Amount:N0}. It is now under My jobs.";
+
             return Redirect(DashboardPath);
         }
 

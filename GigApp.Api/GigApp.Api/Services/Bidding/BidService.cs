@@ -49,6 +49,10 @@ namespace GigApp.Api.Services.Bidding
             if (task.Status != GigTaskStatus.Pending)
                 return BidResult.Fail("This task is no longer open for bids.");
 
+            if (task.BookingMode == TaskBookingMode.Instant)
+                return BidResult.Fail(
+                    "This is a fixed-price job. Accept it from your dashboard instead of bidding.");
+
             // The whole point of one shared category master is that a plumber
             // cannot bid on a painting job.
             if (task.CategoryId != partner.SkillCategoryId)

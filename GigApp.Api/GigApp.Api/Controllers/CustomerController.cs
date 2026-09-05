@@ -209,7 +209,10 @@ namespace GigApp.Api.Controllers
                 return Redirect(DashboardPath);
             }
 
-            if (!await _serviceItems.IsSelectableAsync(newTask.ServiceItemId, newTask.CategoryId, ct))
+            var service = await _serviceItems.GetBookableAsync(
+                newTask.ServiceItemId, newTask.CategoryId, ct);
+
+            if (service is null)
             {
                 TempData["Error"] = "Choose a service that belongs to the selected category.";
                 return Redirect(DashboardPath);
@@ -239,7 +242,9 @@ namespace GigApp.Api.Controllers
                 Address = address.ToSingleLine(),
                 Latitude = address.Latitude,
                 Longitude = address.Longitude,
-                Budget = newTask.Budget,
+                Budget = service.IsInstant ? service.FixedPrice : newTask.Budget,
+                AgreedAmount = service.IsInstant ? service.FixedPrice : null,
+                BookingMode = service.IsInstant ? TaskBookingMode.Instant : TaskBookingMode.Bidding,
                 PreferredDateTime = newTask.PreferredDateTime.ToUtc(),
                 Status = GigTaskStatus.Pending,
                 CreatedAt = DateTime.UtcNow,
@@ -250,7 +255,10 @@ namespace GigApp.Api.Controllers
 
             TrackDoc(task.Id, GigTaskDto.From(task));
 
-            TempData["Success"] = "Your task has been posted. Partners can now accept it.";
+            TempData["Success"] = service.IsInstant
+                ? $"Booked at the fixed price of ₹{service.FixedPrice:N0}. The first available partner will take it, so there is nothing to compare."
+                : "Your task has been posted. Partners can now bid on it.";
+
             return Redirect(DashboardPath);
         }
 

@@ -33,16 +33,38 @@ namespace GigApp.Api.Services.Masters
                 query = query.Where(s => s.Name.ToLower().Contains(search));
             }
 
-            return await query
+            var items = await query
                 .OrderBy(s => s.DisplayOrder).ThenBy(s => s.Name)
                 .Take(limit)
-                .Select(s => new MasterItemDto
+                .Select(s => new
+                {
+                    s.Id,
+                    s.Name,
+                    s.Description,
+                    s.BasePayout,
+                    s.AllowsInstantBooking,
+                })
+                .ToListAsync(ct);
+
+            return items.Select(s =>
+            {
+                var isInstant = s.AllowsInstantBooking && s.BasePayout is > 0;
+
+                return new MasterItemDto
                 {
                     Id = s.Id,
                     Name = s.Name,
-                    Hint = s.Description,
-                })
-                .ToListAsync(ct);
+                    Hint = isInstant
+                        ? $"Fixed price ₹{s.BasePayout!.Value:N0}"
+                        : s.Description,
+                    Extra = isInstant
+                        ? new Dictionary<string, string>
+                        {
+                            ["fixedPrice"] = s.BasePayout!.Value.ToString("0.##"),
+                        }
+                        : null,
+                };
+            }).ToList();
         }
     }
 }

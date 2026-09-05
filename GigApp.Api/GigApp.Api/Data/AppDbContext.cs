@@ -388,6 +388,13 @@ namespace GigApp.Api.Data
                  .HasForeignKey(t => t.PartnerId)
                  .OnDelete(DeleteBehavior.SetNull);
 
+                e.Property(t => t.AssignmentNote).HasMaxLength(300);
+
+                e.HasOne(t => t.AssignedBy)
+                 .WithMany()
+                 .HasForeignKey(t => t.AssignedByUserId)
+                 .OnDelete(DeleteBehavior.SetNull);
+
                 // The "available tasks" feed filters on Status and sorts by CreatedAt.
                 e.HasIndex(t => new { t.Status, t.CreatedAt });
 

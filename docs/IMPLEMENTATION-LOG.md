@@ -9,6 +9,77 @@ developer can call the same thing.
 
 ---
 
+## 2026-09-06 — Support can assign a partner to a pending task
+
+**Asked:** when a customer states a requirement to the support team, an administrator should be able
+to put a chosen partner on that task.
+
+**Rule.** `ITaskClaimService.AssignAsync(adminUserId, taskId, partnerId, note)` is the only way this
+happens, and `POST /admin/tasks/{id}/assign` is the only caller. It refuses unless every one of the
+following holds:
+
+| Check | Message when it fails |
+|---|---|
+| A note was written | "Write why this partner is being assigned. The note is what the next person reads." |
+| The partner exists | "Choose a partner." |
+| KYC is approved | "*Name* has not passed KYC, so they cannot be given work." |
+| The account is active | "*Name*'s account is deactivated." |
+| The partner's skill matches the task category | "*Name* works in a different category, so they cannot take this job." |
+| The task is still `pending` | "A *status* task cannot be assigned." |
+
+On success the task moves to `accepted`, `AgreedAmount` is settled at the agreed figure (or the
+budget when there is none), and `AssignedByUserId`, `AssignedAt` and `AssignmentNote` are written.
+**Every bid still open on that task is rejected in the same call**, so no partner is left waiting on
+a decision that has already been made.
+
+The note is required because it is the only record of why a human overrode the normal flow. The
+customer sees "Assigned for you by our support team"; the partner sees the note itself under
+**My jobs**; the administrator sees who assigned it and when, on `/admin/tasks`.
+
+This exists because automatic assignment needs ratings and distance, and neither is built. A human
+decides until they are.
+
+Partners are picked through the `assignable-partner` master, which lists only approved, active
+partners in the task's category. That master is **admin-only** — `IMasterSource.Roles` gates it,
+because it carries partner names and mobile numbers.
+
+---
+
+## 2026-09-06 — Instant booking is now real, and it skips bidding
+
+**Asked:** confirm whether a service marked for instant booking behaves the same as a bidding one.
+
+It did. `ServiceItem.AllowsInstantBooking` was saved by the admin form and shown as a badge, but
+nothing read it, and `GigTask.BookingMode` was never set to `instant`. Every booking went to bidding.
+
+**Rule.** The service item decides the booking mode, and the server decides the price.
+
+- A service item is instant when `AllowsInstantBooking` is set **and** `BasePayout` is above zero.
+  The flag alone is never enough — the admin form already refuses the combination, and the booking
+  path checks it again for rows that predate that rule.
+- Booking an instant service writes `BookingMode = instant`, and sets **both** `Budget` and
+  `AgreedAmount` to `BasePayout`. The amount the customer types is ignored, so the price cannot be
+  negotiated down by editing the form.
+- **Bidding on an instant task is refused** — `BidService.PlaceAsync` returns "This is a fixed-price
+  job. Accept it from your dashboard instead of bidding."
+- **A partner claims an instant task outright**, first come first served. `ITaskClaimService.ClaimAsync`
+  backs both `PUT /api/gigtasks/{id}/accept` and `POST /provider/tasks/{id}/accept`. It requires an
+  approved KYC and a matching skill category, and the claim itself is one conditional
+  `ExecuteUpdateAsync` so two partners racing cannot both win.
+- **A bidding task can never be claimed this way.** The API previously let a partner accept any
+  pending task directly; that now returns 403 with "This job is open for bids. Place a bid and wait
+  for the customer to accept it." On a bidding task the customer chooses, and letting a partner grab
+  it would make the bids they are comparing worthless.
+
+There is no automatic partner selection. First-accept is deliberate for now — real assignment needs
+ratings and distance, and until those exist a human assigns instead (see the entry above).
+
+The customer's booking form switches the budget field to the fixed price as soon as an instant
+service is picked, and makes it read-only. That is a convenience, not the rule: the server sets the
+price whatever the form posts.
+
+---
+
 ## 2026-09-06 — Adding an address never leaves the page
 
 **Asked:** "You have no saved addresses. Add one before posting a task." should open a modal instead

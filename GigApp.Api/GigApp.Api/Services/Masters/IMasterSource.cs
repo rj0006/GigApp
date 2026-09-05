@@ -16,6 +16,13 @@ namespace GigApp.Api.Services.Masters
         string Key { get; }
 
         /// <summary>
+        /// Roles allowed to read this master. Null means any signed-in user,
+        /// which is right for public taxonomies and wrong for anything holding
+        /// someone's personal details.
+        /// </summary>
+        string[]? Roles => null;
+
+        /// <summary>
         /// Active rows matching <paramref name="term"/>; empty term = first N.
         /// <paramref name="parentId"/> narrows a dependent master to its owner —
         /// service items to a category, areas to a city. Masters with no parent

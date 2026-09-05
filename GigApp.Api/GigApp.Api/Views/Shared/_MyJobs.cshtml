@@ -30,6 +30,12 @@
                                 <td class="text-secondary">@job.Id</td>
                                 <td>
                                     <span class="badge text-bg-light border">@job.CategoryName</span>
+                                    @if (job.WasAssignedBySupport)
+                                    {
+                                        <div class="small text-secondary mt-1" style="max-width:16rem">
+                                            Given to you by support: @job.AssignmentNote
+                                        </div>
+                                    }
                                     @if (job.CategoryId != profile.SkillCategoryId && GigTaskStatus.IsOpen(job.Status))
                                     {
                                         <div class="small text-warning-emphasis mt-1" style="max-width:14rem">

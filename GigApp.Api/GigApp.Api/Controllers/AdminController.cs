@@ -8,6 +8,7 @@ using GigApp.Api.Services.Menus;
 using GigApp.Api.Services.Pricing;
 using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Banking;
+using GigApp.Api.Services.Booking;
 using GigApp.Api.Services.Profile;
 using GigApp.Api.Services.Tracking;
 using GigApp.Api.Services.UserAdmin;
@@ -43,6 +44,7 @@ namespace GigApp.Api.Controllers
         private readonly IEarningsService _earnings;
         private readonly IPlanService _plans;
         private readonly ITaxService _taxes;
+        private readonly ITaskClaimService _claims;
 
         public AdminController(
             IAuthService authService,
@@ -57,7 +59,8 @@ namespace GigApp.Api.Controllers
             IMenuService menus,
             IEarningsService earnings,
             IPlanService plans,
-            ITaxService taxes)
+            ITaxService taxes,
+            ITaskClaimService claims)
             : base(authService, profileService, addressService, bankAccounts)
         {
             _context = context;
@@ -69,6 +72,7 @@ namespace GigApp.Api.Controllers
             _earnings = earnings;
             _plans = plans;
             _taxes = taxes;
+            _claims = claims;
         }
 
         protected override string PortalSlug => "admin";
@@ -1372,6 +1376,24 @@ namespace GigApp.Api.Controllers
             });
         }
 
+        [HttpPost("tasks/{id:int}/assign")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("TaskAssignment")]
+        public async Task<IActionResult> AssignTask(
+            int id, int partnerId, string? note, CancellationToken ct = default)
+        {
+            var result = await _claims.AssignAsync(
+                User.GetRequiredUserId(), id, partnerId, note ?? string.Empty, ct);
+
+            if (result.Succeeded)
+                TempData["Success"] = $"Task #{id} assigned at ₹{result.Amount:N0}. Any open bids on it were closed.";
+            else
+                TempData["Error"] = result.Error;
+
+            return Redirect("/admin/tasks");
+        }
+
         private IQueryable<Partner> PartnersWithDetail =>
             _context.Partners.AsNoTracking()
                 .Include(p => p.User)
@@ -1382,6 +1404,7 @@ namespace GigApp.Api.Controllers
                 .Include(t => t.Category)
                 .Include(t => t.ServiceItem)
                 .Include(t => t.Customer)
+                .Include(t => t.AssignedBy)
                 .Include(t => t.Partner)!.ThenInclude(p => p!.User);
 
         private async Task<IActionResult> UserListAsync(

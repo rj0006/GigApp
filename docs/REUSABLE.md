@@ -55,6 +55,9 @@ App.masterPicker('CityPicker', 'CityId', 'city', 'city', function (item) {
 | `data-confirm-icon` | `<form>` | `warning` (default), `question`, `info` or `error`. |
 | `data-confirm-changed="fieldId"` | `<form>` | Skip the dialog while that field still holds its original value. Use it so an unchanged form does not nag. |
 | `data-auto-submit` | filter `<form>` | Submits the form as soon as a `<select>` inside it changes. |
+| `data-price-field="fieldId"` | picker `<input>` | When the picked master row carries `Extra["fixedPrice"]`, that price is written into the field and the field goes read-only. Clearing the picker gives the field back. |
+| `data-price-note="noteId"` | picker `<input>` | Element whose text is swapped while a fixed price is in force. Its original text is restored on clear. |
+| `data-price-fixed-note="..."` | picker `<input>` | The text to show there while the price is fixed. |
 
 The confirm handler cancels the first submit, waits for the dialog, then re-submits — carrying the
 clicked button name and value, so a form with two named submit buttons keeps working.
@@ -72,7 +75,11 @@ clicked button name and value, so a form with two named submit buttons keeps wor
 ## C# — masters
 
 A single endpoint serves every master: **`GET /api/masters/{key}?term=&limit=`**
-The response is always `{ success, data: [{ id, name, hint }] }`.
+The response is always `{ success, data: [{ id, name, hint, extra }] }`, where `extra` is an optional
+string dictionary the picking form can react to — `assignable-partner` and `service-item` both use it.
+
+Override `Roles` on the source when the master carries anyone's personal details; the endpoint is
+open to every signed-in user otherwise. `assignable-partner` is admin-only for exactly that reason.
 
 **Adding a new master takes two steps:**
 
@@ -99,6 +106,27 @@ lists and for validating an id:
 | `GetActiveOptionsAsync()` | Active categories only. |
 | `GetOptionsIncludingAsync(selectedId)` | Active categories plus the currently selected one, even if it was deactivated. |
 | `IsSelectableAsync(id)` | Server-side check before a write. **Do this on every write.** |
+
+`IServiceItemLookup.GetBookableAsync(serviceItemId, categoryId)` is the service-item equivalent. It
+validates the pair and returns the row in one query, so the booking path never needs a second one:
+
+```csharp
+var service = await _serviceItems.GetBookableAsync(request.ServiceItemId, request.CategoryId, ct);
+if (service is null) return BadRequest(/* the pair is invalid */);
+
+var mode = service.IsInstant ? TaskBookingMode.Instant : TaskBookingMode.Bidding;
+var amount = service.IsInstant ? service.FixedPrice : request.Budget;
+```
+
+### Taking a task — `Services/Booking/TaskClaimService.cs`
+
+| Method | Who | Rule |
+|---|---|---|
+| `ClaimAsync(partnerUserId, taskId)` | A partner | Instant tasks only, own category, approved KYC. First accept wins. |
+| `AssignAsync(adminUserId, taskId, partnerId, note)` | Support | Any pending task. Note required. Closes open bids. |
+
+Both return `TaskClaimResult`, whose `Outcome` maps straight onto HTTP: `Claimed` 200, `NotFound`
+404, `Taken` 409, `NotAllowed` 403. Portals just read `Succeeded` and `Error`.
 
 ---
 

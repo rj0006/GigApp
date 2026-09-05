@@ -105,6 +105,21 @@ role strings case-insensitively as a workaround — fix the data.
 `pending → accepted → in_progress → completed`, with `cancelled` reachable from any non-terminal state.
 Both the API and the Razor portals call it. A DB check constraint backs the allowed values.
 
+**How a partner is chosen depends on `GigTask.BookingMode`, and the service item decides it.**
+A `ServiceItem` with `AllowsInstantBooking` and a `BasePayout` above zero books as `instant`;
+everything else books as `bidding`. Nothing else sets the mode, and the customer cannot choose it.
+
+- **Instant** is a fixed price. Both `Budget` and `AgreedAmount` are set from `BasePayout` at
+  booking, the posted amount is ignored, bidding is refused, and the first approved partner in that
+  category claims it. `ITaskClaimService.ClaimAsync` is the only claim path — the same conditional
+  `ExecuteUpdateAsync` lock as before, extended with `BookingMode = instant` so a bidding task can
+  never be grabbed this way.
+- **Bidding** is unchanged: partners quote, the customer accepts one.
+- **There is no automatic partner selection, on purpose.** Ranking partners needs ratings and
+  distance and neither exists yet. Until they do, `ITaskClaimService.AssignAsync` lets support put a
+  named partner on a pending task, with a required note, closing any open bids. Build the matching
+  algorithm after ratings, not before — an arbitrary auto-assign would have to be rewritten wholesale.
+
 **Commission is a plan, and tax is a dated country rule.** `CommissionPlans` decides what the
 platform keeps — zero percent with a monthly fee is the subscription model. `TaxRules` is a
 percentage of one base (`commission`, `gross_earning` or `subscription_fee`), for one country,

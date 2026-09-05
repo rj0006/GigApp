@@ -4,6 +4,7 @@ using GigApp.Api.Models;
 using GigApp.Api.Services;
 using GigApp.Api.Services.Earnings;
 using GigApp.Api.Services.Addresses;
+using GigApp.Api.Services.Booking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,7 @@ namespace GigApp.Api.Controllers
         private readonly IServiceItemLookup _serviceItems;
         private readonly IAddressService _addresses;
         private readonly IEarningsService _earnings;
+        private readonly ITaskClaimService _claims;
         private readonly ILogger<GigTasksController> _logger;
 
         public GigTasksController(
@@ -26,12 +28,14 @@ namespace GigApp.Api.Controllers
             IServiceItemLookup serviceItems,
             IAddressService addresses,
             IEarningsService earnings,
+            ITaskClaimService claims,
             ILogger<GigTasksController> logger)
         {
             _context = context;
             _serviceItems = serviceItems;
             _addresses = addresses;
             _earnings = earnings;
+            _claims = claims;
             _logger = logger;
         }
 
@@ -50,7 +54,10 @@ namespace GigApp.Api.Controllers
             if (!TaskUrgency.IsValid(request.Urgency))
                 return BadRequest(new ProblemDetails { Title = "Choose a valid urgency.", Status = 400 });
 
-            if (!await _serviceItems.IsSelectableAsync(request.ServiceItemId, request.CategoryId, ct))
+            var service = await _serviceItems.GetBookableAsync(
+                request.ServiceItemId, request.CategoryId, ct);
+
+            if (service is null)
                 return BadRequest(new ProblemDetails
                 {
                     Title = "Choose a service that belongs to the selected category.",
@@ -79,7 +86,9 @@ namespace GigApp.Api.Controllers
                 Address = address.ToSingleLine(),
                 Latitude = address.Latitude,
                 Longitude = address.Longitude,
-                Budget = request.Budget,
+                Budget = service.IsInstant ? service.FixedPrice : request.Budget,
+                AgreedAmount = service.IsInstant ? service.FixedPrice : null,
+                BookingMode = service.IsInstant ? TaskBookingMode.Instant : TaskBookingMode.Bidding,
                 PreferredDateTime = request.PreferredDateTime.ToUtc(),
                 Status = GigTaskStatus.Pending,
                 CreatedAt = DateTime.UtcNow,
@@ -177,37 +186,22 @@ namespace GigApp.Api.Controllers
             return Ok(tasks.Select(GigTaskDto.From));
         }
 
-        // PUT: api/gigtasks/5/accept  -> Partner claims a task
+        // PUT: api/gigtasks/5/accept  -> Partner claims a fixed-price task
         [HttpPut("{id:int}/accept")]
         [Authorize(Policy = Policies.PartnerOnly)]
         public async Task<ActionResult<GigTaskDto>> AcceptTask(int id, CancellationToken ct)
         {
-            var partner = await GetCurrentPartnerAsync(ct);
-            if (partner is null) return Forbid();
+            var result = await _claims.ClaimAsync(User.GetRequiredUserId(), id, ct);
 
-            if (!partner.IsVerified)
-                return StatusCode(StatusCodes.Status403Forbidden,
-                    new ProblemDetails { Title = "Your account is pending KYC verification.", Status = 403 });
-
-            // Single conditional UPDATE — the WHERE clause is the lock. Two
-            // partners racing here cannot both come back with a row count of 1.
-            var rowsAffected = await _context.GigTasks
-                .Where(t => t.Id == id && t.Status == GigTaskStatus.Pending)
-                .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(t => t.PartnerId, partner.Id)
-                    .SetProperty(t => t.Status, GigTaskStatus.Accepted), ct);
-
-            if (rowsAffected == 0)
+            return result.Outcome switch
             {
-                var exists = await _context.GigTasks.AnyAsync(t => t.Id == id, ct);
-                return exists
-                    ? Conflict(new ProblemDetails { Title = "This task is no longer available.", Status = 409 })
-                    : NotFound();
-            }
-
-            _logger.LogInformation("Task {TaskId} accepted by partner {PartnerId}", id, partner.Id);
-
-            return Ok(GigTaskDto.From(await LoadDetailedAsync(id, ct)));
+                TaskClaimOutcome.Claimed => Ok(GigTaskDto.From(await LoadDetailedAsync(id, ct))),
+                TaskClaimOutcome.NotFound => NotFound(),
+                TaskClaimOutcome.Taken => Conflict(
+                    new ProblemDetails { Title = result.Error, Status = 409 }),
+                _ => StatusCode(StatusCodes.Status403Forbidden,
+                    new ProblemDetails { Title = result.Error, Status = 403 }),
+            };
         }
 
         // PUT: api/gigtasks/5/status  -> Move a task along its lifecycle

@@ -11,11 +11,19 @@ namespace GigApp.Api.Services
     /// </summary>
     public interface IServiceItemLookup
     {
-        /// <summary>Active, and actually belonging to <paramref name="categoryId"/>.</summary>
-        Task<bool> IsSelectableAsync(int serviceItemId, int categoryId, CancellationToken ct = default);
+        Task<BookableServiceItem?> GetBookableAsync(
+            int serviceItemId, int categoryId, CancellationToken ct = default);
 
         Task<IReadOnlyList<SkillCategoryOptionDto>> GetOptionsAsync(
             int categoryId, CancellationToken ct = default);
+    }
+
+    public record BookableServiceItem(
+        int Id, string Name, decimal? BasePayout, bool AllowsInstantBooking)
+    {
+        public bool IsInstant => AllowsInstantBooking && BasePayout is > 0;
+
+        public decimal FixedPrice => BasePayout!.Value;
     }
 
     public class ServiceItemLookup : IServiceItemLookup
@@ -24,10 +32,14 @@ namespace GigApp.Api.Services
 
         public ServiceItemLookup(AppDbContext context) => _context = context;
 
-        public Task<bool> IsSelectableAsync(
+        public Task<BookableServiceItem?> GetBookableAsync(
             int serviceItemId, int categoryId, CancellationToken ct = default) =>
-            _context.ServiceItems.AnyAsync(
-                s => s.Id == serviceItemId && s.SkillCategoryId == categoryId && s.IsActive, ct);
+            _context.ServiceItems
+                .AsNoTracking()
+                .Where(s => s.Id == serviceItemId && s.SkillCategoryId == categoryId && s.IsActive)
+                .Select(s => new BookableServiceItem(
+                    s.Id, s.Name, s.BasePayout, s.AllowsInstantBooking))
+                .FirstOrDefaultAsync(ct);
 
         public async Task<IReadOnlyList<SkillCategoryOptionDto>> GetOptionsAsync(
             int categoryId, CancellationToken ct = default) =>

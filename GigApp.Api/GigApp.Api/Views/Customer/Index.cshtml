@@ -29,7 +29,9 @@
                 <label for="ServicePicker" class="form-label required">Service</label>
                 <input id="ServicePicker" class="form-control" placeholder="Pick a category first"
                        data-master="service-item" data-target="ServiceItemId"
-                       data-parent="CategoryId" data-alert="service" />
+                       data-parent="CategoryId" data-alert="service"
+                       data-price-field="Budget" data-price-note="budget-note"
+                       data-price-fixed-note="Fixed price for this service. The first available partner takes it, so there is no bidding." />
                 <input type="hidden" id="ServiceItemId" name="ServiceItemId" value="" />
             </div>
 
@@ -37,7 +39,7 @@
                 <label for="Budget" class="form-label required">Budget (₹)</label>
                 <input id="Budget" name="Budget" type="number" min="0" step="50"
                        class="form-control" required value="500" />
-                <div class="form-text">Partners bid against this.</div>
+                <div id="budget-note" class="form-text">Partners bid against this.</div>
             </div>
 
             <div class="col-md-3">
@@ -124,6 +126,10 @@
                             <td>
                                 <div>@(task.ServiceItemName ?? task.CategoryName)</div>
                                 <span class="badge text-bg-light border">@task.CategoryName</span>
+                                @if (task.IsInstant)
+                                {
+                                    <span class="badge text-bg-success">Fixed price</span>
+                                }
                                 @if (task.Urgency != TaskUrgency.Normal)
                                 {
                                     <div class="mt-1">
@@ -141,7 +147,15 @@
                             </td>
                             <td><span class="badge badge-@task.Status text-white">@task.StatusLabel</span></td>
                             <td>
-                                @if (task.Status == GigTaskStatus.Pending)
+                                @if (task.IsInstant)
+                                {
+                                    <span class="text-secondary small">
+                                        @(task.Status == GigTaskStatus.Pending
+                                            ? "Waiting for a partner"
+                                            : "No bidding")
+                                    </span>
+                                }
+                                else if (task.Status == GigTaskStatus.Pending)
                                 {
                                     var bidCount = Model.BidsFor(task.Id).Count;
                                     <button type="button" class="btn btn-sm @(bidCount > 0 ? "btn-primary" : "btn-outline-secondary")"
@@ -161,6 +175,13 @@
                                     <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none"
                                             data-bs-toggle="modal" data-bs-target="#partner-modal-@task.PartnerId"
                                             title="View partner details">@task.PartnerName</button>
+
+                                    @if (task.WasAssignedBySupport)
+                                    {
+                                        <div class="small text-secondary mt-1" style="max-width:14rem">
+                                            Assigned for you by our support team.
+                                        </div>
+                                    }
 
                                     @if (task.PartnerChangedSkill)
                                     {

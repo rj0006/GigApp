@@ -7,6 +7,7 @@ using GigApp.Api.Services;
 using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Banking;
 using GigApp.Api.Services.Bidding;
+using GigApp.Api.Services.Booking;
 using GigApp.Api.Services.Earnings;
 using GigApp.Api.Services.Errors;
 using GigApp.Api.Services.Files;
@@ -175,6 +176,7 @@ builder.Services.AddHttpContextAccessor();
 // The /api/masters/{key} endpoint and global.js pick it up automatically.
 builder.Services.AddScoped<IMasterSource, SkillCategoryMasterSource>();
 builder.Services.AddScoped<IMasterSource, ServiceItemMasterSource>();
+builder.Services.AddScoped<IMasterSource, PartnerMasterSource>();
 builder.Services.AddScoped<IMasterRegistry, MasterRegistry>();
 
 var allowedOrigins = builder.Configuration
@@ -210,6 +212,7 @@ builder.Services.Configure<FileStorageOptions>(
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IBidService, BidService>();
+builder.Services.AddScoped<ITaskClaimService, TaskClaimService>();
 
 builder.Services.AddControllersWithViews(options =>
 {

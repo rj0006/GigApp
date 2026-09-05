@@ -22,5 +22,12 @@ namespace GigApp.Api.Dtos
 
         /// <summary>Optional second line / hint shown in the dropdown.</summary>
         public string? Hint { get; set; }
+
+        /// <summary>
+        /// Extra attributes the picking form may need — global.js hands this to
+        /// the master:selected listener so a form can react to the choice
+        /// without a second round trip.
+        /// </summary>
+        public Dictionary<string, string>? Extra { get; set; }
     }
 }

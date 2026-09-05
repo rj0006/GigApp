@@ -72,6 +72,7 @@ namespace GigApp.Api.Dtos
         public bool IsUrgent => Urgency == TaskUrgency.Urgent;
 
         public string BookingMode { get; set; } = TaskBookingMode.Bidding;
+        public bool IsInstant => BookingMode == TaskBookingMode.Instant;
 
         public DateTime? PreferredDateTime { get; set; }
         public DateTime CreatedAt { get; set; }
@@ -86,6 +87,11 @@ namespace GigApp.Api.Dtos
 
         public int CustomerId { get; set; }
         public string? CustomerName { get; set; }
+
+        public DateTime? AssignedAt { get; set; }
+        public string? AssignedByName { get; set; }
+        public string? AssignmentNote { get; set; }
+        public bool WasAssignedBySupport => AssignedAt is not null;
 
         public int? PartnerId { get; set; }
         public string? PartnerName { get; set; }
@@ -125,6 +131,9 @@ namespace GigApp.Api.Dtos
             Longitude = task.Longitude,
             CustomerId = task.CustomerId,
             CustomerName = task.Customer?.Name,
+            AssignedAt = task.AssignedAt,
+            AssignedByName = task.AssignedBy?.Name,
+            AssignmentNote = task.AssignmentNote,
             PartnerId = task.PartnerId,
             PartnerName = task.Partner?.User?.Name,
             PartnerSkillCategory = task.Partner?.SkillCategory?.Name,
