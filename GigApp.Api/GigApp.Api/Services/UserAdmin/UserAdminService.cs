@@ -41,14 +41,19 @@ namespace GigApp.Api.Services.UserAdmin
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == targetUserId, ct);
             if (user is null) return UserAdminResult.Fail("Account not found.");
 
-            // Generating is the safer default: a typed password tends to be a
-            // weak one reused across every account the admin touches.
-            var newPassword = request.Generate || string.IsNullOrWhiteSpace(request.NewPassword)
-                ? GeneratePassword()
-                : request.NewPassword.Trim();
+            // A typed password wins. Leaving the field empty is what asks for a
+            // generated one, so the box the administrator filled in is never
+            // silently thrown away.
+            var typed = request.NewPassword?.Trim();
 
-            if (!System.Text.RegularExpressions.Regex.IsMatch(newPassword, ValidationPatterns.Password))
+            if (!string.IsNullOrEmpty(typed)
+                && !System.Text.RegularExpressions.Regex.IsMatch(typed, ValidationPatterns.Password))
+            {
                 return UserAdminResult.Fail(ValidationPatterns.PasswordMessage);
+            }
+
+            var newPassword = string.IsNullOrEmpty(typed) ? GeneratePassword() : typed;
+            var wasGenerated = string.IsNullOrEmpty(typed);
 
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
             await _context.SaveChangesAsync(ct);
@@ -59,7 +64,7 @@ namespace GigApp.Api.Services.UserAdmin
 
             // The plaintext is returned once, to this caller, so it can be given
             // to the user. It is never stored, and the audit trail redacts it.
-            return UserAdminResult.Ok(UserDto.From(user), newPassword);
+            return UserAdminResult.Ok(UserDto.From(user), newPassword, wasGenerated);
         }
 
         public async Task<UserAdminResult> SetActiveAsync(

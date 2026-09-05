@@ -923,9 +923,10 @@ namespace GigApp.Api.Controllers
 
             // Shown once. It is not stored anywhere and the audit payload masks
             // it, so there is no second chance to read it.
-            TempData["Success"] =
-                $"Password reset for {result.User!.Name}. New password: {result.GeneratedPassword} "
-              + "— copy it now, it will not be shown again.";
+            TempData["Success"] = result.WasGenerated
+                ? $"Password reset for {result.User!.Name}. Generated password: {result.GeneratedPassword} "
+                  + "— copy it now, it will not be shown again."
+                : $"Password reset for {result.User!.Name} to the one you typed.";
 
             return Redirect(target);
         }

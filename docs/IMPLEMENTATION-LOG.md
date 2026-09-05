@@ -9,6 +9,32 @@ developer can call the same thing.
 
 ---
 
+## 2026-09-06 — A typed password is the one that gets set
+
+**Asked:** typing into "Or type one" should set exactly that password; leaving it blank should
+generate one. It was not working.
+
+**The bug.** The form carried a "Generate a strong password" checkbox that defaulted to checked, and
+the service read `request.Generate || string.IsNullOrWhiteSpace(request.NewPassword)`. The checkbox
+won, so a password the administrator had typed was silently thrown away and a random one was set
+instead.
+
+**Rule.** The field alone decides, and the checkbox is gone.
+
+| What the administrator does | What happens |
+|---|---|
+| Types a password | That exact password is set |
+| Leaves it empty | A strong one is generated and shown once |
+| Types a weak password | Refused with the password rule; **nothing changes** |
+
+A generated password is still shown once and never stored. When the password was typed, the
+confirmation does not repeat it — the administrator already has it.
+
+**Still to come:** emailing the new password to the account holder instead of reading it out. That
+needs the mail sender, which does not exist yet.
+
+---
+
 ## 2026-09-06 — Commission plans, and tax as a country-aware master
 
 **Asked:** let a partner take a plan that earns with zero commission, manage those plans from the

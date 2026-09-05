@@ -4,16 +4,10 @@ namespace GigApp.Api.Dtos
 {
     public class AdminResetPasswordRequest
     {
-        /// <summary>
-        /// Generate a strong password instead of supplying one. Preferred — a
-        /// typed password is usually weak and reused across accounts.
-        /// </summary>
-        [Display(Name = "Generate a strong password")]
-        public bool Generate { get; set; } = true;
-
-        /// <summary>Only used when <see cref="Generate"/> is false.</summary>
+        [StringLength(100)]
         [Display(Name = "New password")]
         public string? NewPassword { get; set; }
+
 
         [Required(ErrorMessage = "Give a reason for this reset.")]
         [StringLength(300)]
@@ -43,8 +37,17 @@ namespace GigApp.Api.Dtos
         /// </summary>
         public string? GeneratedPassword { get; init; }
 
-        public static UserAdminResult Ok(UserDto user, string? password = null) =>
-            new() { Succeeded = true, User = user, GeneratedPassword = password };
+        public bool WasGenerated { get; init; }
+
+        public static UserAdminResult Ok(
+            UserDto user, string? password = null, bool wasGenerated = false) =>
+            new()
+            {
+                Succeeded = true,
+                User = user,
+                GeneratedPassword = password,
+                WasGenerated = wasGenerated,
+            };
 
         public static UserAdminResult Fail(string error) =>
             new() { Succeeded = false, Error = error };
