@@ -11,6 +11,9 @@ namespace GigApp.Api.Dtos
 
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
+        public string? ImageFileName { get; set; }
+        public string? ImageUrl =>
+            string.IsNullOrWhiteSpace(ImageFileName) ? null : "/uploads/service/" + ImageFileName;
 
         /// <summary>Partner payout, not the customer price.</summary>
         public decimal? BasePayout { get; set; }
@@ -34,6 +37,7 @@ namespace GigApp.Api.Dtos
             CategoryName = item.SkillCategory?.Name ?? string.Empty,
             Name = item.Name,
             Description = item.Description,
+            ImageFileName = item.ImageFileName,
             BasePayout = item.BasePayout,
             AllowsInstantBooking = item.AllowsInstantBooking,
             IsActive = item.IsActive,
@@ -71,6 +75,9 @@ namespace GigApp.Api.Dtos
         [Range(0, 9999)]
         [Display(Name = "Display order")]
         public int DisplayOrder { get; set; }
+
+        [Display(Name = "Service image")]
+        public IFormFile? Image { get; set; }
     }
 
     /// <summary>

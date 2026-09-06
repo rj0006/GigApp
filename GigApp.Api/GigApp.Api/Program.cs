@@ -19,6 +19,7 @@ using GigApp.Api.Services.Notifications;
 using GigApp.Api.Services.Orders;
 using GigApp.Api.Services.Pricing;
 using GigApp.Api.Services.Ratings;
+using GigApp.Api.Services.Storefront;
 using GigApp.Api.Services.Support;
 using GigApp.Api.Services.Profile;
 using GigApp.Api.Services.Tracking;
@@ -223,6 +224,17 @@ builder.Services.AddScoped<ITaskClaimService, TaskClaimService>();
 builder.Services.AddScoped<IRatingService, RatingService>();
 builder.Services.AddScoped<IOrderHistoryService, OrderHistoryService>();
 builder.Services.AddScoped<IMatchService, MatchService>();
+builder.Services.AddScoped<ICartService, CartService>();
+builder.Services.AddScoped<ICheckoutService, CheckoutService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.Cookie.Name = "gigapp_cart";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.IdleTimeout = TimeSpan.FromDays(7);
+});
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IOfferService, OfferService>();
 builder.Services.AddHostedService<OfferExpiryWorker>();
@@ -283,6 +295,10 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
+
+// Session carries the guest cart, so it has to be in place before anything
+// that reads it — and before auth, since a visitor shops without signing in.
+app.UseSession();
 
 app.UseCors(CorsPolicies.Clients);
 

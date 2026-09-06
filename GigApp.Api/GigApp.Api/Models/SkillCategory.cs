@@ -5,7 +5,7 @@ namespace GigApp.Api.Models
     /// skill and a task's category point here — they must share one taxonomy or
     /// matching partners to tasks cannot work.
     /// </summary>
-    public class SkillCategory
+    public class SkillCategory : IHasImage
     {
         public int Id { get; set; }
 

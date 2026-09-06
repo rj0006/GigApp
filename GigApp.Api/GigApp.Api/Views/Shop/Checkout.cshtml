@@ -1,0 +1,125 @@
+@model StorefrontCheckoutViewModel
+@{
+    Layout = "_ShopLayout";
+    var cart = Model.Cart;
+}
+
+<h1 class="h4 mb-3">Checkout</h1>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        @if (!Model.IsSignedIn)
+        {
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h2 class="h6 mb-1">Account</h2>
+                    <p class="text-secondary small mb-3">
+                        To book the service, please sign in or create an account. Your cart is kept.
+                    </p>
+
+                    <div class="d-grid gap-2">
+                        <a class="btn btn-primary" href="/customer/login?returnUrl=%2Fcheckout">Login</a>
+                        <a class="btn btn-outline-primary" href="/customer/register">Create an account</a>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (Model.NeedsAddress)
+        {
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h2 class="h6 mb-1">Where should we come?</h2>
+                    <p class="text-secondary small mb-3">
+                        Add an address before booking. A location pin is what lets us send you the
+                        nearest partner.
+                    </p>
+                    <a class="btn btn-primary" href="/customer/profile/addresses">Add an address</a>
+                </div>
+            </div>
+        }
+        else
+        {
+            <form method="post" action="/checkout" class="card gig-form">
+                @Html.AntiForgeryToken()
+
+                <div class="card-body">
+                    <h2 class="h6 mb-3">Where should we come?</h2>
+
+                    <div class="mb-3">
+                        <label for="addressId" class="form-label required">Address</label>
+                        <select id="addressId" name="addressId" class="form-select" required>
+                            @foreach (var address in Model.Addresses)
+                            {
+                                <option value="@address.Id" selected="@address.IsDefault">
+                                    @address.Label — @address.SingleLine@(address.HasCoordinates ? "" : "  (no pin)")
+                                </option>
+                            }
+                        </select>
+                        <div class="form-text">
+                            <a href="/customer/profile/addresses">Manage addresses</a>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="preferredAt" class="form-label">Preferred date &amp; time</label>
+                        <input id="preferredAt" name="preferredAt" type="datetime-local" class="form-control" />
+                        <div class="form-text">Leave blank and we will come as soon as a partner is free.</div>
+                    </div>
+
+                    <div>
+                        <label for="note" class="form-label">Anything we should know?</label>
+                        <textarea id="note" name="note" class="form-control" rows="2" maxlength="500"
+                                  placeholder="Second floor, no lift. Call before arriving."></textarea>
+                    </div>
+                </div>
+
+                <div class="card-footer bg-body">
+                    <button type="submit" class="btn btn-primary w-100">
+                        Confirm booking · ₹@cart.Total.ToString("N0")
+                    </button>
+                </div>
+            </form>
+        }
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h6 mb-3">Your booking</h2>
+
+                @foreach (var group in cart.Lines.GroupBy(l => l.CategoryName))
+                {
+                    <div class="fw-semibold small mb-1">@group.Key</div>
+
+                    foreach (var line in group)
+                    {
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="small flex-grow-1">@line.ServiceItemName</span>
+
+                            <partial name="_QuantityStepper" model="@(new QuantityStepperModel {
+                                ServiceItemId = line.ServiceItemId,
+                                Quantity = line.Quantity,
+                                ReturnTo = "/checkout",
+                            })" />
+
+                            <span class="small fw-semibold" style="min-width:4rem;text-align:right">
+                                ₹@line.LineTotal.ToString("N0")
+                            </span>
+                        </div>
+                    }
+                }
+
+                <hr />
+
+                <div class="d-flex fw-semibold">
+                    <span>Amount to pay</span>
+                    <span class="ms-auto">₹@cart.Total.ToString("N0")</span>
+                </div>
+
+                <p class="small text-secondary mt-2 mb-0">
+                    Fixed price, agreed before the partner sets out. Pay after the work is done.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>

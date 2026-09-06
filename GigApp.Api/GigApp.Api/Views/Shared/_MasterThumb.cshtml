@@ -1,0 +1,10 @@
+@model string
+
+@if (string.IsNullOrWhiteSpace(Model))
+{
+    <span class="master-thumb-empty">none</span>
+}
+else
+{
+    <img class="master-thumb" src="@Model" alt="" loading="lazy" />
+}

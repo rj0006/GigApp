@@ -475,6 +475,7 @@ namespace GigApp.Api.Data
                 e.Property(t => t.BookingMode).HasMaxLength(10).IsRequired();
                 e.Property(t => t.Budget).HasPrecision(10, 2);
                 e.Property(t => t.AgreedAmount).HasPrecision(10, 2);
+                e.Property(t => t.Quantity).HasDefaultValue(1);
 
                 e.HasOne(t => t.Category)
                  .WithMany(c => c.Tasks)

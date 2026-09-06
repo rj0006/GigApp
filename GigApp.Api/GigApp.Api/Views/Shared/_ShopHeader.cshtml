@@ -1,0 +1,44 @@
+@{
+    var cartCount = ViewData["CartCount"] as int? ?? 0;
+    var signedIn = User.Identity?.IsAuthenticated == true;
+    var isCustomer = signedIn && User.IsInRole(UserRoles.Customer);
+}
+
+<header class="shop-header">
+    <div class="container py-2 d-flex align-items-center gap-3">
+        <a class="navbar-brand fw-bold text-decoration-none" href="/services">
+            Gig<span class="text-primary">App</span>
+        </a>
+
+        <a class="small text-decoration-none text-secondary d-none d-md-inline" href="/services">
+            All services
+        </a>
+
+        <div class="ms-auto d-flex align-items-center gap-2">
+            <a class="btn btn-sm btn-outline-secondary position-relative" href="/cart">
+                Cart
+                @if (cartCount > 0)
+                {
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-primary">
+                        @cartCount
+                        <span class="visually-hidden">items in your cart</span>
+                    </span>
+                }
+            </a>
+
+            @if (isCustomer)
+            {
+                <a class="btn btn-sm btn-primary" href="/customer">My account</a>
+            }
+            else if (signedIn)
+            {
+                <span class="small text-secondary d-none d-sm-inline">@User.Identity!.Name</span>
+            }
+            else
+            {
+                <a class="btn btn-sm btn-outline-primary" href="/customer/login">Login</a>
+                <a class="btn btn-sm btn-primary d-none d-sm-inline-block" href="/customer/register">Sign up</a>
+            }
+        </div>
+    </div>
+</header>

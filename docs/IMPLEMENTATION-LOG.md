@@ -9,6 +9,44 @@ developer can call the same thing.
 
 ---
 
+## 2026-09-06 — A public storefront with a guest cart
+
+**Asked:** a customer landing page that works like a website for a guest, with a cart and a login
+button, item by item, so a customer buys a service at the payout we set and support assigns a
+partner. Also: the category image did not appear, and services need one too.
+
+**Rule — what is sellable.** The storefront lists a service item only when **all** of these hold:
+the item is active, its category is active, `AllowsInstantBooking` is set, and `BasePayout` is above
+zero. Anything else has no fixed price to show, and a storefront without a price is a brochure.
+
+**Rule — the cart belongs to the browser, not to an account.**
+
+- Browsing, adding, changing quantity and viewing the cart all work **signed out**. Asking someone
+  to register before they know what anything costs is how you lose them.
+- The cart is held in session and stores **only service item ids and quantities**. Every price is
+  looked up again on the server, so editing the cart cannot change what anything costs.
+- A line whose service was deactivated after it was added is **dropped silently** rather than
+  failing the checkout on something the visitor can no longer see.
+- Twenty lines and twenty units per line, so a bad script cannot build an unbookable order.
+- Signing in does not disturb the cart — the session cookie is the same one, so `/checkout` carries
+  straight on.
+
+**Rule — checkout creates one task per cart line.** A line is one service at one address, which is
+what a partner is actually sent to do. The quantity rides along on `GigTask.Quantity` so three units
+stay one visit for one partner, and the amount is the line total. Every line is created as
+`BookingMode = instant` at the catalogue price, which means the existing offer chain picks it up:
+each line looks for its own partner, because they are different trades.
+
+Nothing is charged at checkout — the storefront says so plainly. Payment on completion is what the
+platform does today, and Razorpay has not landed.
+
+**Fixed alongside:** the category image saved correctly but there was nowhere to see it, so
+`/admin/masters/categories` now shows a thumbnail column. Service items now carry an image too, on
+the same component, and the storefront uses it. One helper, `ApplyImageAsync`, handles both — it
+saves through `IFileStorageService`, swaps the name onto the row and deletes the file it replaced.
+
+---
+
 ## 2026-09-06 — Notifications, and automatic assignment switched on
 
 **Asked:** build the notification channel so auto-assign can work.

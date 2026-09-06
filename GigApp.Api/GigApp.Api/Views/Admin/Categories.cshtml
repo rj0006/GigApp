@@ -49,7 +49,7 @@
                 <table class="table table-hover align-middle mb-0">
                     <thead>
                         <tr>
-                            <th>Order</th><th>Name</th><th>Description</th>
+                            <th>Order</th><th>Image</th><th>Name</th><th>Description</th>
                             <th>In use</th><th>Status</th><th class="text-end">Actions</th>
                         </tr>
                     </thead>
@@ -58,6 +58,7 @@
                     {
                         <tr>
                             <td class="text-secondary small">@category.DisplayOrder</td>
+                            <td><partial name="_MasterThumb" model="category.ImageUrl" /></td>
                             <td class="fw-semibold">@category.Name</td>
                             <td class="small text-secondary">@(category.Description ?? "—")</td>
                             <td class="small">

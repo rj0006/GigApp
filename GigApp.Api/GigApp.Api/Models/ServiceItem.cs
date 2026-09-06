@@ -8,7 +8,7 @@ namespace GigApp.Api.Models
     /// Pricing and price discovery both need this finer unit, which is why one
     /// entity serves both.
     /// </summary>
-    public class ServiceItem
+    public class ServiceItem : IHasImage
     {
         public int Id { get; set; }
 
@@ -19,6 +19,8 @@ namespace GigApp.Api.Models
         public string Name { get; set; } = string.Empty;
 
         public string? Description { get; set; }
+
+        public string? ImageFileName { get; set; }
 
         /// <summary>
         /// What the partner is paid for this job. Null until enough completed

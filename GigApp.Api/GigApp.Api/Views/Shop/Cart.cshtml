@@ -1,0 +1,96 @@
+@model StorefrontCartViewModel
+@{
+    Layout = "_ShopLayout";
+    var cart = Model.Cart;
+}
+
+<h1 class="h4 mb-3">Your cart</h1>
+
+@if (cart.IsEmpty)
+{
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <p class="text-secondary mb-3">Your cart is empty.</p>
+            <a class="btn btn-primary" href="/services">Browse services</a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-body">
+                    @foreach (var line in cart.Lines)
+                    {
+                        <div class="cart-line">
+                            @if (line.ImageUrl is not null)
+                            {
+                                <img src="@line.ImageUrl" alt="" loading="lazy" />
+                            }
+
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold">@line.ServiceItemName</div>
+                                <div class="small text-secondary">@line.CategoryName</div>
+                                <div class="small text-secondary">₹@line.UnitPrice.ToString("N0") each</div>
+                            </div>
+
+                            <div class="text-end">
+                                <div class="fw-semibold mb-2">₹@line.LineTotal.ToString("N0")</div>
+
+                                <partial name="_QuantityStepper" model="@(new QuantityStepperModel {
+                                    ServiceItemId = line.ServiceItemId,
+                                    Quantity = line.Quantity,
+                                    ReturnTo = "/cart",
+                                })" />
+
+                                <form method="post" action="/cart/update" class="mt-1">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="serviceItemId" value="@line.ServiceItemId" />
+                                    <input type="hidden" name="quantity" value="0" />
+                                    <input type="hidden" name="returnTo" value="/cart" />
+                                    <button type="submit" class="btn btn-link btn-sm p-0 text-danger text-decoration-none">
+                                        Remove
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <a class="btn btn-link px-0 text-decoration-none" href="/services">Add more services</a>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h6 mb-3">Payment summary</h2>
+
+                    <dl class="row small mb-2">
+                        @foreach (var line in cart.Lines)
+                        {
+                            <dt class="col-8 fw-normal text-secondary">
+                                @line.ServiceItemName@(line.Quantity > 1 ? $" x {line.Quantity}" : "")
+                            </dt>
+                            <dd class="col-4 text-end">₹@line.LineTotal.ToString("N0")</dd>
+                        }
+                    </dl>
+
+                    <hr />
+
+                    <div class="d-flex fw-semibold">
+                        <span>Amount to pay</span>
+                        <span class="ms-auto">₹@cart.Total.ToString("N0")</span>
+                    </div>
+
+                    <p class="small text-secondary mt-2 mb-3">
+                        Pay the partner after the work is done. Nothing is charged now.
+                    </p>
+
+                    <a class="btn btn-primary w-100" href="/checkout">Proceed to checkout</a>
+                </div>
+            </div>
+        </div>
+    </div>
+}

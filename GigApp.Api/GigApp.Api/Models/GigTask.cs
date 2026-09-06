@@ -51,6 +51,9 @@ namespace GigApp.Api.Models
 
         public Point? Location { get; set; }
 
+        /// <summary>How many units of the service item this one booking covers.</summary>
+        public int Quantity { get; set; } = 1;
+
         /// <summary>
         /// What the customer expects to pay. Indicative only — partners bid
         /// against it, and the settled figure is <see cref="AgreedAmount"/>.

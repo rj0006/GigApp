@@ -67,6 +67,8 @@ namespace GigApp.Api.Dtos
         /// <summary>Price settled from the winning bid; null until one is accepted.</summary>
         public decimal? AgreedAmount { get; set; }
 
+        public int Quantity { get; set; } = 1;
+
         /// <summary>What to show as the price: the agreed figure once there is one.</summary>
         public decimal EffectiveAmount => AgreedAmount ?? Budget;
 
@@ -129,6 +131,7 @@ namespace GigApp.Api.Dtos
             Description = task.Description,
             Address = task.Address,
             Budget = task.Budget,
+            Quantity = task.Quantity,
             AgreedAmount = task.AgreedAmount,
             Status = task.Status,
             Urgency = task.Urgency,

@@ -59,7 +59,7 @@
                 <table class="table table-hover align-middle mb-0">
                     <thead>
                         <tr>
-                            <th>Category</th><th>Service</th><th>Payout</th>
+                            <th>Image</th><th>Category</th><th>Service</th><th>Payout</th>
                             <th>Instant</th><th>Tasks</th><th>Status</th><th class="text-end">Actions</th>
                         </tr>
                     </thead>
@@ -67,6 +67,7 @@
                     @foreach (var item in list.Items)
                     {
                         <tr>
+                            <td><partial name="_MasterThumb" model="item.ImageUrl" /></td>
                             <td><span class="badge text-bg-light border">@item.CategoryName</span></td>
                             <td>
                                 <div class="fw-semibold">@item.Name</div>

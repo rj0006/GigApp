@@ -184,6 +184,20 @@ in the menu list, a partial, and a `GET` on `PortalControllerBase`. A portal sup
 overriding `LoadProfileExtrasAsync` — that is how the partner portal adds its KYC and the customer
 portal adds its booking form. `SectionApplies` is the one place that decides which role sees what.
 
+**`/` is a public storefront with a guest cart.** `ShopController` is `[AllowAnonymous]` — browsing,
+adding to the cart and changing quantity all work signed out, and only placing the order needs an
+account. A service item appears there only when it is active, its category is active,
+`AllowsInstantBooking` is set **and** `BasePayout` is above zero; anything else has no price to show.
+
+- **The cart holds ids and quantities, never prices.** It lives in session (`gigapp_cart`), and
+  `ICartService.PriceAsync` looks every price up again, so a tampered cart cannot change a total. A
+  line whose service was deactivated is dropped rather than failing the checkout.
+- **Checkout creates one task per cart line**, at the catalogue price, as `BookingMode = instant`,
+  with `GigTask.Quantity` carrying the units so three of something stays one visit for one partner.
+  Each line then enters the offer chain on its own, because lines can be different trades.
+- Signing in mid-checkout keeps the cart — same session cookie.
+- The old landing page with the dev credentials moved to `/welcome`.
+
 **The customer home page is a catalogue; the work lives in the profile.** `/customer` lists active
 categories as image tiles and does nothing else — a tile links to the booking form with that category
 preselected. Posting, tracking and history are profile sections, so every task action redirects into

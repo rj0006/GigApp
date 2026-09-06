@@ -354,6 +354,8 @@ namespace GigApp.Api.ViewModels
         public bool IsEdit => Id is not null;
         public string Heading => IsEdit ? "Edit service" : "New service";
 
+        public string? ImageUrl { get; set; }
+
         /// <summary>Set on edit so the form can warn before deactivating something in use.</summary>
         public int TaskCount { get; set; }
     }

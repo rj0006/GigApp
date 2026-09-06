@@ -286,7 +286,7 @@ namespace GigApp.Api.Controllers
                 CreatedAt = DateTime.UtcNow,
             };
 
-            var imageError = await ApplyCategoryImageAsync(form.Image, category, ct);
+            var imageError = await ApplyImageAsync(form.Image, category, FileCategory.CategoryImage, ct);
             if (imageError is not null)
             {
                 ModelState.AddModelError(nameof(form.Image), imageError);
@@ -356,7 +356,7 @@ namespace GigApp.Api.Controllers
                 return View("CategoryForm", model);
             }
 
-            var imageError = await ApplyCategoryImageAsync(form.Image, category, ct);
+            var imageError = await ApplyImageAsync(form.Image, category, FileCategory.CategoryImage, ct);
             if (imageError is not null)
             {
                 ModelState.AddModelError(nameof(form.Image), imageError);
@@ -469,6 +469,7 @@ namespace GigApp.Api.Controllers
                     CategoryName = s.SkillCategory!.Name,
                     Name = s.Name,
                     Description = s.Description,
+                    ImageFileName = s.ImageFileName,
                     BasePayout = s.BasePayout,
                     AllowsInstantBooking = s.AllowsInstantBooking,
                     IsActive = s.IsActive,
@@ -536,6 +537,13 @@ namespace GigApp.Api.Controllers
                 CreatedAt = DateTime.UtcNow,
             };
 
+            var newImageError = await ApplyImageAsync(form.Image, item, FileCategory.ServiceImage, ct);
+            if (newImageError is not null)
+            {
+                ModelState.AddModelError(nameof(form.Image), newImageError);
+                return View("ServiceForm", model);
+            }
+
             _context.ServiceItems.Add(item);
             await _context.SaveChangesAsync(ct);
 
@@ -572,6 +580,7 @@ namespace GigApp.Api.Controllers
                     IsActive = item.IsActive,
                     DisplayOrder = item.DisplayOrder,
                 },
+                ImageUrl = ServiceItemDto.From(item).ImageUrl,
                 Categories = await _categories.GetOptionsIncludingAsync(item.SkillCategoryId, ct),
                 TaskCount = await _context.GigTasks.CountAsync(t => t.ServiceItemId == id, ct),
             });
@@ -601,6 +610,13 @@ namespace GigApp.Api.Controllers
             {
                 TempData["Error"] = "Service not found.";
                 return Redirect(ServicesPath);
+            }
+
+            var editImageError = await ApplyImageAsync(form.Image, item, FileCategory.ServiceImage, ct);
+            if (editImageError is not null)
+            {
+                ModelState.AddModelError(nameof(form.Image), editImageError);
+                return View("ServiceForm", model);
             }
 
             item.SkillCategoryId = form.SkillCategoryId;
@@ -1418,18 +1434,20 @@ namespace GigApp.Api.Controllers
             });
         }
 
-        private async Task<string?> ApplyCategoryImageAsync(
-            IFormFile? image, SkillCategory category, CancellationToken ct)
+        // Returns the error to show, or null when there was nothing to do or it
+        // worked. Replacing an image deletes the one it replaced.
+        private async Task<string?> ApplyImageAsync(
+            IFormFile? image, IHasImage owner, FileCategory bucket, CancellationToken ct)
         {
             if (image is null || image.Length == 0) return null;
 
-            var saved = await _storage.SaveAsync(image, FileCategory.CategoryImage, ct);
+            var saved = await _storage.SaveAsync(image, bucket, ct);
             if (!saved.Succeeded) return saved.Error;
 
-            var previous = category.ImageFileName;
-            category.ImageFileName = saved.FileName;
+            var previous = owner.ImageFileName;
+            owner.ImageFileName = saved.FileName;
 
-            _storage.Delete(previous, FileCategory.CategoryImage);
+            _storage.Delete(previous, bucket);
 
             return null;
         }

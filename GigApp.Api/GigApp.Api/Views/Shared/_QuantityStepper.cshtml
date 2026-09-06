@@ -1,0 +1,15 @@
+@model QuantityStepperModel
+
+<form method="post" action="/cart/update" class="qty-stepper">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="serviceItemId" value="@Model.ServiceItemId" />
+    <input type="hidden" name="returnTo" value="@Model.ReturnTo" />
+
+    <button type="submit" name="quantity" value="@(Model.Quantity - 1)"
+            aria-label="Reduce quantity">&minus;</button>
+
+    <span class="qty-value">@Model.Quantity</span>
+
+    <button type="submit" name="quantity" value="@(Model.Quantity + 1)"
+            disabled="@(Model.Quantity >= Model.Maximum)" aria-label="Increase quantity">+</button>
+</form>

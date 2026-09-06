@@ -141,6 +141,33 @@ Both return `TaskClaimResult`, whose `Outcome` maps straight onto HTTP: `Claimed
 
 `ISupportService.RaisedMessage` is the confirmation text. Use it rather than retyping the wording.
 
+### Storefront and cart — `Services/Storefront/`
+
+| Method | Purpose |
+|---|---|
+| `ICartService.Read()` | The raw lines — ids and quantities only. Use it for the header badge. |
+| `ICartService.Add(id, qty)` / `SetQuantity(id, qty)` / `Clear()` | Mutations. A quantity of zero removes the line. |
+| `ICartService.PriceAsync()` | The cart with names, images and prices resolved from the database. **Never price a cart from what the browser sent.** |
+| `ICheckoutService.PlaceAsync(customerId, addressId, note, preferredAt)` | Turns the cart into one instant task per line, starts each offer chain, and empties the cart. |
+
+Storefront views use `_ShopLayout` (its own header with the cart badge, no portal navbar). Pieces:
+`_ShopHeader`, `_ServiceCard` (set `ViewData["CartQuantity"]` before rendering), `_QuantityStepper`
+(`QuantityStepperModel`) and `_CartBar` for the sticky total.
+
+### Master images — `IHasImage`
+
+A master row that carries catalogue artwork implements `Models.IHasImage`, and the admin controller
+saves it through one helper:
+
+```csharp
+var error = await ApplyImageAsync(form.Image, entity, FileCategory.ServiceImage, ct);
+if (error is not null) { ModelState.AddModelError(nameof(form.Image), error); return View(...); }
+```
+
+It validates through `IFileStorageService`, puts the new name on the row and deletes the file it
+replaced. Render the form field with `_ImageUpload` and the list column with `_MasterThumb`
+(model is the URL, or null for the "none" placeholder). **The form needs `enctype="multipart/form-data"`.**
+
 ### Notifications — `Services/Notifications/`
 
 ```csharp

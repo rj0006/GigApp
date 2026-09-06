@@ -1,0 +1,65 @@
+@model StorefrontCategoryViewModel
+@{
+    Layout = "_ShopLayout";
+}
+
+<nav class="small mb-3">
+    <a class="text-decoration-none text-secondary" href="/services">All services</a>
+    <span class="text-secondary">/</span>
+    <span>@Model.Category.Name</span>
+</nav>
+
+<div class="row g-4">
+    <div class="col-lg-3">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h6 mb-3">Categories</h2>
+                <div class="list-group list-group-flush">
+                    @foreach (var tile in Model.Categories)
+                    {
+                        var active = tile.Category.Id == Model.Category.Id ? " active" : "";
+
+                        <a class="list-group-item list-group-item-action d-flex justify-content-between@(active)"
+                           href="/services/@tile.Category.Id">
+                            <span>@tile.Category.Name</span>
+                            <span class="badge text-bg-light border">@tile.ServiceCount</span>
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-9">
+        <h1 class="h4 mb-1">@Model.Category.Name</h1>
+        <p class="text-secondary small">
+            @(Model.Category.Description ?? "Fixed prices. Add what you need and check out in one go.")
+        </p>
+
+        @if (Model.Services.Count == 0)
+        {
+            <div class="card">
+                <div class="card-body text-center py-5 text-secondary">
+                    Nothing is bookable in this category yet.
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="shop-grid">
+                @foreach (var service in Model.Services)
+                {
+                    ViewData["CartQuantity"] = Model.QuantityOf(service.Id);
+                    <partial name="_ServiceCard" model="service" />
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@if (!Model.Cart.IsEmpty)
+{
+    @section Sticky {
+        <partial name="_CartBar" model="Model.Cart" />
+    }
+}

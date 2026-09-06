@@ -10,12 +10,17 @@ namespace GigApp.Api.Controllers
 
         public HomeController(IWebHostEnvironment environment) => _environment = environment;
 
+        // The storefront is the front door now. The old landing page stays at
+        // /welcome because it carries the dev sign-in credentials.
         [HttpGet("/")]
-        public IActionResult Index()
+        public IActionResult Index() => Redirect("/services");
+
+        [HttpGet("/welcome")]
+        public IActionResult Welcome()
         {
             ViewData["Title"] = "Home";
             ViewData["ShowDevCredentials"] = _environment.IsDevelopment();
-            return View();
+            return View("Index");
         }
 
         [HttpGet("/Home/Error")]

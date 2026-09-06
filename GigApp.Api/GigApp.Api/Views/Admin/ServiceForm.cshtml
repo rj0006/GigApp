@@ -22,7 +22,8 @@
             </div>
         }
 
-        <form method="post" asp-action="@postAction" asp-route-id="@Model.Id" class="gig-form row g-3">
+        <form method="post" asp-action="@postAction" asp-route-id="@Model.Id"
+              enctype="multipart/form-data" class="gig-form row g-3">
             <div class="col-md-6">
                 <label for="CategoryPicker" class="form-label required">Category</label>
                 <input id="CategoryPicker" class="form-control" placeholder="Start typing to choose"
@@ -36,10 +37,21 @@
                 <input asp-for="Form.Name" class="form-control" autofocus placeholder="Tap repair" />
             </div>
 
-            <div class="col-12">
+            <div class="col-md-8">
                 <label asp-for="Form.Description" class="form-label"></label>
                 <textarea asp-for="Form.Description" class="form-control" rows="2"
                           placeholder="What this job covers"></textarea>
+            </div>
+
+            <div class="col-md-4">
+                <partial name="_ImageUpload" model="@(new ImageUploadModel {
+                    Name = "Image",
+                    Label = "Service image",
+                    Hint = "Shown on the storefront next to the price.",
+                    CurrentUrl = Model.ImageUrl,
+                    Shape = ImageUploadShape.Wide,
+                })" />
+                <span asp-validation-for="Form.Image" class="text-danger small"></span>
             </div>
 
             <div class="col-md-4">
