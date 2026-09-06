@@ -68,6 +68,11 @@ else if (!profile.IsVerified)
 }
 else
 {
+    if (Model.Offer is not null)
+    {
+        <partial name="_JobOffer" model="Model.Offer" />
+    }
+
     <div class="row g-3 mb-3">
         <div class="col-md-3">
             <div class="card h-100"><div class="card-body py-3">

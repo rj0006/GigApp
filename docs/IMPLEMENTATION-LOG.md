@@ -9,6 +9,53 @@ developer can call the same thing.
 
 ---
 
+## 2026-09-06 — Notifications, and automatic assignment switched on
+
+**Asked:** build the notification channel so auto-assign can work.
+
+**Rule — notifications.** `Notifications` is one row per person per event, with a type, a title, a
+body and a local link. `INotificationService.PushAsync` writes the row and then hands the same
+request to every registered `INotificationChannel`.
+
+- **In-app is the only channel that exists.** SMS needs DLT registration and push needs Firebase and
+  the Flutter apps; neither exists. When they arrive they are registered alongside, and **nothing
+  that raises a notification changes** — that seam is the whole point of the interface.
+- **A channel that throws is logged and skipped.** A provider being down must never roll back the
+  job it was telling somebody about.
+- The bell is on every page of every portal, filled once in `PortalControllerBase.OnActionExecutionAsync`.
+  Opening `/{portal}/notifications` marks everything read — a badge that survives the click is noise.
+
+**Rule — automatic assignment.** A fixed-price job is now offered rather than left for whoever
+claims it first. Bidding work is untouched: there the customer chooses.
+
+| Step | What happens |
+|---|---|
+| Booking | `IOfferService.StartAsync` ranks partners and offers the job to the best one, from both the portal and the API |
+| Window | `Platform:OfferWindowSeconds`, five minutes by default. Shorten it once a job reaches a phone as a push |
+| Accept | The job is theirs, and the customer is told who is coming and on what number |
+| Pass | Straight to the next partner. Explicitly **no penalty** — a partner punished for declining will stop answering |
+| Silence | `OfferExpiryWorker` sweeps every 30 seconds, expires the offer and moves it on |
+| Chain ends | The job **opens to every partner** and administrators are told nobody took it |
+
+The rules that keep it honest:
+
+- **An offer is first refusal, not a lock.** `TaskClaimService.ClaimAsync` refuses a claim from
+  anyone else *while an offer is live*, and allows everyone once it lapses. A partner who closed the
+  tab can never strand a customer.
+- **One offer per partner per task**, enforced by a unique index, so a chain cannot loop back to
+  somebody who already passed.
+- **Only available, in-range partners are offered.** Being off duty or outside your own travel radius
+  pushes you down the admin's shortlist but takes you out of the automatic chain entirely — an offer
+  somebody cannot accept just wastes the window.
+- **The customer is told from `TaskClaimService`, not from the offer.** Every route to a job becoming
+  somebody's — accepting an offer, claiming it after the chain lapses, an administrator assigning it —
+  goes through that one class, so the notification cannot be missed on one path and sent on another.
+  That was a real gap, caught by the tests.
+
+`Platform:AutoAssignInstant` turns the whole thing off and falls back to first-come-first-served.
+
+---
+
 ## 2026-09-06 — Distance is real, and partners are ranked by it
 
 **Asked:** start on distance and PostGIS.

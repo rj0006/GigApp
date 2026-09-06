@@ -3,10 +3,12 @@ using GigApp.Api.Dtos;
 using GigApp.Api.Models;
 using GigApp.Api.Services;
 using GigApp.Api.Services.Bidding;
+using GigApp.Api.Services.Booking;
 using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Geo;
 using GigApp.Api.Services.Banking;
 using GigApp.Api.Services.Profile;
+using GigApp.Api.Services.Notifications;
 using GigApp.Api.Services.Orders;
 using GigApp.Api.Services.Ratings;
 using GigApp.Api.Services.Support;
@@ -25,6 +27,7 @@ namespace GigApp.Api.Controllers
         private readonly ICategoryLookup _categories;
         private readonly IServiceItemLookup _serviceItems;
         private readonly IBidService _bids;
+        private readonly IOfferService _offers;
 
         public CustomerController(
             IAuthService authService,
@@ -34,16 +37,19 @@ namespace GigApp.Api.Controllers
             ICategoryLookup categories,
             IServiceItemLookup serviceItems,
             IBidService bids,
+            IOfferService offers,
             IRatingService ratings,
             IBankAccountService bankAccounts,
             IOrderHistoryService orderHistory,
-            ISupportService support)
-            : base(authService, profileService, addressService, bankAccounts, orderHistory, support, ratings)
+            ISupportService support,
+            INotificationService notifier)
+            : base(authService, profileService, addressService, bankAccounts, orderHistory, support, ratings, notifier)
         {
             _context = context;
             _categories = categories;
             _serviceItems = serviceItems;
             _bids = bids;
+            _offers = offers;
         }
 
         private string TasksPath => $"{ProfilePath}/{ProfileSections.Tasks}";
@@ -309,8 +315,10 @@ namespace GigApp.Api.Controllers
 
             TrackDoc(task.Id, GigTaskDto.From(task));
 
+            if (service.IsInstant) await _offers.StartAsync(task.Id, ct);
+
             TempData["Success"] = service.IsInstant
-                ? $"Booked at the fixed price of ₹{service.FixedPrice:N0}. The first available partner will take it, so there is nothing to compare."
+                ? $"Booked at the fixed price of ₹{service.FixedPrice:N0}. We are finding you the nearest partner now."
                 : "Your task has been posted. Partners can now bid on it.";
 
             return Redirect(TasksPath);

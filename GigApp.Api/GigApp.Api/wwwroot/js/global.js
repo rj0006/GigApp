@@ -598,6 +598,27 @@
         });
     }
 
+    function wireCountdowns() {
+        var $counters = $('[data-countdown]');
+        if (!$counters.length) return;
+
+        window.setInterval(function () {
+            $counters.each(function () {
+                var $el = $(this);
+                var left = parseInt($el.attr('data-countdown'), 10) - 1;
+
+                if (left <= 0) {
+                    // The offer is gone; the page it belongs to is now wrong.
+                    window.location.reload();
+                    return;
+                }
+
+                $el.attr('data-countdown', left);
+                $el.text(Math.floor(left / 60) + 'm ' + (left % 60) + 's');
+            });
+        }, 1000);
+    }
+
     function wireLatLonCopy() {
         $(document).on('change', 'select[data-copy-latlon]', function () {
             var $select = $(this);
@@ -654,6 +675,7 @@
         wireFixedPrice();
         wireImageUploads();
         wireLatLonCopy();
+        wireCountdowns();
         wireDeclarativePickers();
         wireLocationCapture();
     });

@@ -184,9 +184,10 @@ third because payments and SMS are what create the jobs.
 6. Object storage, before real KYC documents arrive
 7. FCM and the notification screens, with the Flutter phase
 
-Both inputs to assignment now exist. What still blocks automatic assignment is not the algorithm —
-it is having somewhere to send the offer (FCM or SMS) and a rule for what happens when nobody
-answers. Build the channel first; the auto-assign is small once it is there.
+**Automatic assignment is live.** A fixed-price job is offered to the best-ranked partner for five
+minutes, then the next, and opens to everyone when the chain runs out. It runs on in-app
+notification today; DLT and FCM are extra channels on the same events, not a rewrite. Shorten
+`Platform:OfferWindowSeconds` once a job reaches a phone as a push.
 
 ---
 

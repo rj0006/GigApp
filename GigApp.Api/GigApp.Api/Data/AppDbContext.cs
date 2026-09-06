@@ -15,6 +15,8 @@ namespace GigApp.Api.Data
         public DbSet<TaskBid> TaskBids => Set<TaskBid>();
         public DbSet<TaskRating> TaskRatings => Set<TaskRating>();
         public DbSet<SupportEnquiry> SupportEnquiries => Set<SupportEnquiry>();
+        public DbSet<Notification> Notifications => Set<Notification>();
+        public DbSet<TaskOffer> TaskOffers => Set<TaskOffer>();
         public DbSet<ServiceItem> ServiceItems => Set<ServiceItem>();
         public DbSet<Address> Addresses => Set<Address>();
         public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
@@ -378,6 +380,48 @@ namespace GigApp.Api.Data
                     t.HasCheckConstraint(
                         "CK_TaskRatings_RaterRole", "\"RaterRole\" IN ('customer','partner')");
                 });
+            });
+
+            modelBuilder.Entity<Notification>(e =>
+            {
+                e.Property(n => n.Type).HasMaxLength(30).IsRequired();
+                e.Property(n => n.Title).HasMaxLength(150).IsRequired();
+                e.Property(n => n.Body).HasMaxLength(500).IsRequired();
+                e.Property(n => n.Link).HasMaxLength(300);
+
+                e.HasOne(n => n.User)
+                 .WithMany()
+                 .HasForeignKey(n => n.UserId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                // The bell asks "how many unread for me" on every page.
+                e.HasIndex(n => new { n.UserId, n.IsRead, n.CreatedAt });
+            });
+
+            modelBuilder.Entity<TaskOffer>(e =>
+            {
+                e.Property(o => o.Status).HasMaxLength(20).IsRequired();
+
+                e.HasOne(o => o.GigTask)
+                 .WithMany(t => t.Offers)
+                 .HasForeignKey(o => o.GigTaskId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(o => o.Partner)
+                 .WithMany()
+                 .HasForeignKey(o => o.PartnerId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                // One offer per partner per task, so a chain can never loop back
+                // to somebody who has already passed.
+                e.HasIndex(o => new { o.GigTaskId, o.PartnerId }).IsUnique();
+
+                // The sweep asks for pending offers that are past their expiry.
+                e.HasIndex(o => new { o.Status, o.ExpiresAt });
+
+                e.ToTable(t => t.HasCheckConstraint(
+                    "CK_TaskOffers_Status",
+                    "\"Status\" IN ('pending','accepted','declined','expired')"));
             });
 
             modelBuilder.Entity<SupportEnquiry>(e =>

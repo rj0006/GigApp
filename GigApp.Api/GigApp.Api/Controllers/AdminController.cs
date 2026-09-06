@@ -11,6 +11,7 @@ using GigApp.Api.Services.Pricing;
 using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Banking;
 using GigApp.Api.Services.Booking;
+using GigApp.Api.Services.Notifications;
 using GigApp.Api.Services.Orders;
 using GigApp.Api.Services.Ratings;
 using GigApp.Api.Services.Support;
@@ -72,8 +73,9 @@ namespace GigApp.Api.Controllers
             IMatchService match,
             IOrderHistoryService orderHistory,
             ISupportService support,
-            IRatingService ratings)
-            : base(authService, profileService, addressService, bankAccounts, orderHistory, support, ratings)
+            IRatingService ratings,
+            INotificationService notifier)
+            : base(authService, profileService, addressService, bankAccounts, orderHistory, support, ratings, notifier)
         {
             _context = context;
             _categories = categories;
@@ -121,7 +123,8 @@ namespace GigApp.Api.Controllers
                     User.IsSuperAdmin(), context.HttpContext.RequestAborted);
             }
 
-            await next();
+            // The base fills the notification bell, so it has to run the rest.
+            await base.OnActionExecutionAsync(context, next);
         }
 
         [HttpGet("login")]

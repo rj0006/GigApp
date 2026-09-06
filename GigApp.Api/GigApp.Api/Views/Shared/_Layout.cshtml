@@ -33,6 +33,10 @@
                         DisplayName = displayName,
                         PortalSlug = portalSlug,
                         PhotoUrl = ViewData["ProfilePhotoUrl"] as string,
+                        NotificationCount = ViewData["UnreadCount"] as int? ?? 0,
+                        NotificationHref = $"/{portalSlug}/notifications",
+                        Recent = ViewData["RecentNotifications"] as IReadOnlyList<NotificationDto>
+                                 ?? Array.Empty<NotificationDto>(),
                     })" />
                 }
                 else if (displayName is not null)

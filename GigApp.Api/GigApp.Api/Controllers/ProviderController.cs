@@ -11,6 +11,7 @@ using GigApp.Api.Services.Geo;
 using GigApp.Api.Services.Kyc;
 using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Profile;
+using GigApp.Api.Services.Notifications;
 using GigApp.Api.Services.Orders;
 using GigApp.Api.Services.Ratings;
 using GigApp.Api.Services.Support;
@@ -31,6 +32,7 @@ namespace GigApp.Api.Controllers
         private readonly IBidService _bids;
         private readonly ITaskClaimService _claims;
         private readonly IMatchService _match;
+        private readonly IOfferService _offers;
         private readonly IKycHistoryService _kycHistory;
         private readonly IEarningsService _earnings;
 
@@ -44,13 +46,15 @@ namespace GigApp.Api.Controllers
             IBidService bids,
             ITaskClaimService claims,
             IMatchService match,
+            IOfferService offers,
             IRatingService ratings,
             IBankAccountService bankAccounts,
             IKycHistoryService kycHistory,
             IEarningsService earnings,
             IOrderHistoryService orderHistory,
-            ISupportService support)
-            : base(authService, profileService, addressService, bankAccounts, orderHistory, support, ratings)
+            ISupportService support,
+            INotificationService notifier)
+            : base(authService, profileService, addressService, bankAccounts, orderHistory, support, ratings, notifier)
         {
             _context = context;
             _categories = categories;
@@ -58,6 +62,7 @@ namespace GigApp.Api.Controllers
             _bids = bids;
             _claims = claims;
             _match = match;
+            _offers = offers;
             _kycHistory = kycHistory;
             _earnings = earnings;
         }
@@ -378,6 +383,7 @@ namespace GigApp.Api.Controllers
 
                     model.HasServiceArea = partner.BaseLocation is not null;
                     model.ServiceRadiusKm = partner.ServiceRadiusKm;
+                    model.Offer = await _offers.LiveOfferForPartnerAsync(partner.Id, ct);
                 }
             }
 
@@ -399,6 +405,25 @@ namespace GigApp.Api.Controllers
 
             TrackDoc(result.Bid!.Id, result.Bid);
             TempData["Success"] = $"Bid of ₹{form.Amount:N0} placed on task #{id}.";
+            return Redirect(DashboardPath);
+        }
+
+        [HttpPost("offers/{id:int}/respond")]
+        [Authorize(Policy = Policies.PartnerOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("JobOffer")]
+        public async Task<IActionResult> RespondToOffer(
+            int id, bool accepted, CancellationToken ct)
+        {
+            var result = await _offers.RespondAsync(User.GetRequiredUserId(), id, accepted, ct);
+
+            if (!result.Succeeded)
+                TempData["Error"] = result.Error;
+            else
+                TempData["Success"] = accepted
+                    ? "The job is yours. It is now under My jobs."
+                    : "Passed on. It has gone to the next partner.";
+
             return Redirect(DashboardPath);
         }
 

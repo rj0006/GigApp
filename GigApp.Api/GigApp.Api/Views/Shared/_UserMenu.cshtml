@@ -5,17 +5,50 @@
     <div class="d-flex align-items-center gap-2">
         @if (Model.NotificationHref is not null)
         {
-            <a class="btn btn-sm btn-light border position-relative" href="@Model.NotificationHref"
-               title="@Model.NotificationCount @Model.NotificationLabel">
-                &#128276;
-                @if (Model.NotificationCount > 0)
-                {
-                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger">
-                        @Model.NotificationCount
-                        <span class="visually-hidden">@Model.NotificationLabel</span>
-                    </span>
-                }
-            </a>
+            <div class="dropdown">
+                <button class="btn btn-sm btn-light border position-relative dropdown-toggle no-caret"
+                        type="button" data-bs-toggle="dropdown" data-bs-display="static"
+                        aria-expanded="false"
+                        title="@Model.NotificationCount @Model.NotificationLabel">
+                    &#128276;
+                    @if (Model.NotificationCount > 0)
+                    {
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger">
+                            @Model.NotificationCount
+                            <span class="visually-hidden">@Model.NotificationLabel</span>
+                        </span>
+                    }
+                </button>
+
+                <div class="dropdown-menu dropdown-menu-end p-0 notification-menu">
+                    <div class="d-flex align-items-center px-3 py-2 border-bottom">
+                        <span class="fw-semibold small">Notifications</span>
+                        <a class="ms-auto small text-decoration-none" href="@Model.NotificationHref">See all</a>
+                    </div>
+
+                    @if (Model.Recent.Count == 0)
+                    {
+                        <div class="px-3 py-4 text-center text-secondary small">
+                            Nothing yet. We will tell you when a job moves.
+                        </div>
+                    }
+                    else
+                    {
+                        foreach (var note in Model.Recent)
+                        {
+                            <a class="notification-row@(note.IsRead ? "" : " is-unread")"
+                               href="@(note.Link ?? Model.NotificationHref)">
+                                <span class="notification-icon">@note.Icon</span>
+                                <span class="notification-text">
+                                    <span class="notification-title">@note.Title</span>
+                                    <span class="notification-body">@note.Body</span>
+                                    <span class="notification-age">@note.Age</span>
+                                </span>
+                            </a>
+                        }
+                    }
+                </div>
+            </div>
         }
 
         <div class="dropdown">

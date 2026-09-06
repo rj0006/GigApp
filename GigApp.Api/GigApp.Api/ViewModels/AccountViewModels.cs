@@ -152,6 +152,9 @@ namespace GigApp.Api.ViewModels
 
         public bool HasServiceArea { get; set; }
         public int ServiceRadiusKm { get; set; }
+
+        /// <summary>A fixed-price job held for this partner right now, if any.</summary>
+        public TaskOfferDto? Offer { get; set; }
     }
 
     public class AdminDashboardViewModel
@@ -249,6 +252,12 @@ namespace GigApp.Api.ViewModels
         public bool ShowResolved { get; set; }
     }
 
+    public class NotificationsViewModel
+    {
+        public PagedResult<NotificationDto> Notifications { get; set; } = new();
+        public string PortalSlug { get; set; } = "customer";
+    }
+
     public class UserMenuViewModel
     {
         public string? DisplayName { get; set; }
@@ -256,7 +265,9 @@ namespace GigApp.Api.ViewModels
         public string? PhotoUrl { get; set; }
         public int NotificationCount { get; set; }
         public string? NotificationHref { get; set; }
-        public string NotificationLabel { get; set; } = "items need your attention";
+        public string NotificationLabel { get; set; } = "unread notifications";
+
+        public IReadOnlyList<NotificationDto> Recent { get; set; } = Array.Empty<NotificationDto>();
 
         public string ProfilePath => $"/{PortalSlug}/profile";
         public string LogoutPath => $"/{PortalSlug}/logout";

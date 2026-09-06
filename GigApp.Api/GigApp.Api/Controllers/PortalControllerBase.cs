@@ -3,6 +3,7 @@ using GigApp.Api.Models;
 using GigApp.Api.Services;
 using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Banking;
+using GigApp.Api.Services.Notifications;
 using GigApp.Api.Services.Orders;
 using GigApp.Api.Services.Profile;
 using GigApp.Api.Services.Ratings;
@@ -30,6 +31,7 @@ namespace GigApp.Api.Controllers
         protected readonly IOrderHistoryService OrderHistory;
         protected readonly ISupportService Support;
         protected readonly IRatingService Ratings;
+        protected readonly INotificationService Notifier;
 
         protected PortalControllerBase(
             IAuthService authService,
@@ -38,7 +40,8 @@ namespace GigApp.Api.Controllers
             IBankAccountService bankAccounts,
             IOrderHistoryService orderHistory,
             ISupportService support,
-            IRatingService ratings)
+            IRatingService ratings,
+            INotificationService notifier)
         {
             AuthService = authService;
             ProfileService = profileService;
@@ -47,6 +50,7 @@ namespace GigApp.Api.Controllers
             OrderHistory = orderHistory;
             Support = support;
             Ratings = ratings;
+            Notifier = notifier;
         }
 
         protected string ProfilePath => $"/{PortalSlug}/profile";
@@ -63,6 +67,26 @@ namespace GigApp.Api.Controllers
                 : "/";
 
             base.OnActionExecuting(context);
+        }
+
+        // The bell is on every page of every portal, so it is filled once here
+        // rather than in each action.
+        public override async Task OnActionExecutionAsync(
+            ActionExecutingContext context, ActionExecutionDelegate next)
+        {
+            if (User.Identity?.IsAuthenticated == true && PrincipalAccepted)
+            {
+                var userId = User.GetUserId();
+
+                if (userId is not null)
+                {
+                    var ct = context.HttpContext.RequestAborted;
+                    ViewData["UnreadCount"] = await Notifier.UnreadCountAsync(userId.Value, ct);
+                    ViewData["RecentNotifications"] = await Notifier.RecentAsync(userId.Value, 6, ct);
+                }
+            }
+
+            await base.OnActionExecutionAsync(context, next);
         }
 
         /// <summary>Route prefix and role this portal serves, e.g. "customer".</summary>
@@ -103,6 +127,27 @@ namespace GigApp.Api.Controllers
         [Authorize]
         public Task<IActionResult> ProfileAddresses(CancellationToken ct) =>
             ProfileSectionAsync(ProfileSections.Addresses, ct);
+
+        [HttpGet("notifications")]
+        [Authorize]
+        public async Task<IActionResult> Notifications(
+            [FromQuery] PageRequest paging, CancellationToken ct)
+        {
+            ViewData["Title"] = "Notifications";
+
+            var userId = User.GetRequiredUserId();
+            var list = await Notifier.ListAsync(userId, paging, ct);
+
+            // Opening the page is reading them; a badge that survives the click
+            // is just noise on every later page.
+            await Notifier.MarkReadAsync(userId, null, ct);
+
+            return View("Notifications", new NotificationsViewModel
+            {
+                Notifications = list,
+                PortalSlug = PortalSlug,
+            });
+        }
 
         [HttpGet("profile/orders")]
         [Authorize]

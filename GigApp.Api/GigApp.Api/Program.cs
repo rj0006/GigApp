@@ -15,6 +15,7 @@ using GigApp.Api.Services.Geo;
 using GigApp.Api.Services.Kyc;
 using GigApp.Api.Services.Masters;
 using GigApp.Api.Services.Menus;
+using GigApp.Api.Services.Notifications;
 using GigApp.Api.Services.Orders;
 using GigApp.Api.Services.Pricing;
 using GigApp.Api.Services.Ratings;
@@ -222,6 +223,9 @@ builder.Services.AddScoped<ITaskClaimService, TaskClaimService>();
 builder.Services.AddScoped<IRatingService, RatingService>();
 builder.Services.AddScoped<IOrderHistoryService, OrderHistoryService>();
 builder.Services.AddScoped<IMatchService, MatchService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IOfferService, OfferService>();
+builder.Services.AddHostedService<OfferExpiryWorker>();
 builder.Services.AddScoped<ISupportService, SupportService>();
 
 builder.Services.AddControllersWithViews(options =>

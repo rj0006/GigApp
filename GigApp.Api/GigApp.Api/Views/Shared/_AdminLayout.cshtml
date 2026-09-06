@@ -91,9 +91,10 @@
                     {
                         DisplayName = displayName,
                         PortalSlug = "admin",
-                        NotificationCount = pendingKyc,
-                        NotificationHref = "/admin/approvals",
-                        NotificationLabel = "partner KYC waiting for review",
+                        NotificationCount = ViewData["UnreadCount"] as int? ?? 0,
+                        NotificationHref = "/admin/notifications",
+                        Recent = ViewData["RecentNotifications"] as IReadOnlyList<NotificationDto>
+                                 ?? Array.Empty<NotificationDto>(),
                     })" />
                 </div>
             </header>

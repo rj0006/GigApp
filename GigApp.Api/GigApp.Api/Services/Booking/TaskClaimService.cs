@@ -1,5 +1,6 @@
 using GigApp.Api.Data;
 using GigApp.Api.Models;
+using GigApp.Api.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
 
 namespace GigApp.Api.Services.Booking
@@ -46,11 +47,16 @@ namespace GigApp.Api.Services.Booking
     public class TaskClaimService : ITaskClaimService
     {
         private readonly AppDbContext _context;
+        private readonly INotificationService _notifications;
         private readonly ILogger<TaskClaimService> _logger;
 
-        public TaskClaimService(AppDbContext context, ILogger<TaskClaimService> logger)
+        public TaskClaimService(
+            AppDbContext context,
+            INotificationService notifications,
+            ILogger<TaskClaimService> logger)
         {
             _context = context;
+            _notifications = notifications;
             _logger = logger;
         }
 
@@ -93,6 +99,19 @@ namespace GigApp.Api.Services.Booking
             if (task.Status != GigTaskStatus.Pending)
                 return TaskClaimResult.Taken();
 
+            // A live offer is first refusal for the partner holding it. Once it
+            // expires the job opens to everyone, so nobody is ever stranded by
+            // a partner who stopped looking at their phone.
+            var held = await _context.TaskOffers
+                .AsNoTracking()
+                .FirstOrDefaultAsync(o => o.GigTaskId == taskId
+                                       && o.Status == OfferStatus.Pending
+                                       && o.ExpiresAt > DateTime.UtcNow, ct);
+
+            if (held is not null && held.PartnerId != partner.Id)
+                return TaskClaimResult.NotAllowed(
+                    "This job is with another partner right now. If they pass on it, it comes back to the board.");
+
             var rowsAffected = await _context.GigTasks
                 .Where(t => t.Id == taskId
                          && t.Status == GigTaskStatus.Pending
@@ -106,7 +125,34 @@ namespace GigApp.Api.Services.Booking
             _logger.LogInformation(
                 "Instant task {TaskId} claimed by partner {PartnerId}", taskId, partner.Id);
 
+            await TellCustomerAsync(taskId, ct);
+
             return TaskClaimResult.Ok(task.AgreedAmount ?? task.Budget);
+        }
+
+        // Every way a job becomes somebody's runs through this class, so the
+        // customer is told from here rather than from each caller.
+        private async Task TellCustomerAsync(int taskId, CancellationToken ct)
+        {
+            var assigned = await _context.GigTasks
+                .AsNoTracking()
+                .Where(t => t.Id == taskId)
+                .Select(t => new
+                {
+                    t.CustomerId,
+                    PartnerName = t.Partner!.User!.Name,
+                    PartnerPhone = t.Partner.User.Phone,
+                })
+                .FirstOrDefaultAsync(ct);
+
+            if (assigned is null) return;
+
+            await _notifications.PushAsync(new NotificationRequest(
+                assigned.CustomerId,
+                NotificationTypes.JobAssigned,
+                "A partner has taken your booking",
+                $"{assigned.PartnerName} ({assigned.PartnerPhone}) is on job #{taskId}.",
+                "/customer/profile/tasks"), ct);
         }
 
         public async Task<TaskClaimResult> AssignAsync(
@@ -167,6 +213,8 @@ namespace GigApp.Api.Services.Booking
                 .ExecuteUpdateAsync(setters => setters
                     .SetProperty(b => b.Status, BidStatus.Rejected)
                     .SetProperty(b => b.UpdatedAt, DateTime.UtcNow), ct);
+
+            await TellCustomerAsync(taskId, ct);
 
             _logger.LogInformation(
                 "Task {TaskId} assigned to partner {PartnerId} by user {AdminUserId}",

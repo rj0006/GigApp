@@ -141,6 +141,40 @@ Both return `TaskClaimResult`, whose `Outcome` maps straight onto HTTP: `Claimed
 
 `ISupportService.RaisedMessage` is the confirmation text. Use it rather than retyping the wording.
 
+### Notifications — `Services/Notifications/`
+
+```csharp
+await _notifications.PushAsync(new NotificationRequest(
+    userId,
+    NotificationTypes.JobAssigned,
+    "A partner has taken your booking",
+    $"{name} ({phone}) is on job #{taskId}.",
+    "/customer/profile/tasks"), ct);
+```
+
+| Method | Purpose |
+|---|---|
+| `PushAsync(request)` | One notification. Writes the row, then every registered channel. |
+| `PushManyAsync(requests)` | A batch — one save, then the channels. Use it when telling several people about the same thing. |
+| `UnreadCountAsync(userId)` / `RecentAsync(userId, take)` | The bell. Already filled for every portal page by the base controller. |
+| `ListAsync(userId, paging)` / `MarkReadAsync(userId, id?)` | The notifications page. A null id marks everything read. |
+
+**Adding a delivery channel** (SMS, push) is one class and one registration — implement
+`INotificationChannel` and `AddScoped<INotificationChannel, YourChannel>()`. Nothing that raises a
+notification changes. Add the new `NotificationTypes` constant and its icon at the same time.
+
+### Offers and automatic assignment — `Services/Booking/OfferService.cs`
+
+| Method | Purpose |
+|---|---|
+| `StartAsync(taskId)` | Offer a fixed-price job to the next best partner. Call it after creating an instant task; it is safe to call again. |
+| `RespondAsync(partnerUserId, offerId, accepted)` | Accept (claims the job) or pass (offers the next partner immediately). |
+| `LiveOfferForPartnerAsync(partnerId)` | The offer card on the partner's board. |
+| `ExpireDueAsync()` | What `OfferExpiryWorker` calls. You should not need it elsewhere. |
+
+Render a live offer with `_JobOffer` (`TaskOfferDto`) — it carries its own accept and pass forms and
+a countdown. `data-countdown="<seconds>"` on any element counts down and reloads the page at zero.
+
 ### Distance — `Services/Geo/`
 
 **Never build a `Point` by hand.** `GeoPoint.From(latitude, longitude)` is the only constructor, so

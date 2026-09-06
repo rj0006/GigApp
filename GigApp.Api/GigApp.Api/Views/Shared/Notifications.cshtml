@@ -1,0 +1,43 @@
+@model NotificationsViewModel
+@{
+    var list = Model.Notifications;
+    var slug = Model.PortalSlug;
+
+    ViewData["Portal"] = slug == "provider" ? "Partner" : slug == "admin" ? "Admin" : "Customer";
+    ViewData["LogoutPath"] = $"/{slug}/logout";
+
+    if (slug == "admin") { Layout = "_AdminLayout"; }
+}
+
+<h1 class="h4">Notifications</h1>
+<p class="text-secondary small"><strong>@list.TotalCount</strong> in total, newest first.</p>
+
+<div class="card">
+    <div class="card-body">
+        @if (list.TotalCount == 0)
+        {
+            <p class="text-center text-secondary py-5 mb-0">
+                Nothing yet. We will tell you here when a job moves.
+            </p>
+        }
+        else
+        {
+            <div class="list-group list-group-flush">
+                @foreach (var note in list.Items)
+                {
+                    <a class="list-group-item list-group-item-action d-flex gap-3 align-items-start"
+                       href="@(note.Link ?? "#")">
+                        <span style="font-size:1.1rem">@note.Icon</span>
+                        <span class="flex-grow-1">
+                            <span class="d-block fw-semibold">@note.Title</span>
+                            <span class="d-block small text-secondary">@note.Body</span>
+                        </span>
+                        <span class="small text-secondary text-nowrap">@note.Age</span>
+                    </a>
+                }
+            </div>
+
+            <partial name="_Pagination" model="PagerModel.From(list, Context)" />
+        }
+    </div>
+</div>

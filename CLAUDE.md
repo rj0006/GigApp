@@ -115,11 +115,16 @@ everything else books as `bidding`. Nothing else sets the mode, and the customer
   `ExecuteUpdateAsync` lock as before, extended with `BookingMode = instant` so a bidding task can
   never be grabbed this way.
 - **Bidding** is unchanged: partners quote, the customer accepts one.
-- **Assignment is ranked but not automatic.** `IMatchService.RankPartnersAsync` scores candidates on
-  distance (60%) and rating (40%) and `/admin/tasks` offers that shortlist, but a human still picks.
-  Switching it on needs a notification channel and an acceptance window — what happens when the best
-  partner does not answer — and neither exists. `ITaskClaimService.AssignAsync` records the choice,
-  with a required note, closing any open bids.
+- **Assignment is automatic for a fixed price.** `IOfferService` offers the job to the best-ranked
+  partner for `Platform:OfferWindowSeconds`, then the next, and opens it to everyone when the chain
+  runs out. `IMatchService.RankPartnersAsync` does the scoring — distance 60%, rating 40%.
+  `Platform:AutoAssignInstant` turns it off and falls back to first-come-first-served.
+- **An offer is first refusal, not a lock.** While one is live nobody else may claim that job; once
+  it lapses everyone may. `OfferExpiryWorker` sweeps every 30 seconds so a silent partner cannot
+  strand a customer. Passing carries no penalty, by design — punish declining and partners stop
+  answering at all.
+- **Support can still assign by hand.** `ITaskClaimService.AssignAsync` records the choice with a
+  required note and closes any open bids. `/admin/tasks` shows the same ranked shortlist.
 
 **A rating is one row per side per task, and the average is a cache on `User`.** `TaskRatings` is
 unique on `(GigTaskId, RaterRole)`, so neither side rates twice and neither can revise. The partner
@@ -149,6 +154,14 @@ Completing a task posts the gross earning and the platform commission as **two s
 the partner sees the full agreed amount and changing the rate never rewrites history. Every entry
 carries a unique `IdempotencyKey`, which is what stops a repeated completion or a retried payout
 from paying twice. `Amount > 0` is a check constraint; the direction carries the sign.
+
+**A notification is a row plus zero or more channels.** `INotificationService.PushAsync` writes to
+`Notifications` and hands the same request to every registered `INotificationChannel`. In-app is the
+only one that exists — SMS needs DLT registration and push needs Firebase and the Flutter apps — so
+adding either means registering a channel and changing nothing that raises a notification. A channel
+that throws is logged and skipped: a provider being down must not roll back the thing it was
+announcing. The bell is filled once in `PortalControllerBase.OnActionExecutionAsync`, so a portal
+that overrides it **must** call the base or the bell goes dark.
 
 **Unhandled errors get a reference, never a stack trace.** `GlobalExceptionFilter` writes one
 `ErrorLogs` row and hands the user a code such as `E260906-A3F91C`. `ErrorLogService` saves through

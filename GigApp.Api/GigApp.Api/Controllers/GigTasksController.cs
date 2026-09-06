@@ -23,6 +23,7 @@ namespace GigApp.Api.Controllers
         private readonly IAddressService _addresses;
         private readonly IEarningsService _earnings;
         private readonly ITaskClaimService _claims;
+        private readonly IOfferService _offers;
         private readonly IRatingService _ratings;
         private readonly ILogger<GigTasksController> _logger;
 
@@ -32,6 +33,7 @@ namespace GigApp.Api.Controllers
             IAddressService addresses,
             IEarningsService earnings,
             ITaskClaimService claims,
+            IOfferService offers,
             IRatingService ratings,
             ILogger<GigTasksController> logger)
         {
@@ -40,6 +42,7 @@ namespace GigApp.Api.Controllers
             _addresses = addresses;
             _earnings = earnings;
             _claims = claims;
+            _offers = offers;
             _ratings = ratings;
             _logger = logger;
         }
@@ -102,6 +105,8 @@ namespace GigApp.Api.Controllers
 
             _context.GigTasks.Add(task);
             await _context.SaveChangesAsync(ct);
+
+            if (service.IsInstant) await _offers.StartAsync(task.Id, ct);
 
             // Reload so the response carries the category and customer names,
             // matching what every other endpoint returns.
