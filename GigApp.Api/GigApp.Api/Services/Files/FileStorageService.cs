@@ -13,6 +13,8 @@ namespace GigApp.Api.Services.Files
 
         ServiceImage,
 
+        BannerImage,
+
         /// <summary>
         /// Identity documents. Stored outside wwwroot so a guessed URL cannot
         /// reach them; only <see cref="Controllers.FilesController"/> serves them.
@@ -43,6 +45,9 @@ namespace GigApp.Api.Services.Files
 
         /// <summary>Public folder for service artwork, relative to wwwroot.</summary>
         public string ServiceFolder { get; set; } = "uploads/service";
+
+        /// <summary>Public folder for promotional artwork, relative to wwwroot.</summary>
+        public string BannerFolder { get; set; } = "uploads/banner";
 
         /// <summary>Private folder, relative to the content root (NOT wwwroot).</summary>
         public string KycFolder { get; set; } = "App_Data/kyc";
@@ -162,6 +167,7 @@ namespace GigApp.Api.Services.Files
                 FileCategory.ProfileImage => $"/{_options.ProfileFolder}/{fileName}",
                 FileCategory.CategoryImage => $"/{_options.CategoryFolder}/{fileName}",
                 FileCategory.ServiceImage => $"/{_options.ServiceFolder}/{fileName}",
+                FileCategory.BannerImage => $"/{_options.BannerFolder}/{fileName}",
                 FileCategory.KycDocument => $"/api/files/kyc/{fileName}",
                 _ => null,
             };
@@ -177,6 +183,9 @@ namespace GigApp.Api.Services.Files
 
             FileCategory.ServiceImage =>
                 Path.Combine(_environment.WebRootPath ?? "wwwroot", _options.ServiceFolder),
+
+            FileCategory.BannerImage =>
+                Path.Combine(_environment.WebRootPath ?? "wwwroot", _options.BannerFolder),
 
             // Content root, not web root — this must not be publicly served.
             FileCategory.KycDocument =>

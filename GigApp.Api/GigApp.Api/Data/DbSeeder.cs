@@ -187,6 +187,7 @@ namespace GigApp.Api.Data
                 new MenuItem { Label = "My profile", ControllerName = "Admin", ActionName = "Profile", Icon = "☻", SortOrder = 1, ParentId = groups["Account"].Id },
                 new MenuItem { Label = "Tasks", ControllerName = "Admin", ActionName = "Tasks", Icon = "▤", SortOrder = 1, ParentId = groups["Operations"].Id },
                 new MenuItem { Label = "Support enquiries", ControllerName = "Admin", ActionName = "Enquiries", Icon = "☎", SortOrder = 4, ParentId = groups["Operations"].Id, BadgeKey = MenuBadgeKeys.OpenEnquiries },
+                new MenuItem { Label = "Storefront banners", ControllerName = "Admin", ActionName = "Banners", Icon = "▣", SortOrder = 7, ParentId = groups["Masters"].Id },
                 new MenuItem { Label = "Partner payouts", ControllerName = "Admin", ActionName = "Payouts", Icon = "₹", SortOrder = 2, ParentId = groups["Money"].Id },
                 new MenuItem { Label = "Error log", ControllerName = "Admin", ActionName = "Errors", Icon = "⚠", SortOrder = 3, ParentId = groups["Operations"].Id, Visibility = MenuVisibility.SuperAdmin },
                 new MenuItem { Label = "API reference", Url = "/swagger", Icon = "↗", SortOrder = 2, ParentId = groups["Operations"].Id, OpensInNewTab = true },
@@ -213,6 +214,14 @@ namespace GigApp.Api.Data
                     Icon = "☎",
                     SortOrder = 4,
                     BadgeKey = MenuBadgeKeys.OpenEnquiries,
+                }),
+                (Group: "Masters", Item: new MenuItem
+                {
+                    Label = "Storefront banners",
+                    ControllerName = "Admin",
+                    ActionName = "Banners",
+                    Icon = "▣",
+                    SortOrder = 7,
                 }),
             };
 

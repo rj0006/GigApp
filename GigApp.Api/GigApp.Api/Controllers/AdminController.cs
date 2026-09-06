@@ -40,6 +40,7 @@ namespace GigApp.Api.Controllers
         private const string MenuPath = "/admin/masters/menu";
         private const string PlansPath = "/admin/masters/plans";
         private const string TaxesPath = "/admin/masters/taxes";
+        private const string BannersPath = "/admin/masters/banners";
 
         private readonly AppDbContext _context;
         private readonly ICategoryLookup _categories;
@@ -1450,6 +1451,192 @@ namespace GigApp.Api.Controllers
             _storage.Delete(previous, bucket);
 
             return null;
+        }
+
+        [HttpGet("masters/banners")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        public async Task<IActionResult> Banners(
+            [FromQuery] PageRequest paging, CancellationToken ct = default)
+        {
+            ViewData["Title"] = "Storefront banners";
+
+            var page = await _context.Banners
+                .AsNoTracking()
+                .OrderBy(b => b.Placement).ThenBy(b => b.SortOrder).ThenBy(b => b.Title)
+                .ToPagedResultAsync(paging, ct);
+
+            return View(new AdminBannersViewModel { Banners = page.Map(BannerDto.From) });
+        }
+
+        [HttpGet("masters/banners/new")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        public async Task<IActionResult> NewBanner(CancellationToken ct = default)
+        {
+            ViewData["Title"] = "New banner";
+
+            var nextOrder = await _context.Banners.AnyAsync(ct)
+                ? await _context.Banners.MaxAsync(b => b.SortOrder, ct) + 10
+                : 0;
+
+            return View("BannerForm", new BannerFormViewModel
+            {
+                Form = new SaveBannerRequest { IsActive = true, SortOrder = nextOrder },
+            });
+        }
+
+        [HttpPost("masters/banners/new")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("Banner")]
+        public async Task<IActionResult> NewBanner(SaveBannerRequest form, CancellationToken ct = default)
+        {
+            ViewData["Title"] = "New banner";
+            var model = new BannerFormViewModel { Form = form };
+
+            var banner = new Banner { CreatedAt = DateTime.UtcNow };
+
+            if (!await ApplyBannerAsync(form, banner, model, ct)) return View("BannerForm", model);
+
+            _context.Banners.Add(banner);
+            await _context.SaveChangesAsync(ct);
+
+            TrackDoc(banner.Id, BannerDto.From(banner));
+            TempData["Success"] = $"Banner '{banner.Title}' created.";
+            return Redirect(BannersPath);
+        }
+
+        [HttpGet("masters/banners/{id:int}/edit")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        public async Task<IActionResult> EditBanner(int id, CancellationToken ct = default)
+        {
+            ViewData["Title"] = "Edit banner";
+
+            var banner = await _context.Banners.AsNoTracking()
+                .FirstOrDefaultAsync(b => b.Id == id, ct);
+
+            if (banner is null)
+            {
+                TempData["Error"] = "Banner not found.";
+                return Redirect(BannersPath);
+            }
+
+            return View("BannerForm", new BannerFormViewModel
+            {
+                Id = banner.Id,
+                ImageUrl = BannerDto.From(banner).ImageUrl,
+                Form = new SaveBannerRequest
+                {
+                    Title = banner.Title,
+                    Subtitle = banner.Subtitle,
+                    CallToAction = banner.CallToAction,
+                    LinkUrl = banner.LinkUrl,
+                    Placement = banner.Placement,
+                    SortOrder = banner.SortOrder,
+                    IsActive = banner.IsActive,
+                    StartsAt = banner.StartsAt,
+                    EndsAt = banner.EndsAt,
+                },
+            });
+        }
+
+        [HttpPost("masters/banners/{id:int}/edit")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("Banner")]
+        public async Task<IActionResult> EditBanner(
+            int id, SaveBannerRequest form, CancellationToken ct = default)
+        {
+            ViewData["Title"] = "Edit banner";
+
+            var banner = await _context.Banners.FirstOrDefaultAsync(b => b.Id == id, ct);
+            if (banner is null)
+            {
+                TempData["Error"] = "Banner not found.";
+                return Redirect(BannersPath);
+            }
+
+            var model = new BannerFormViewModel
+            {
+                Id = id,
+                Form = form,
+                ImageUrl = BannerDto.From(banner).ImageUrl,
+            };
+
+            if (!await ApplyBannerAsync(form, banner, model, ct)) return View("BannerForm", model);
+
+            banner.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync(ct);
+
+            TrackDoc(banner.Id, BannerDto.From(banner));
+            TempData["Success"] = $"Banner '{banner.Title}' updated.";
+            return Redirect(BannersPath);
+        }
+
+        [HttpPost("masters/banners/{id:int}/delete")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("Banner")]
+        public async Task<IActionResult> DeleteBanner(int id, CancellationToken ct = default)
+        {
+            var banner = await _context.Banners.FirstOrDefaultAsync(b => b.Id == id, ct);
+
+            if (banner is null)
+            {
+                TempData["Error"] = "Banner not found.";
+                return Redirect(BannersPath);
+            }
+
+            _storage.Delete(banner.ImageFileName, FileCategory.BannerImage);
+            _context.Banners.Remove(banner);
+            await _context.SaveChangesAsync(ct);
+
+            TempData["Success"] = $"Banner '{banner.Title}' deleted.";
+            return Redirect(BannersPath);
+        }
+
+        // Shared by create and edit: validate, upload, and copy the form on.
+        private async Task<bool> ApplyBannerAsync(
+            SaveBannerRequest form, Banner banner, BannerFormViewModel model, CancellationToken ct)
+        {
+            if (!BannerPlacements.IsValid(form.Placement))
+                ModelState.AddModelError(nameof(form.Placement), "Choose a valid placement.");
+
+            // A banner links somewhere on our own site. An external URL here
+            // would let an administrator point the front page anywhere.
+            if (!string.IsNullOrWhiteSpace(form.LinkUrl) && !Url.IsLocalUrl(form.LinkUrl))
+                ModelState.AddModelError(nameof(form.LinkUrl),
+                    "Link to a page on this site, starting with a slash.");
+
+            if (form.StartsAt is not null && form.EndsAt is not null && form.EndsAt < form.StartsAt)
+                ModelState.AddModelError(nameof(form.EndsAt), "The end date is before the start date.");
+
+            if (!ModelState.IsValid) return false;
+
+            var imageError = await ApplyImageAsync(form.Image, banner, FileCategory.BannerImage, ct);
+            if (imageError is not null)
+            {
+                ModelState.AddModelError(nameof(form.Image), imageError);
+                return false;
+            }
+
+            if (banner.ImageFileName is null)
+            {
+                ModelState.AddModelError(nameof(form.Image), "A banner needs an image.");
+                return false;
+            }
+
+            banner.Title = form.Title.Trim();
+            banner.Subtitle = Normalize(form.Subtitle);
+            banner.CallToAction = Normalize(form.CallToAction);
+            banner.LinkUrl = Normalize(form.LinkUrl);
+            banner.Placement = form.Placement;
+            banner.SortOrder = form.SortOrder;
+            banner.IsActive = form.IsActive;
+            banner.StartsAt = form.StartsAt.ToUtc();
+            banner.EndsAt = form.EndsAt.ToUtc();
+
+            model.ImageUrl = BannerDto.From(banner).ImageUrl;
+            return true;
         }
 
         [HttpGet("enquiries")]

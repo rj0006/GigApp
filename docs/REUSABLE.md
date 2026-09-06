@@ -150,9 +150,15 @@ Both return `TaskClaimResult`, whose `Outcome` maps straight onto HTTP: `Claimed
 | `ICartService.PriceAsync()` | The cart with names, images and prices resolved from the database. **Never price a cart from what the browser sent.** |
 | `ICheckoutService.PlaceAsync(customerId, addressId, note, preferredAt)` | Turns the cart into one instant task per line, starts each offer chain, and empties the cart. |
 
-Storefront views use `_ShopLayout` (its own header with the cart badge, no portal navbar). Pieces:
-`_ShopHeader`, `_ServiceCard` (set `ViewData["CartQuantity"]` before rendering), `_QuantityStepper`
-(`QuantityStepperModel`) and `_CartBar` for the sticky total.
+Storefront views use `_ShopLayout` (its own header with search and the cart badge, no portal navbar).
+Pieces: `_ShopHeader`, `_ServiceCard` (set `ViewData["CartQuantity"]` before rendering),
+`_QuantityStepper` (`QuantityStepperModel`), `_CartBar` for the sticky total, and `_SpotlightCard` /
+`_WideBanner` for promotions.
+
+Section markup on the home page follows one shape — wrap in `.shop-section`, put the heading and an
+optional `See all` in `.shop-section-head`, and put cards in `.shop-rail` (scrolls sideways on a
+phone) or `.shop-grid` (wraps). **Render nothing at all when the list is empty** — a heading with no
+cards under it looks broken.
 
 ### Master images — `IHasImage`
 

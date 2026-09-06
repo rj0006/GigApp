@@ -1,0 +1,77 @@
+@model AdminBannersViewModel
+@{
+    Layout = "_AdminLayout";
+    var list = Model.Banners;
+}
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <h1 class="h4 mb-0">Storefront banners</h1>
+    <a class="btn btn-primary btn-sm ms-auto" href="/admin/masters/banners/new">New banner</a>
+</div>
+
+<p class="text-secondary small">
+    Promotions on the public storefront. A spotlight banner sits in the row under the hero; a
+    full-width strip runs between sections. Anything outside its date window is simply not shown.
+</p>
+
+<div class="card">
+    <div class="card-body">
+        @if (list.TotalCount == 0)
+        {
+            <p class="text-center text-secondary py-4 mb-0">
+                No banners yet. The storefront hides the spotlight row until there is one.
+            </p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Image</th><th>Headline</th><th>Placement</th><th>Links to</th>
+                            <th>Runs</th><th>Order</th><th>Status</th><th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var banner in list.Items)
+                    {
+                        <tr>
+                            <td><partial name="_MasterThumb" model="banner.ImageUrl" /></td>
+                            <td>
+                                <div class="fw-semibold">@banner.Title</div>
+                                @if (!string.IsNullOrWhiteSpace(banner.Subtitle))
+                                {
+                                    <div class="small text-secondary">@banner.Subtitle</div>
+                                }
+                            </td>
+                            <td><span class="badge text-bg-light border">@banner.PlacementLabel</span></td>
+                            <td class="small text-secondary">@(banner.LinkUrl ?? "—")</td>
+                            <td class="small text-secondary">@banner.Window</td>
+                            <td class="small text-secondary">@banner.SortOrder</td>
+                            <td>
+                                <span class="badge @(banner.IsLive ? "text-bg-success" : "text-bg-warning")">
+                                    @(banner.IsLive ? "Live" : banner.IsActive ? "Scheduled" : "Off")
+                                </span>
+                            </td>
+                            <td>
+                                <div class="row-actions justify-end">
+                                    <a class="btn btn-sm btn-outline-secondary"
+                                       href="/admin/masters/banners/@banner.Id/edit">Edit</a>
+
+                                    <form method="post" asp-action="DeleteBanner" asp-route-id="@banner.Id"
+                                          data-confirm-title="Delete this banner?"
+                                          data-confirm="@($"{banner.Title} and its image are removed for good.")">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+
+            <partial name="_Pagination" model="PagerModel.From(list, Context)" />
+        }
+    </div>
+</div>

@@ -46,8 +46,12 @@ namespace GigApp.Api.Controllers
         }
 
         [HttpGet("/services")]
-        public async Task<IActionResult> Index(CancellationToken ct)
+        public async Task<IActionResult> Index(string? q, CancellationToken ct)
         {
+            var term = q?.Trim();
+
+            if (!string.IsNullOrWhiteSpace(term)) return await SearchAsync(term, ct);
+
             ViewData["Title"] = "Home services at your doorstep";
 
             var categories = await BuildCategoriesAsync(ct);
@@ -58,12 +62,107 @@ namespace GigApp.Api.Controllers
                 .Take(8)
                 .ToListAsync(ct);
 
+            var fresh = await SellableItems()
+                .OrderByDescending(s => s.CreatedAt)
+                .Take(6)
+                .ToListAsync(ct);
+
+            // One strip per category, so the page reads like a shop rather than
+            // one long undifferentiated list.
+            var strips = new List<CategoryStripViewModel>();
+
+            foreach (var tile in categories.Take(6))
+            {
+                var services = await SellableItems()
+                    .Where(s => s.SkillCategoryId == tile.Category.Id)
+                    .OrderBy(s => s.DisplayOrder).ThenBy(s => s.Name)
+                    .Take(6)
+                    .ToListAsync(ct);
+
+                if (services.Count == 0) continue;
+
+                strips.Add(new CategoryStripViewModel
+                {
+                    Category = tile.Category,
+                    TotalCount = tile.ServiceCount,
+                    Services = services.Select(ServiceItemDto.From).ToList(),
+                });
+            }
+
+            var banners = await LiveBannersAsync(ct);
+
             return View(new StorefrontViewModel
             {
                 Categories = categories,
                 Popular = popular.Select(ServiceItemDto.From).ToList(),
+                NewAndNoteworthy = fresh.Select(ServiceItemDto.From).ToList(),
+                Strips = strips,
+                Spotlight = banners.Where(b => b.Placement == BannerPlacements.Spotlight).ToList(),
+                WideBanner = banners.FirstOrDefault(b => b.Placement == BannerPlacements.Wide),
+                Stats = await BuildStatsAsync(ct),
                 Cart = await _cart.PriceAsync(ct),
             });
+        }
+
+        private async Task<IActionResult> SearchAsync(string term, CancellationToken ct)
+        {
+            ViewData["Title"] = $"Search: {term}";
+
+            var lowered = term.ToLower();
+
+            var matches = await SellableItems()
+                .Where(s => s.Name.ToLower().Contains(lowered)
+                         || s.SkillCategory!.Name.ToLower().Contains(lowered)
+                         || (s.Description != null && s.Description.ToLower().Contains(lowered)))
+                .OrderBy(s => s.DisplayOrder).ThenBy(s => s.Name)
+                .Take(40)
+                .ToListAsync(ct);
+
+            return View("Search", new StorefrontSearchViewModel
+            {
+                Term = term,
+                Results = matches.Select(ServiceItemDto.From).ToList(),
+                Categories = await BuildCategoriesAsync(ct),
+                Cart = await _cart.PriceAsync(ct),
+            });
+        }
+
+        private async Task<IReadOnlyList<BannerDto>> LiveBannersAsync(CancellationToken ct)
+        {
+            var now = DateTime.UtcNow;
+
+            var banners = await _context.Banners
+                .AsNoTracking()
+                .Where(b => b.IsActive
+                         && b.ImageFileName != null
+                         && (b.StartsAt == null || b.StartsAt <= now)
+                         && (b.EndsAt == null || b.EndsAt >= now))
+                .OrderBy(b => b.SortOrder).ThenBy(b => b.Id)
+                .ToListAsync(ct);
+
+            return banners.Select(BannerDto.From).ToList();
+        }
+
+        private async Task<StorefrontStatsViewModel> BuildStatsAsync(CancellationToken ct)
+        {
+            var rated = await _context.Users
+                .AsNoTracking()
+                .Where(u => u.Role == UserRoles.Partner && u.RatingCount > 0)
+                .Select(u => new { u.AverageRating, u.RatingCount })
+                .ToListAsync(ct);
+
+            return new StorefrontStatsViewModel
+            {
+                AverageRating = rated.Sum(r => r.RatingCount) == 0
+                    ? null
+                    : Math.Round(
+                        rated.Sum(r => r.AverageRating!.Value * r.RatingCount) / rated.Sum(r => r.RatingCount), 1),
+                RatingCount = rated.Sum(r => r.RatingCount),
+                CompletedCount = await _context.GigTasks
+                    .CountAsync(t => t.Status == GigTaskStatus.Completed, ct),
+                PartnerCount = await _context.Partners
+                    .CountAsync(p => p.KycStatus == KycStatus.Approved, ct),
+            };
         }
 
         [HttpGet("/services/{categoryId:int}")]

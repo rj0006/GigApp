@@ -27,6 +27,7 @@ namespace GigApp.Api.Data
         public DbSet<CommissionPlan> CommissionPlans => Set<CommissionPlan>();
         public DbSet<PartnerPlanSubscription> PartnerPlanSubscriptions => Set<PartnerPlanSubscription>();
         public DbSet<TaxRule> TaxRules => Set<TaxRule>();
+        public DbSet<Banner> Banners => Set<Banner>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -380,6 +381,20 @@ namespace GigApp.Api.Data
                     t.HasCheckConstraint(
                         "CK_TaskRatings_RaterRole", "\"RaterRole\" IN ('customer','partner')");
                 });
+            });
+
+            modelBuilder.Entity<Banner>(e =>
+            {
+                e.Property(b => b.Title).HasMaxLength(120).IsRequired();
+                e.Property(b => b.Subtitle).HasMaxLength(200);
+                e.Property(b => b.CallToAction).HasMaxLength(40);
+                e.Property(b => b.LinkUrl).HasMaxLength(300);
+                e.Property(b => b.Placement).HasMaxLength(20).IsRequired();
+
+                e.HasIndex(b => new { b.Placement, b.IsActive, b.SortOrder });
+
+                e.ToTable(t => t.HasCheckConstraint(
+                    "CK_Banners_Placement", "\"Placement\" IN ('spotlight','wide')"));
             });
 
             modelBuilder.Entity<Notification>(e =>

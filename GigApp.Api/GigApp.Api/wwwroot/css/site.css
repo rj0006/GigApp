@@ -610,3 +610,102 @@ body {
 }
 .qty-stepper button:disabled { color: #c2c8d2; cursor: default; }
 .qty-stepper .qty-value { min-width: 1.9rem; text-align: center; font-size: .85rem; font-weight: 600; }
+
+.shop-search { max-width: 26rem; flex: 1; }
+
+.shop-section { margin-bottom: 2.25rem; }
+.shop-section-head { display: flex; align-items: baseline; gap: .75rem; margin-bottom: .85rem; }
+.shop-section-head h2 { font-size: 1.05rem; font-weight: 600; margin: 0; }
+.shop-section-head .see-all { margin-left: auto; font-size: .82rem; text-decoration: none; }
+
+/* A rail scrolls sideways on small screens instead of wrapping into a wall. */
+.shop-rail {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(178px, 1fr);
+    gap: 1rem;
+    overflow-x: auto;
+    padding-bottom: .4rem;
+    scroll-snap-type: x mandatory;
+}
+
+.shop-rail > * { scroll-snap-align: start; }
+
+@media (max-width: 767px) {
+    .shop-rail { grid-auto-columns: 62vw; }
+}
+
+.spotlight-rail {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(270px, 1fr);
+    gap: 1rem;
+    overflow-x: auto;
+    padding-bottom: .4rem;
+}
+
+.spotlight-card {
+    position: relative;
+    display: block;
+    aspect-ratio: 16 / 7;
+    border-radius: .7rem;
+    overflow: hidden;
+    text-decoration: none;
+    color: #fff;
+    background: #1f2937;
+}
+
+.spotlight-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.spotlight-body {
+    position: absolute;
+    inset: 0;
+    padding: .9rem 1rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: .2rem;
+    background: linear-gradient(to top, rgba(10, 14, 22, .82) 12%, rgba(10, 14, 22, .18) 62%, transparent);
+}
+
+.spotlight-title { font-weight: 700; font-size: 1rem; line-height: 1.25; }
+.spotlight-sub { font-size: .78rem; opacity: .9; }
+.spotlight-cta {
+    align-self: flex-start;
+    margin-top: .4rem;
+    background: #fff;
+    color: #111827;
+    border-radius: .3rem;
+    padding: .18rem .6rem;
+    font-size: .75rem;
+    font-weight: 600;
+}
+
+.wide-banner {
+    position: relative;
+    display: block;
+    border-radius: .8rem;
+    overflow: hidden;
+    aspect-ratio: 32 / 9;
+    color: #fff;
+    text-decoration: none;
+    background: #111827;
+}
+
+.wide-banner img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.wide-banner-body {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: .3rem;
+    padding: 1.2rem 1.6rem;
+    background: linear-gradient(to right, rgba(10, 14, 22, .85) 30%, rgba(10, 14, 22, .1) 75%);
+    max-width: 34rem;
+}
+
+.hero-stats { display: flex; gap: 1.6rem; flex-wrap: wrap; }
+.hero-stat-value { font-size: 1.15rem; font-weight: 700; line-height: 1.1; }
+.hero-stat-label { font-size: .72rem; color: #6b7484; }

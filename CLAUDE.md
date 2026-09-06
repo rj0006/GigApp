@@ -198,6 +198,13 @@ account. A service item appears there only when it is active, its category is ac
 - Signing in mid-checkout keeps the cart — same session cookie.
 - The old landing page with the dev credentials moved to `/welcome`.
 
+**Storefront promotions are a master, not markup.** `Banners` is managed at `/admin/masters/banners`
+with a placement of `spotlight` or `wide`, a required image, an optional date window and a link that
+**must be local** — `Url.IsLocalUrl` is checked on save, so nobody can point the front page off-site.
+Outside its window a banner is simply not rendered, and a section with nothing in it hides its own
+heading rather than leaving an empty strip. The hero statistics stay hidden until there are five
+ratings or twenty completed jobs, because a real number that small reads worse than none.
+
 **The customer home page is a catalogue; the work lives in the profile.** `/customer` lists active
 categories as image tiles and does nothing else — a tile links to the booking form with that category
 preselected. Posting, tracking and history are profile sections, so every task action redirects into

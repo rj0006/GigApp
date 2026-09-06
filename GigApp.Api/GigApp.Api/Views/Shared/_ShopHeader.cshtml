@@ -10,9 +10,11 @@
             Gig<span class="text-primary">App</span>
         </a>
 
-        <a class="small text-decoration-none text-secondary d-none d-md-inline" href="/services">
-            All services
-        </a>
+        <form method="get" action="/services" class="shop-search d-none d-md-block" role="search">
+            <input type="search" name="q" class="form-control form-control-sm"
+                   value="@Context.Request.Query["q"]"
+                   placeholder="Search for a service, like AC repair" aria-label="Search services" />
+        </form>
 
         <div class="ms-auto d-flex align-items-center gap-2">
             <a class="btn btn-sm btn-outline-secondary position-relative" href="/cart">

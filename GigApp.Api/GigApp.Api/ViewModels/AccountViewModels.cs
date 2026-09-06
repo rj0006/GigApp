@@ -305,6 +305,21 @@ namespace GigApp.Api.ViewModels
         public string? Search { get; set; }
     }
 
+    public class AdminBannersViewModel
+    {
+        public PagedResult<BannerDto> Banners { get; set; } = new();
+    }
+
+    public class BannerFormViewModel
+    {
+        public int? Id { get; set; }
+        public SaveBannerRequest Form { get; set; } = new();
+        public string? ImageUrl { get; set; }
+
+        public bool IsEdit => Id is not null;
+        public string Heading => IsEdit ? "Edit banner" : "New banner";
+    }
+
     public class AdminEnquiriesViewModel
     {
         public PagedResult<SupportEnquiryDto> Enquiries { get; set; } = new();

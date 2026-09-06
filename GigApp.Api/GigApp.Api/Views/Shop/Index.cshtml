@@ -1,32 +1,64 @@
 @model StorefrontViewModel
 @{
     Layout = "_ShopLayout";
+    var stats = Model.Stats;
 }
 
 <div class="shop-hero mb-4">
-    <div class="row align-items-center g-3">
-        <div class="col-lg-7">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-6">
             <h1 class="h3 mb-2">Home services at your doorstep</h1>
             <p class="text-secondary mb-3">
-                Fixed prices, verified partners, no haggling. Pick what you need, and we send you
+                Fixed prices, KYC-verified partners, no haggling. Pick what you need and we send
                 the nearest available professional.
             </p>
-            <a class="btn btn-primary" href="#categories">Browse services</a>
+
+            @if (stats.IsWorthShowing)
+            {
+                <div class="hero-stats">
+                    @if (stats.AverageRating is not null)
+                    {
+                        <div>
+                            <div class="hero-stat-value">@stats.AverageRating.Value.ToString("0.0") &#9733;</div>
+                            <div class="hero-stat-label">from @stats.RatingCount ratings</div>
+                        </div>
+                    }
+                    <div>
+                        <div class="hero-stat-value">@stats.CompletedCount.ToString("N0")</div>
+                        <div class="hero-stat-label">jobs completed</div>
+                    </div>
+                    <div>
+                        <div class="hero-stat-value">@stats.PartnerCount.ToString("N0")</div>
+                        <div class="hero-stat-label">verified partners</div>
+                    </div>
+                </div>
+            }
         </div>
-        <div class="col-lg-5">
-            <div class="row g-2 text-center">
-                <div class="col-6">
-                    <div class="card"><div class="card-body py-3">
-                        <div class="h5 mb-0">Fixed price</div>
-                        <div class="small text-secondary">Shown before you book</div>
-                    </div></div>
-                </div>
-                <div class="col-6">
-                    <div class="card"><div class="card-body py-3">
-                        <div class="h5 mb-0">KYC verified</div>
-                        <div class="small text-secondary">Every partner checked</div>
-                    </div></div>
-                </div>
+
+        <div class="col-lg-6">
+            <div class="catalog-grid">
+                @foreach (var tile in Model.Categories.Take(6))
+                {
+                    <a class="catalog-tile" href="/services/@tile.Category.Id">
+                        <div class="catalog-art">
+                            @if (tile.Category.ImageUrl is not null)
+                            {
+                                <img src="@tile.Category.ImageUrl" alt="@tile.Category.Name" loading="lazy" />
+                            }
+                            else
+                            {
+                                <span class="catalog-initial">@tile.Category.Name.Substring(0, 1).ToUpperInvariant()</span>
+                            }
+                        </div>
+                        <div class="catalog-body">
+                            <div class="catalog-name">@tile.Category.Name</div>
+                            @if (tile.StartingFrom is not null)
+                            {
+                                <div class="catalog-price">From ₹@tile.StartingFrom.Value.ToString("N0")</div>
+                            }
+                        </div>
+                    </a>
+                }
             </div>
         </div>
     </div>
@@ -42,49 +74,74 @@
 }
 else
 {
-    <h2 class="h5 mb-3" id="categories">What do you need done?</h2>
+    @if (Model.Spotlight.Count > 0)
+    {
+        <section class="shop-section">
+            <div class="shop-section-head"><h2>In the spotlight</h2></div>
+            <div class="spotlight-rail">
+                @foreach (var banner in Model.Spotlight)
+                {
+                    <partial name="_SpotlightCard" model="banner" />
+                }
+            </div>
+        </section>
+    }
 
-    <div class="catalog-grid mb-5">
-        @foreach (var tile in Model.Categories)
-        {
-            var category = tile.Category;
-
-            <a class="catalog-tile" href="/services/@category.Id">
-                <div class="catalog-art">
-                    @if (category.ImageUrl is not null)
-                    {
-                        <img src="@category.ImageUrl" alt="@category.Name" loading="lazy" />
-                    }
-                    else
-                    {
-                        <span class="catalog-initial">@category.Name.Substring(0, 1).ToUpperInvariant()</span>
-                    }
-                </div>
-                <div class="catalog-body">
-                    <div class="catalog-name">@category.Name</div>
-                    <div class="catalog-meta">@tile.ServiceCount service@(tile.ServiceCount == 1 ? "" : "s")</div>
-                    @if (tile.StartingFrom is not null)
-                    {
-                        <div class="catalog-price">From ₹@tile.StartingFrom.Value.ToString("N0")</div>
-                    }
-                </div>
-            </a>
-        }
-    </div>
+    @if (Model.NewAndNoteworthy.Count > 0)
+    {
+        <section class="shop-section">
+            <div class="shop-section-head"><h2>New and noteworthy</h2></div>
+            <div class="shop-rail">
+                @foreach (var service in Model.NewAndNoteworthy)
+                {
+                    ViewData["CartQuantity"] = Model.QuantityOf(service.Id);
+                    <partial name="_ServiceCard" model="service" />
+                }
+            </div>
+        </section>
+    }
 
     @if (Model.Popular.Count > 0)
     {
-        <h2 class="h5 mb-3">Most booked services</h2>
+        <section class="shop-section">
+            <div class="shop-section-head"><h2>Most booked services</h2></div>
+            <div class="shop-rail">
+                @foreach (var service in Model.Popular)
+                {
+                    ViewData["CartQuantity"] = Model.QuantityOf(service.Id);
+                    <partial name="_ServiceCard" model="service" />
+                }
+            </div>
+        </section>
+    }
 
-        <div class="shop-grid mb-4">
-            @foreach (var service in Model.Popular)
-            {
-                ViewData["CartQuantity"] = Model.Cart.Lines
-                    .FirstOrDefault(l => l.ServiceItemId == service.Id)?.Quantity ?? 0;
+    @if (Model.WideBanner is not null)
+    {
+        <section class="shop-section">
+            <partial name="_WideBanner" model="Model.WideBanner" />
+        </section>
+    }
 
-                <partial name="_ServiceCard" model="service" />
-            }
-        </div>
+    @foreach (var strip in Model.Strips)
+    {
+        <section class="shop-section">
+            <div class="shop-section-head">
+                <h2>@strip.Category.Name</h2>
+                @if (strip.HasMore)
+                {
+                    <a class="see-all" href="/services/@strip.Category.Id">
+                        See all @strip.TotalCount
+                    </a>
+                }
+            </div>
+            <div class="shop-rail">
+                @foreach (var service in strip.Services)
+                {
+                    ViewData["CartQuantity"] = Model.QuantityOf(service.Id);
+                    <partial name="_ServiceCard" model="service" />
+                }
+            </div>
+        </section>
     }
 }
 

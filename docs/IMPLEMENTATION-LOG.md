@@ -9,6 +9,42 @@ developer can call the same thing.
 
 ---
 
+## 2026-09-06 — The storefront reads like a shop, and promotions are a master
+
+**Asked:** build the storefront out — a spotlight banner, "New and noteworthy", and per-category
+strips on the home page.
+
+**Rule — a banner is a row, not markup.** `Banners` is admin-managed at `/admin/masters/banners`,
+so a campaign is something support adds rather than a deployment.
+
+| Field | Rule |
+|---|---|
+| Placement | `spotlight` (the card row under the hero) or `wide` (one full-width strip between sections) |
+| Image | **Required.** A banner with no artwork is not a banner, so the form refuses to save one |
+| Link | Must be a page on this site. An external URL is refused, because an administrator should not be able to point the front page anywhere |
+| Dates | `StartsAt` and `EndsAt` are both optional. Outside its window a banner is simply not rendered, and an end before the start is refused |
+| Deleting | Removes the image file too |
+
+The storefront asks only for banners that are active, have an image and are inside their window —
+one query, ordered by `SortOrder`. The spotlight row is hidden entirely when there are none, rather
+than leaving an empty heading.
+
+**Rule — the home page is sections, and every section hides itself when empty.** In order: hero with
+category tiles, spotlight, New and noteworthy (the six newest sellable services), Most booked (by
+completed task count), the wide banner, then one strip per category with a **See all** link that
+only appears when the category has more than the six shown. A visitor never sees a heading with
+nothing under it.
+
+**The hero statistics are real and hidden until they mean something.** Average rating is weighted by
+each partner's rating count, not a mean of means. `StorefrontStats.IsWorthShowing` keeps the whole
+strip off the page until there are at least five ratings or twenty completed jobs — a shop claiming
+"4.6 from 2 ratings" reads worse than one claiming nothing.
+
+**Search** is on every storefront page: `/services?q=` matches a service name, its category name or
+its description. No match falls back to the category grid rather than a dead end.
+
+---
+
 ## 2026-09-06 — A public storefront with a guest cart
 
 **Asked:** a customer landing page that works like a website for a guest, with a cart and a login

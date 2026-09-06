@@ -1,0 +1,16 @@
+@model BannerDto
+
+<a class="wide-banner" href="@(Model.LinkUrl ?? "/services")">
+    <img src="@Model.ImageUrl" alt="" loading="lazy" />
+    <span class="wide-banner-body">
+        <span class="spotlight-title" style="font-size:1.3rem">@Model.Title</span>
+        @if (!string.IsNullOrWhiteSpace(Model.Subtitle))
+        {
+            <span class="spotlight-sub">@Model.Subtitle</span>
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.CallToAction))
+        {
+            <span class="spotlight-cta">@Model.CallToAction</span>
+        }
+    </span>
+</a>

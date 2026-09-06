@@ -1,0 +1,16 @@
+@model BannerDto
+
+<a class="spotlight-card" href="@(Model.LinkUrl ?? "/services")">
+    <img src="@Model.ImageUrl" alt="" loading="lazy" />
+    <span class="spotlight-body">
+        <span class="spotlight-title">@Model.Title</span>
+        @if (!string.IsNullOrWhiteSpace(Model.Subtitle))
+        {
+            <span class="spotlight-sub">@Model.Subtitle</span>
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.CallToAction))
+        {
+            <span class="spotlight-cta">@Model.CallToAction</span>
+        }
+    </span>
+</a>
