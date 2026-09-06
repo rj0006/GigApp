@@ -4,6 +4,7 @@ using GigApp.Api.Models;
 using GigApp.Api.Services;
 using GigApp.Api.Services.Earnings;
 using GigApp.Api.Services.Files;
+using GigApp.Api.Services.Geo;
 using GigApp.Api.Services.Kyc;
 using GigApp.Api.Services.Menus;
 using GigApp.Api.Services.Pricing;
@@ -50,6 +51,7 @@ namespace GigApp.Api.Controllers
         private readonly ITaxService _taxes;
         private readonly ITaskClaimService _claims;
         private readonly IFileStorageService _storage;
+        private readonly IMatchService _match;
 
         public AdminController(
             IAuthService authService,
@@ -67,6 +69,7 @@ namespace GigApp.Api.Controllers
             ITaxService taxes,
             ITaskClaimService claims,
             IFileStorageService storage,
+            IMatchService match,
             IOrderHistoryService orderHistory,
             ISupportService support,
             IRatingService ratings)
@@ -83,6 +86,7 @@ namespace GigApp.Api.Controllers
             _taxes = taxes;
             _claims = claims;
             _storage = storage;
+            _match = match;
         }
 
         protected override string PortalSlug => "admin";
@@ -1396,8 +1400,14 @@ namespace GigApp.Api.Controllers
                 .OrderByDescending(t => t.CreatedAt)
                 .ToPagedResultAsync(paging, ct);
 
+            var suggestions = new Dictionary<int, IReadOnlyList<PartnerMatchDto>>();
+
+            foreach (var pending in page.Items.Where(t => t.Status == GigTaskStatus.Pending))
+                suggestions[pending.Id] = await _match.RankPartnersAsync(pending.Id, 8, ct);
+
             return View(new AdminTasksViewModel
             {
+                Suggestions = suggestions,
                 Tasks = page.Map(GigTaskDto.From),
                 Categories = await _categories.GetActiveOptionsAsync(ct),
                 StatusFilter = status,

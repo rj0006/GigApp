@@ -77,6 +77,10 @@ namespace GigApp.Api.Dtos
         public string UrgencyBadgeClass => TaskUrgency.BadgeClass(Urgency);
         public bool IsUrgent => Urgency == TaskUrgency.Urgent;
 
+        /// <summary>Filled only where the caller has a location to measure from.</summary>
+        public double? DistanceKm { get; set; }
+        public string DistanceLabel => Services.Geo.GeoPoint.Describe(DistanceKm);
+
         public string BookingMode { get; set; } = TaskBookingMode.Bidding;
         public bool IsInstant => BookingMode == TaskBookingMode.Instant;
 

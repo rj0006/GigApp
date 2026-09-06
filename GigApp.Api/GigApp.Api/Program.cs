@@ -11,6 +11,7 @@ using GigApp.Api.Services.Booking;
 using GigApp.Api.Services.Earnings;
 using GigApp.Api.Services.Errors;
 using GigApp.Api.Services.Files;
+using GigApp.Api.Services.Geo;
 using GigApp.Api.Services.Kyc;
 using GigApp.Api.Services.Masters;
 using GigApp.Api.Services.Menus;
@@ -29,7 +30,9 @@ using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        npgsql => npgsql.UseNetTopologySuite()));
 
 var jwtSection = builder.Configuration.GetSection(JwtSettings.SectionName);
 builder.Services.Configure<JwtSettings>(jwtSection);
@@ -218,6 +221,7 @@ builder.Services.AddScoped<IBidService, BidService>();
 builder.Services.AddScoped<ITaskClaimService, TaskClaimService>();
 builder.Services.AddScoped<IRatingService, RatingService>();
 builder.Services.AddScoped<IOrderHistoryService, OrderHistoryService>();
+builder.Services.AddScoped<IMatchService, MatchService>();
 builder.Services.AddScoped<ISupportService, SupportService>();
 
 builder.Services.AddControllersWithViews(options =>

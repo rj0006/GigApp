@@ -115,9 +115,11 @@ everything else books as `bidding`. Nothing else sets the mode, and the customer
   `ExecuteUpdateAsync` lock as before, extended with `BookingMode = instant` so a bidding task can
   never be grabbed this way.
 - **Bidding** is unchanged: partners quote, the customer accepts one.
-- **There is no automatic partner selection yet.** Ranking partners needs rating **and** distance;
-  ratings now exist, distance does not. Until it does, `ITaskClaimService.AssignAsync` lets support
-  put a named partner on a pending task, with a required note, closing any open bids.
+- **Assignment is ranked but not automatic.** `IMatchService.RankPartnersAsync` scores candidates on
+  distance (60%) and rating (40%) and `/admin/tasks` offers that shortlist, but a human still picks.
+  Switching it on needs a notification channel and an acceptance window — what happens when the best
+  partner does not answer — and neither exists. `ITaskClaimService.AssignAsync` records the choice,
+  with a required note, closing any open bids.
 
 **A rating is one row per side per task, and the average is a cache on `User`.** `TaskRatings` is
 unique on `(GigTaskId, RaterRole)`, so neither side rates twice and neither can revise. The partner
@@ -224,7 +226,10 @@ everywhere else, so this was a deliberate choice, not an accident.
   that cap first. Standard licensing costs several lakh rupees up front. Postgres costs nothing at
   any size.
 - **PostGIS.** Matching a task to the nearest partner is the core algorithm, and this is where
-  Postgres is genuinely ahead rather than merely cheaper.
+  Postgres is genuinely ahead rather than merely cheaper. **Now in use**: `GigTasks.Location` and
+  `Partners.BaseLocation` are `geography(Point, 4326)` columns with GIST indexes, and the partner's
+  board filters and sorts on real metres. `GeoPoint.From(lat, lng)` is the only place a point is
+  built — PostGIS takes longitude first, and swapping the pair puts Gurugram in the Indian Ocean.
 - **jsonb.** `TrackingLogs.Payload` is a real jsonb column and can be indexed and queried inside.
   SQL Server stores JSON as `nvarchar`.
 - **Functional indexes.** `UX_SkillCategories_Name_Lower` indexes `LOWER(Name)` directly. SQL Server

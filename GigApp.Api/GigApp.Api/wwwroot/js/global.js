@@ -598,6 +598,27 @@
         });
     }
 
+    function wireLatLonCopy() {
+        $(document).on('change', 'select[data-copy-latlon]', function () {
+            var $select = $(this);
+            var $option = $select.find('option:selected');
+            if (!$option.val()) return;
+
+            var pairs = [
+                [$select.data('lat'), $option.data('lat')],
+                [$select.data('lon'), $option.data('lon')],
+                [$select.data('city'), $option.data('city')],
+                [$select.data('pincode'), $option.data('pincode')]
+            ];
+
+            pairs.forEach(function (pair) {
+                if (pair[0]) $('#' + pair[0]).val(pair[1] === undefined ? '' : pair[1]);
+            });
+
+            showToast('Success', 'Copied from ' + $option.text().trim() + '.', 'bg-success');
+        });
+    }
+
     function wireImageUploads() {
         $('[data-image-upload]').each(function () { setupImageUpload($(this)); });
     }
@@ -632,6 +653,7 @@
         wireAutoSubmit();
         wireFixedPrice();
         wireImageUploads();
+        wireLatLonCopy();
         wireDeclarativePickers();
         wireLocationCapture();
     });

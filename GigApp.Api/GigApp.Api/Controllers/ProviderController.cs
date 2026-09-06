@@ -7,6 +7,7 @@ using GigApp.Api.Services.Bidding;
 using GigApp.Api.Services.Booking;
 using GigApp.Api.Services.Earnings;
 using GigApp.Api.Services.Files;
+using GigApp.Api.Services.Geo;
 using GigApp.Api.Services.Kyc;
 using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Profile;
@@ -29,6 +30,7 @@ namespace GigApp.Api.Controllers
         private readonly IFileStorageService _storage;
         private readonly IBidService _bids;
         private readonly ITaskClaimService _claims;
+        private readonly IMatchService _match;
         private readonly IKycHistoryService _kycHistory;
         private readonly IEarningsService _earnings;
 
@@ -41,6 +43,7 @@ namespace GigApp.Api.Controllers
             IFileStorageService storage,
             IBidService bids,
             ITaskClaimService claims,
+            IMatchService match,
             IRatingService ratings,
             IBankAccountService bankAccounts,
             IKycHistoryService kycHistory,
@@ -54,6 +57,7 @@ namespace GigApp.Api.Controllers
             _storage = storage;
             _bids = bids;
             _claims = claims;
+            _match = match;
             _kycHistory = kycHistory;
             _earnings = earnings;
         }
@@ -72,6 +76,61 @@ namespace GigApp.Api.Controllers
         [Authorize(Policy = Policies.PartnerOnly)]
         public Task<IActionResult> ProfileEarnings(CancellationToken ct) =>
             ProfileSectionAsync(ProfileSections.Earnings, ct);
+
+        [HttpGet("profile/area")]
+        [Authorize(Policy = Policies.PartnerOnly)]
+        public Task<IActionResult> ProfileServiceArea(CancellationToken ct) =>
+            ProfileSectionAsync(ProfileSections.ServiceArea, ct);
+
+        [HttpPost("profile/area")]
+        [Authorize(Policy = Policies.PartnerOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("ServiceArea")]
+        public async Task<IActionResult> UpdateServiceArea(
+            UpdateServiceAreaRequest form, CancellationToken ct)
+        {
+            var areaPath = $"{ProfilePath}/{ProfileSections.ServiceArea}";
+
+            if (!ModelState.IsValid)
+            {
+                TempData["Error"] = FirstModelError();
+                return Redirect(areaPath);
+            }
+
+            var partner = await _context.Partners
+                .FirstOrDefaultAsync(p => p.UserId == User.GetRequiredUserId(), ct);
+
+            if (partner is null)
+            {
+                TempData["Error"] = "No partner profile is attached to this account.";
+                return Redirect(areaPath);
+            }
+
+            var hasPin = form.BaseLatitude is not null && form.BaseLongitude is not null;
+
+            if (!hasPin && (form.BaseLatitude is not null || form.BaseLongitude is not null))
+            {
+                TempData["Error"] = "A location needs both a latitude and a longitude.";
+                return Redirect(areaPath);
+            }
+
+            partner.BaseLatitude = form.BaseLatitude;
+            partner.BaseLongitude = form.BaseLongitude;
+            partner.BaseLocation = GeoPoint.From(form.BaseLatitude, form.BaseLongitude);
+            partner.ServiceRadiusKm = form.ServiceRadiusKm;
+            partner.BaseCity = string.IsNullOrWhiteSpace(form.BaseCity) ? null : form.BaseCity.Trim();
+            partner.BasePincode = string.IsNullOrWhiteSpace(form.BasePincode) ? null : form.BasePincode.Trim();
+
+            await _context.SaveChangesAsync(ct);
+
+            TrackDoc(partner.Id, PartnerDto.From(partner));
+
+            TempData["Success"] = hasPin
+                ? $"Saved. You will now see work within {form.ServiceRadiusKm} km of your base, nearest first."
+                : "Saved. Add a location pin to see work sorted by how near it is.";
+
+            return Redirect(areaPath);
+        }
 
         protected override async Task<ProfileExtras> LoadProfileExtrasAsync(
             string section, CancellationToken ct)
@@ -103,6 +162,30 @@ namespace GigApp.Api.Controllers
                     Entries = await _earnings.GetEntriesAsync(partner.Id, paging, entryType, ct),
                     EntryTypeFilter = entryType,
                     BankAccount = await BankAccounts.GetAsync(partner.UserId, ct),
+                };
+            }
+
+            if (section == ProfileSections.ServiceArea)
+            {
+                extras.ServiceArea = new ServiceAreaViewModel
+                {
+                    Form = new UpdateServiceAreaRequest
+                    {
+                        BaseLatitude = partner.BaseLatitude,
+                        BaseLongitude = partner.BaseLongitude,
+                        ServiceRadiusKm = partner.ServiceRadiusKm,
+                        BaseCity = partner.BaseCity,
+                        BasePincode = partner.BasePincode,
+                    },
+                    Addresses = await AddressService.ListAsync(partner.UserId, ct),
+                    OpenTasksInRange = partner.BaseLocation is null
+                        ? 0
+                        : await _context.GigTasks.CountAsync(
+                            t => t.Status == GigTaskStatus.Pending
+                              && t.CategoryId == partner.SkillCategoryId
+                              && t.Location != null
+                              && t.Location.Distance(partner.BaseLocation)
+                                 <= partner.ServiceRadiusKm * GeoPoint.MetresPerKm, ct),
                 };
             }
 
@@ -245,24 +328,56 @@ namespace GigApp.Api.Controllers
                         .Select(b => b.GigTaskId)
                         .ToHashSet();
 
-                    // Urgent work first, then newest — a same-day job is no use
-                    // to anyone sitting three pages down.
-                    var available = await _context.GigTasks
+                    var open = _context.GigTasks
                         .AsNoTracking()
                         .Include(t => t.Customer)
                         .Include(t => t.Category)
                         .Include(t => t.ServiceItem)
                         .Where(t => t.Status == GigTaskStatus.Pending
-                                 && t.CategoryId == partner.SkillCategoryId)
+                                 && t.CategoryId == partner.SkillCategoryId);
+
+                    // Work outside the radius the partner set is not work they
+                    // will take, so PostGIS drops it before it is ever loaded.
+                    // A task with no pin stays in — an old booking without one
+                    // is still worth doing.
+                    if (partner.BaseLocation is not null)
+                    {
+                        var radiusMetres = partner.ServiceRadiusKm * GeoPoint.MetresPerKm;
+
+                        open = open.Where(t => t.Location == null
+                                            || t.Location.Distance(partner.BaseLocation) <= radiusMetres);
+                    }
+
+                    // Urgent work first, then newest — a same-day job is no use
+                    // to anyone sitting three pages down.
+                    var available = await open
                         .OrderBy(t => t.Urgency == TaskUrgency.Urgent ? 0
                                     : t.Urgency == TaskUrgency.Normal ? 1 : 2)
                         .ThenByDescending(t => t.CreatedAt)
                         .ToListAsync(ct);
 
-                    model.AvailableTasks = available
+                    var shortlist = available
                         .Where(t => !alreadyBidTaskIds.Contains(t.Id))
-                        .Select(GigTaskDto.From)
                         .ToList();
+
+                    var distances = await _match.DistancesFromPartnerAsync(
+                        partner.Id, shortlist.Select(t => t.Id), ct);
+
+                    model.AvailableTasks = shortlist
+                        .Select(t =>
+                        {
+                            var dto = GigTaskDto.From(t);
+                            dto.DistanceKm = distances.TryGetValue(t.Id, out var km) ? km : null;
+                            return dto;
+                        })
+                        .OrderBy(t => t.Urgency == TaskUrgency.Urgent ? 0
+                                    : t.Urgency == TaskUrgency.Normal ? 1 : 2)
+                        .ThenBy(t => t.DistanceKm ?? double.MaxValue)
+                        .ThenByDescending(t => t.CreatedAt)
+                        .ToList();
+
+                    model.HasServiceArea = partner.BaseLocation is not null;
+                    model.ServiceRadiusKm = partner.ServiceRadiusKm;
                 }
             }
 

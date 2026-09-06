@@ -1,0 +1,102 @@
+@model ProfilePageViewModel
+@{
+    var area = Model.ServiceArea ?? new ServiceAreaViewModel();
+    var form = area.Form;
+    var pinned = area.Addresses.Where(a => a.HasCoordinates).ToList();
+}
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h6 mb-1">Where you work</h2>
+        <p class="text-secondary small">
+            Work is matched by distance. Drop a pin on the place you set out from and say how far
+            you will travel, and the board shows the nearest jobs first and hides the rest.
+        </p>
+
+        @if (!area.HasPin)
+        {
+            <div class="alert alert-warning small">
+                <strong>No location set.</strong> Until you add one you see every open job in your
+                category, in no particular order.
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-success small">
+                <strong>@area.OpenTasksInRange</strong> open job(s) in your category are within
+                @form.ServiceRadiusKm km of you right now.
+            </div>
+        }
+
+        <form method="post" action="/provider/profile/area" class="gig-form row g-3">
+            @Html.AntiForgeryToken()
+
+            <div class="col-md-6">
+                <label for="ServiceRadiusKm" class="form-label required">How far will you travel? (km)</label>
+                <input id="ServiceRadiusKm" name="ServiceRadiusKm" type="number" min="1" max="100"
+                       class="form-control" required value="@form.ServiceRadiusKm" />
+                <div class="form-text">Between 1 and 100. Jobs beyond this are hidden from your board.</div>
+            </div>
+
+            <div class="col-md-3">
+                <label for="BaseCity" class="form-label">Base city</label>
+                <input id="BaseCity" name="BaseCity" class="form-control" maxlength="80"
+                       value="@form.BaseCity" placeholder="Gurugram" />
+            </div>
+
+            <div class="col-md-3">
+                <label for="BasePincode" class="form-label">Base pincode</label>
+                <input id="BasePincode" name="BasePincode" class="form-control" inputmode="numeric"
+                       maxlength="6" value="@form.BasePincode" placeholder="122002" />
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Location pin</label>
+                <div class="row g-2">
+                    <div class="col-sm-4">
+                        <input id="BaseLatitude" name="BaseLatitude" class="form-control"
+                               readonly value="@form.BaseLatitude" placeholder="Latitude" />
+                    </div>
+                    <div class="col-sm-4">
+                        <input id="BaseLongitude" name="BaseLongitude" class="form-control"
+                               readonly value="@form.BaseLongitude" placeholder="Longitude" />
+                    </div>
+                    <div class="col-sm-4">
+                        <button type="button" class="btn btn-outline-primary w-100"
+                                data-capture-location data-lat="BaseLatitude" data-lon="BaseLongitude"
+                                data-status="area-status">
+                            Use my current location
+                        </button>
+                    </div>
+                </div>
+                <div id="area-status" class="form-text">
+                    Stand at your shop or home when you press this. It is accurate to a few metres.
+                </div>
+            </div>
+
+            @if (pinned.Count > 0)
+            {
+                <div class="col-12">
+                    <label for="copy-address" class="form-label">Or copy one of your saved addresses</label>
+                    <select id="copy-address" class="form-select"
+                            data-copy-latlon data-lat="BaseLatitude" data-lon="BaseLongitude"
+                            data-city="BaseCity" data-pincode="BasePincode">
+                        <option value="">Choose an address</option>
+                        @foreach (var address in pinned)
+                        {
+                            <option value="@address.Id"
+                                    data-lat="@address.Latitude" data-lon="@address.Longitude"
+                                    data-city="@address.City" data-pincode="@address.Pincode">
+                                @address.Label — @address.SingleLine
+                            </option>
+                        }
+                    </select>
+                </div>
+            }
+
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">Save service area</button>
+            </div>
+        </form>
+    </div>
+</div>

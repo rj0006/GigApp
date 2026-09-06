@@ -11,6 +11,7 @@ namespace GigApp.Api.ViewModels
         public const string Orders = "orders";
         public const string PostTask = "post";
         public const string Tasks = "tasks";
+        public const string ServiceArea = "area";
         public const string Kyc = "kyc";
         public const string Devices = "devices";
         public const string Settings = "settings";
@@ -39,6 +40,7 @@ namespace GigApp.Api.ViewModels
         public PartnerEarningsViewModel? Earnings { get; set; }
         public OrderHistoryViewModel? Orders { get; set; }
         public CustomerDashboardViewModel? Work { get; set; }
+        public ServiceAreaViewModel? ServiceArea { get; set; }
 
         public IReadOnlyList<KycHistoryEntryDto> KycHistory { get; set; } =
             Array.Empty<KycHistoryEntryDto>();
@@ -57,6 +59,15 @@ namespace GigApp.Api.ViewModels
             Array.Empty<KycHistoryEntryDto>();
         public PartnerEarningsViewModel? Earnings { get; set; }
         public CustomerDashboardViewModel? Work { get; set; }
+        public ServiceAreaViewModel? ServiceArea { get; set; }
+    }
+
+    public class ServiceAreaViewModel
+    {
+        public UpdateServiceAreaRequest Form { get; set; } = new();
+        public IReadOnlyList<AddressDto> Addresses { get; set; } = Array.Empty<AddressDto>();
+        public bool HasPin => Form.BaseLatitude is not null && Form.BaseLongitude is not null;
+        public int OpenTasksInRange { get; set; }
     }
 
     public class OrderHistoryViewModel

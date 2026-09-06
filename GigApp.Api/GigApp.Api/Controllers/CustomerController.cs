@@ -4,6 +4,7 @@ using GigApp.Api.Models;
 using GigApp.Api.Services;
 using GigApp.Api.Services.Bidding;
 using GigApp.Api.Services.Addresses;
+using GigApp.Api.Services.Geo;
 using GigApp.Api.Services.Banking;
 using GigApp.Api.Services.Profile;
 using GigApp.Api.Services.Orders;
@@ -294,6 +295,7 @@ namespace GigApp.Api.Controllers
                 Address = address.ToSingleLine(),
                 Latitude = address.Latitude,
                 Longitude = address.Longitude,
+                Location = GeoPoint.From(address.Latitude, address.Longitude),
                 Budget = service.IsInstant ? service.FixedPrice : newTask.Budget,
                 AgreedAmount = service.IsInstant ? service.FixedPrice : null,
                 BookingMode = service.IsInstant ? TaskBookingMode.Instant : TaskBookingMode.Bidding,

@@ -141,6 +141,36 @@ Both return `TaskClaimResult`, whose `Outcome` maps straight onto HTTP: `Claimed
 
 `ISupportService.RaisedMessage` is the confirmation text. Use it rather than retyping the wording.
 
+### Distance — `Services/Geo/`
+
+**Never build a `Point` by hand.** `GeoPoint.From(latitude, longitude)` is the only constructor, so
+the SRID and the longitude-first coordinate order live in one place.
+
+```csharp
+task.Location = GeoPoint.From(address.Latitude, address.Longitude);
+```
+
+| Member | Purpose |
+|---|---|
+| `GeoPoint.From(lat, lng)` | The point, or null when either half is missing. |
+| `GeoPoint.MetresPerKm` | Use it when comparing a radius in km against `Distance()`, which returns metres. |
+| `GeoPoint.Describe(km)` | "800 m away", "3.2 km away", "42 km away". Already on `GigTaskDto.DistanceLabel` and `PartnerMatchDto.DistanceLabel`. |
+| `IMatchService.RankPartnersAsync(taskId, limit)` | Candidate partners for a task, best first — distance 60%, rating 40%. |
+| `IMatchService.DistancesFromPartnerAsync(partnerId, taskIds)` | Kilometres per task from that partner's base, in one query. |
+
+Filtering in the query is what uses the GIST index — do this, rather than loading rows and measuring
+in memory:
+
+```csharp
+var radiusMetres = partner.ServiceRadiusKm * GeoPoint.MetresPerKm;
+
+query = query.Where(t => t.Location == null
+                      || t.Location.Distance(partner.BaseLocation) <= radiusMetres);
+```
+
+A row with no point is deliberately kept, not dropped — an old booking without a pin is still real
+work. Decide that explicitly every time.
+
 ### Ratings — `Services/Ratings/RatingService.cs`
 
 | Method | Purpose |

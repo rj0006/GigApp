@@ -149,6 +149,9 @@ namespace GigApp.Api.ViewModels
             Array.Empty<SkillCategoryOptionDto>();
 
         public int CountersAwaitingReply => MyBids.Count(b => b.AwaitingPartner);
+
+        public bool HasServiceArea { get; set; }
+        public int ServiceRadiusKm { get; set; }
     }
 
     public class AdminDashboardViewModel
@@ -300,6 +303,13 @@ namespace GigApp.Api.ViewModels
     public class AdminTasksViewModel
     {
         public PagedResult<GigTaskDto> Tasks { get; set; } = new();
+
+        /// <summary>Ranked partners per pending task, best first.</summary>
+        public IReadOnlyDictionary<int, IReadOnlyList<PartnerMatchDto>> Suggestions { get; set; } =
+            new Dictionary<int, IReadOnlyList<PartnerMatchDto>>();
+
+        public IReadOnlyList<PartnerMatchDto> SuggestionsFor(int taskId) =>
+            Suggestions.TryGetValue(taskId, out var list) ? list : Array.Empty<PartnerMatchDto>();
         public IReadOnlyList<SkillCategoryOptionDto> Categories { get; set; } =
             Array.Empty<SkillCategoryOptionDto>();
         public string? StatusFilter { get; set; }

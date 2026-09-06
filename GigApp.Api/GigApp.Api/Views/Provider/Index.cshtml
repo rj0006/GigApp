@@ -129,7 +129,20 @@ else
                     On a bidding job you quote your own amount and the customer decides. A
                     <strong>fixed price</strong> job has no bidding — the first partner to accept it
                     gets the work at the listed rate.
+                    @if (Model.HasServiceArea)
+                    {
+                        <text>Showing work within <strong>@Model.ServiceRadiusKm km</strong> of your base, nearest first.</text>
+                    }
                 </p>
+
+                @if (!Model.HasServiceArea)
+                {
+                    <div class="alert alert-warning small">
+                        <strong>You have not set where you work.</strong> Add a location pin under
+                        <a href="/provider/profile/area">Where you work</a> and this list will show
+                        the nearest jobs first and drop the ones too far to be worth the trip.
+                    </div>
+                }
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
                         <thead>
@@ -155,7 +168,13 @@ else
                                     }
                                 </td>
                                 <td class="small">@task.Description</td>
-                                <td class="small text-secondary">@task.Address</td>
+                                <td class="small text-secondary">
+                                    @task.Address
+                                    @if (task.DistanceKm is not null)
+                                    {
+                                        <div class="badge text-bg-light border mt-1">@task.DistanceLabel</div>
+                                    }
+                                </td>
                                 <td>
                                     <span class="fw-semibold">₹@task.EffectiveAmount.ToString("N0")</span>
                                     <div class="small text-secondary">@(task.IsInstant ? "fixed" : "budget")</div>

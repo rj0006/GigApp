@@ -154,16 +154,14 @@ third because payments and SMS are what create the jobs.
 | **Depends on** | The Flutter apps existing, so it lands with the mobile phase |
 | **Note** | The **notification preferences** screen has no meaning until this exists — see the section below |
 
-### 5. Geo matching — PostGIS
+### 5. Geo matching — PostGIS — **done**
 
 | | |
 |---|---|
-| **What** | Enable the PostGIS extension, store a `geography(Point)` alongside the existing lat/lon |
+| **What** | PostGIS enabled; `GigTasks.Location` and `Partners.BaseLocation` are `geography(Point, 4326)` with GIST indexes, backfilled from the existing coordinates |
 | **Why** | "Nearest partner" is the assignment algorithm. Computing distance in C# over every partner does not survive a few thousand rows |
-| **Ready for it** | Addresses and `Partner.BaseLatitude` / `BaseLongitude` / `ServiceRadiusKm` already exist |
-| **Cost of waiting** | Low. `earthdistance` works for a first version; PostGIS is the upgrade when radius searches get slow |
-
-This is the one item that can be deferred safely. Phase A's distance query can ship without it.
+| **What it drives** | The partner's board filters by their own radius and sorts by distance; `/admin/tasks` offers a shortlist ranked on distance and rating |
+| **Still open** | Automatic assignment. The ranking exists but a human picks, because switching it on needs a notification channel and an acceptance window for when the best partner does not answer — item 1 and item 4 below |
 
 ### 6. File storage — object storage instead of local disk
 
@@ -179,12 +177,16 @@ This is the one item that can be deferred safely. Phase A's distance query can s
 ### Suggested order
 
 1. **Start DLT registration now** — it runs in the background while everything else is built
-2. Ratings (Phase B) — needed as an input to assignment
-3. The **money ledger**, then Razorpay on top of it
-4. Hangfire, once there are scheduled payouts to run
-5. Object storage, before real KYC documents arrive
-6. FCM and the notification screens, with the Flutter phase
-7. PostGIS, when radius search gets slow
+2. ~~Ratings~~ — **done**, and feeding the match score
+3. ~~PostGIS~~ — **done**, and feeding the match score
+4. The **money ledger** — done; Razorpay on top of it is next
+5. Hangfire, once there are scheduled payouts to run
+6. Object storage, before real KYC documents arrive
+7. FCM and the notification screens, with the Flutter phase
+
+Both inputs to assignment now exist. What still blocks automatic assignment is not the algorithm —
+it is having somewhere to send the offer (FCM or SMS) and a rule for what happens when nobody
+answers. Build the channel first; the auto-assign is small once it is there.
 
 ---
 

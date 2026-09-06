@@ -1,3 +1,5 @@
+using NetTopologySuite.Geometries;
+
 namespace GigApp.Api.Models
 {
     public class GigTask
@@ -46,6 +48,8 @@ namespace GigApp.Api.Models
         /// </summary>
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
+
+        public Point? Location { get; set; }
 
         /// <summary>
         /// What the customer expects to pay. Indicative only — partners bid

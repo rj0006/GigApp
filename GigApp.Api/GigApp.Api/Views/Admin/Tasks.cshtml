@@ -125,18 +125,61 @@
                                     <span class="text-body">@task.Address</span> ·
                                     @task.CategoryName · <strong>₹@task.EffectiveAmount.ToString("N0")</strong>
                                 </p>
-                                <div class="mb-3">
-                                    <label for="partner-picker-@task.Id" class="form-label required">Partner</label>
-                                    <input id="partner-picker-@task.Id" class="form-control"
-                                           placeholder="Search by name or mobile"
-                                           data-master="assignable-partner" data-target="partner-id-@task.Id"
-                                           data-parent="task-category-@task.Id" data-alert="partner" />
-                                    <input type="hidden" id="task-category-@task.Id" value="@task.CategoryId" />
-                                    <input type="hidden" id="partner-id-@task.Id" name="partnerId" value="" />
-                                    <div class="form-text">
-                                        Only approved partners working in @task.CategoryName are listed.
+                                @{ var ranked = Model.SuggestionsFor(task.Id); }
+
+                                @if (ranked.Count > 0)
+                                {
+                                    <div class="mb-3">
+                                        <label class="form-label">Best matches</label>
+                                        <div class="list-group match-list">
+                                            @foreach (var match in ranked)
+                                            {
+                                                <label class="list-group-item d-flex align-items-center gap-2">
+                                                    <input class="form-check-input m-0" type="radio"
+                                                           name="partnerId" value="@match.PartnerId" required />
+                                                    <span class="flex-grow-1">
+                                                        <span class="fw-semibold">@match.Name</span>
+                                                        <span class="mono small text-secondary">@match.Phone</span>
+                                                        <span class="d-block small">
+                                                            <partial name="_Stars" model="match.RoundedRating" />
+                                                            @if (match.RatingCount > 0)
+                                                            {
+                                                                <span class="text-secondary">@match.AverageRating!.Value.ToString("0.0") · @match.RatingCount</span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="text-secondary">no ratings yet</span>
+                                                            }
+                                                        </span>
+                                                    </span>
+                                                    <span class="text-end small">
+                                                        <span class="badge @(match.HasLocation ? "text-bg-light border" : "text-bg-warning")">
+                                                            @match.DistanceLabel
+                                                        </span>
+                                                        @if (match.IsOutOfRange)
+                                                        {
+                                                            <div class="text-warning-emphasis">past their @match.ServiceRadiusKm km limit</div>
+                                                        }
+                                                        @if (!match.IsAvailable)
+                                                        {
+                                                            <div class="text-secondary">off duty</div>
+                                                        }
+                                                    </span>
+                                                </label>
+                                            }
+                                        </div>
+                                        <div class="form-text">
+                                            Ranked by distance and rating. Anyone past their own travel
+                                            limit or off duty is pushed down, not hidden.
+                                        </div>
                                     </div>
-                                </div>
+                                }
+                                else
+                                {
+                                    <div class="alert alert-warning small">
+                                        No approved partner works in @task.CategoryName yet.
+                                    </div>
+                                }
                                 <div>
                                     <label for="assign-note-@task.Id" class="form-label required">Why this partner</label>
                                     <textarea id="assign-note-@task.Id" name="note" class="form-control" rows="2"

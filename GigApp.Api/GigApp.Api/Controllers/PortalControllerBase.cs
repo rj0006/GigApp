@@ -189,6 +189,9 @@ namespace GigApp.Api.Controllers
         private static readonly string[] CustomerOnlySections =
             { ProfileSections.PostTask, ProfileSections.Tasks };
 
+        private static readonly string[] PartnerOnlySections =
+            { ProfileSections.ServiceArea };
+
         private static readonly string[] BookingSections =
             { ProfileSections.Bank, ProfileSections.Addresses, ProfileSections.Orders };
 
@@ -196,7 +199,8 @@ namespace GigApp.Api.Controllers
         // delivery address and an order history mean nothing on their account.
         private static bool SectionApplies(string section, string role) =>
             (!UserRoles.IsAdminRole(role) || !BookingSections.Contains(section))
-            && (role == UserRoles.Customer || !CustomerOnlySections.Contains(section));
+            && (role == UserRoles.Customer || !CustomerOnlySections.Contains(section))
+            && (role == UserRoles.Partner || !PartnerOnlySections.Contains(section));
 
         private async Task<OrderHistoryViewModel> LoadOrdersAsync(int userId, CancellationToken ct)
         {
@@ -266,6 +270,7 @@ namespace GigApp.Api.Controllers
                     ? await LoadOrdersAsync(userId, ct)
                     : null,
                 Work = extras.Work,
+                ServiceArea = extras.ServiceArea,
                 Addresses = section == ProfileSections.Addresses
                     ? new AddressBookViewModel
                       {

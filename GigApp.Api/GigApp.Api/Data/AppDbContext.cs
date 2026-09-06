@@ -322,6 +322,9 @@ namespace GigApp.Api.Data
                 e.Property(p => p.BasePincode).HasMaxLength(6);
                 e.Ignore(p => p.HasServiceArea);
 
+                e.Property(p => p.BaseLocation).HasColumnType("geography (point, 4326)");
+                e.HasIndex(p => p.BaseLocation).HasMethod("gist");
+
                 e.HasOne(p => p.SkillCategory)
                  .WithMany(c => c.Partners)
                  .HasForeignKey(p => p.SkillCategoryId)
@@ -466,6 +469,12 @@ namespace GigApp.Api.Data
                  .WithMany()
                  .HasForeignKey(t => t.AssignedByUserId)
                  .OnDelete(DeleteBehavior.SetNull);
+
+                e.Property(t => t.Location).HasColumnType("geography (point, 4326)");
+
+                // Matching asks "which open tasks are near this partner", so the
+                // spatial index only earns its keep alongside the status filter.
+                e.HasIndex(t => t.Location).HasMethod("gist");
 
                 // The "available tasks" feed filters on Status and sorts by CreatedAt.
                 e.HasIndex(t => new { t.Status, t.CreatedAt });

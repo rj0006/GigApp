@@ -1,3 +1,5 @@
+using NetTopologySuite.Geometries;
+
 namespace GigApp.Api.Models
 {
     /// <summary>
@@ -43,6 +45,8 @@ namespace GigApp.Api.Models
 
         public double? BaseLatitude { get; set; }
         public double? BaseLongitude { get; set; }
+
+        public Point? BaseLocation { get; set; }
 
         /// <summary>How far the partner is willing to travel, in kilometres.</summary>
         public int ServiceRadiusKm { get; set; } = 10;

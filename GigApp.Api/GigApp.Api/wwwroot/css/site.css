@@ -470,3 +470,10 @@ body {
 .catalog-name { font-weight: 600; font-size: .92rem; }
 .catalog-meta { font-size: .74rem; color: #7a8496; }
 .catalog-price { font-size: .74rem; color: #146c43; font-weight: 600; }
+
+.match-list { max-height: 19rem; overflow-y: auto; }
+.match-list .list-group-item { cursor: pointer; }
+.match-list .list-group-item:has(input:checked) {
+    background: #eef4ff;
+    border-color: #b9c6ff;
+}

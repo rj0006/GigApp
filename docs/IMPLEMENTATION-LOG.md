@@ -9,6 +9,51 @@ developer can call the same thing.
 
 ---
 
+## 2026-09-06 — Distance is real, and partners are ranked by it
+
+**Asked:** start on distance and PostGIS.
+
+**Rule.** PostGIS is enabled and distance is measured on `geography(Point, 4326)` columns, so it is
+metres over the earth rather than a flat approximation of degrees. Two tables carry a point:
+
+| Column | Meaning |
+|---|---|
+| `GigTasks.Location` | Where the work is. Snapshotted at booking from the chosen address, exactly like the existing latitude and longitude. |
+| `Partners.BaseLocation` | Where the partner sets out from. Moves when they move — it is not history. |
+
+Both have a **GIST index**, and the migration backfilled every existing row from the coordinates
+already stored, so matching worked on day one rather than only for bookings made afterwards.
+
+- **`GeoPoint.From(lat, lng)` is the only place a point is constructed.** PostGIS takes X then Y,
+  which is longitude then latitude; swapping them silently puts Gurugram in the Indian Ocean, so
+  the order is decided once and never repeated.
+- **A partner sets their own service area** at `/provider/profile/area` — a pin plus a radius
+  between 1 and 100 km, captured from the browser or copied from one of their saved addresses. Half
+  a pin is refused: a latitude without a longitude is not a location.
+- **The board filters by that radius and sorts by distance.** PostGIS drops out-of-range work in the
+  query, so it never loads. A task with **no** pin stays in — an old booking without one is still
+  worth doing — and a partner with no pin still sees everything, with a prompt to set one. Urgency
+  still wins over distance: a same-day job nearby beats a flexible one next door.
+- **`/admin/tasks` now suggests partners rather than asking support to search.** `IMatchService.RankPartnersAsync`
+  returns the shortlist for a pending task, best first.
+
+**How the ranking scores.** Distance is 60% of it and rating 40%, because a plumber four kilometres
+away with no ratings is a better answer than a five-star one across the city.
+
+- Distance bands: within 2 km scores full, then 5, 10 and 20 km step down, beyond that it is nearly
+  nothing. **No pin scores 0.35** — below anyone who has one, but never hidden.
+- An **unrated partner sits at the midpoint**, not at zero, or nobody new would ever be picked.
+  Confidence ramps over the first ten ratings, so one lucky five-star does not beat a steady record.
+- Past their own travel limit multiplies by 0.4; off duty by 0.5. Both are **pushed down, never
+  filtered out** — support may still have a reason to pick them, and hiding the option would hide
+  the reason too.
+
+**Automatic assignment is still not switched on.** The ranking exists and support picks from it, so
+a human is still the decider. Turning it on needs a notification channel and an acceptance window —
+what happens when the best partner does not answer — and neither is built.
+
+---
+
 ## 2026-09-06 — The customer home page is a catalogue, and the work moved into the profile
 
 **Asked:** move Post a task and My tasks out of the customer dashboard into the profile menu, turn
