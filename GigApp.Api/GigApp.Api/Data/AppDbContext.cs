@@ -14,6 +14,7 @@ namespace GigApp.Api.Data
         public DbSet<TrackingLog> TrackingLogs => Set<TrackingLog>();
         public DbSet<TaskBid> TaskBids => Set<TaskBid>();
         public DbSet<TaskRating> TaskRatings => Set<TaskRating>();
+        public DbSet<SupportEnquiry> SupportEnquiries => Set<SupportEnquiry>();
         public DbSet<ServiceItem> ServiceItems => Set<ServiceItem>();
         public DbSet<Address> Addresses => Set<Address>();
         public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
@@ -373,6 +374,48 @@ namespace GigApp.Api.Data
 
                     t.HasCheckConstraint(
                         "CK_TaskRatings_RaterRole", "\"RaterRole\" IN ('customer','partner')");
+                });
+            });
+
+            modelBuilder.Entity<SupportEnquiry>(e =>
+            {
+                e.Property(s => s.RaisedByRole).HasMaxLength(20).IsRequired();
+                e.Property(s => s.Topic).HasMaxLength(30).IsRequired();
+                e.Property(s => s.Message).HasMaxLength(1000).IsRequired();
+                e.Property(s => s.Status).HasMaxLength(20).IsRequired();
+                e.Property(s => s.Resolution).HasMaxLength(1000);
+
+                e.HasOne(s => s.GigTask)
+                 .WithMany(t => t.Enquiries)
+                 .HasForeignKey(s => s.GigTaskId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(s => s.RaisedByUser)
+                 .WithMany()
+                 .HasForeignKey(s => s.RaisedByUserId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(s => s.ResolvedByUser)
+                 .WithMany()
+                 .HasForeignKey(s => s.ResolvedByUserId)
+                 .OnDelete(DeleteBehavior.SetNull);
+
+                e.HasIndex(s => new { s.Status, s.CreatedAt });
+                e.HasIndex(s => new { s.GigTaskId, s.RaisedByUserId });
+
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint(
+                        "CK_SupportEnquiries_Status",
+                        "\"Status\" IN ('open','in_progress','resolved')");
+
+                    t.HasCheckConstraint(
+                        "CK_SupportEnquiries_Topic",
+                        "\"Topic\" IN ('payment','quality','behaviour','timing','other')");
+
+                    t.HasCheckConstraint(
+                        "CK_SupportEnquiries_RaisedByRole",
+                        "\"RaisedByRole\" IN ('customer','partner')");
                 });
             });
 

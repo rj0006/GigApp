@@ -1,0 +1,104 @@
+@model ProfilePageViewModel
+@{
+    var work = Model.Work ?? new CustomerDashboardViewModel();
+}
+
+<div class="card">
+    <div class="card-body">
+        <h2 class="h6 mb-1">Post a task</h2>
+        <p class="text-secondary small">
+            Tell us what needs doing and where. A fixed-price service is booked at the listed rate;
+            everything else goes out for partner quotes.
+        </p>
+
+        <form method="post" action="/customer/tasks" class="gig-form row g-3">
+            @Html.AntiForgeryToken()
+
+            <div class="col-md-6">
+                <label for="CategoryPicker" class="form-label required">Category</label>
+                <input id="CategoryPicker" class="form-control" placeholder="Start typing to choose"
+                       value="@work.PresetCategoryName"
+                       data-master="skill-category" data-target="CategoryId" data-alert="category" />
+                <input type="hidden" id="CategoryId" name="CategoryId" value="@work.PresetCategoryId" />
+            </div>
+
+            <div class="col-md-6">
+                <label for="ServicePicker" class="form-label required">Service</label>
+                <input id="ServicePicker" class="form-control" placeholder="Pick a category first"
+                       data-master="service-item" data-target="ServiceItemId"
+                       data-parent="CategoryId" data-alert="service"
+                       data-price-field="Budget" data-price-note="budget-note"
+                       data-price-fixed-note="Fixed price for this service. The first available partner takes it, so there is no bidding." />
+                <input type="hidden" id="ServiceItemId" name="ServiceItemId" value="" />
+            </div>
+
+            <div class="col-md-6">
+                <label for="Budget" class="form-label required">Budget (₹)</label>
+                <input id="Budget" name="Budget" type="number" min="0" step="50"
+                       class="form-control" required value="500" />
+                <div id="budget-note" class="form-text">Partners bid against this.</div>
+            </div>
+
+            <div class="col-md-6">
+                <label for="Urgency" class="form-label required">How soon?</label>
+                <select id="Urgency" name="Urgency" class="form-select" required>
+                    <option value="@TaskUrgency.Urgent">Urgent — today</option>
+                    <option value="@TaskUrgency.Normal" selected>Normal — in a few days</option>
+                    <option value="@TaskUrgency.Flexible">Flexible — no rush</option>
+                </select>
+                <div class="form-text">Urgent tasks show first to partners.</div>
+            </div>
+
+            <div class="col-12">
+                <label for="Description" class="form-label required">What needs doing?</label>
+                <textarea id="Description" name="Description" class="form-control" rows="3" required
+                          minlength="5" placeholder="Deep clean a 2BHK flat, including kitchen and balcony"></textarea>
+            </div>
+
+            <div class="col-md-6">
+                <label for="AddressId" class="form-label required">Where is it needed?</label>
+                @if (work.Addresses.Count == 0)
+                {
+                    <div class="alert alert-warning small mb-0">
+                        You have no saved addresses yet.
+                        <button type="button" class="btn btn-sm btn-warning ms-1"
+                                data-bs-toggle="modal" data-bs-target="#address-modal-new">
+                            Add one now
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <select id="AddressId" name="AddressId" class="form-select" required>
+                        @foreach (var address in work.Addresses)
+                        {
+                            <option value="@address.Id" selected="@address.IsDefault">
+                                @address.Label — @address.SingleLine@(address.HasCoordinates ? "" : "  (no pin)")
+                            </option>
+                        }
+                    </select>
+                    <div class="form-text">
+                        <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none"
+                                data-bs-toggle="modal" data-bs-target="#address-modal-new">
+                            + Add another address
+                        </button>
+                        ·
+                        <a href="@Model.SectionPath(ProfileSections.Addresses)">Manage addresses</a>
+                    </div>
+                }
+            </div>
+
+            <div class="col-md-6">
+                <label for="PreferredDateTime" class="form-label">Preferred date &amp; time</label>
+                <input id="PreferredDateTime" name="PreferredDateTime" type="datetime-local" class="form-control" />
+            </div>
+
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">Post task</button>
+                <a class="btn btn-outline-secondary" href="/customer">Browse services</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<partial name="_AddAddressModal" model="@("customer")" />

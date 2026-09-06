@@ -9,6 +9,65 @@ developer can call the same thing.
 
 ---
 
+## 2026-09-06 — The customer home page is a catalogue, and the work moved into the profile
+
+**Asked:** move Post a task and My tasks out of the customer dashboard into the profile menu, turn
+the dashboard into a list of service categories with images, and give a category an image.
+
+**Rule.** `/customer` is now a catalogue and nothing else. It lists every **active** category as a
+tile carrying its image, how many active services sit under it, and the lowest fixed price among
+them ("From ₹450"), shown only when that category has at least one instant-bookable service. A tile
+links to `/customer/profile/post?categoryId=N`, which preselects the category on the booking form.
+
+The customer profile menu now runs: Profile · **Post a task** · **My tasks** · **Order history** ·
+Account details · My addresses · Manage devices · Settings.
+
+- **My tasks shows only live work** — pending, accepted or in progress. Anything completed or
+  cancelled belongs to Order history, so the two never show the same row.
+- Every task and bid action now returns to `/customer/profile/tasks`, and rating returns to
+  `/customer/profile/orders`. Landing back on the catalogue after cancelling a task would hide the
+  result of what was just done.
+- Posting a task and My tasks are **customer-only sections**. A partner takes work rather than
+  posting it, and `SectionApplies` refuses those two paths for anyone else.
+
+`SkillCategory.ImageFileName` holds the artwork, uploaded through the standard image component on
+the category form and stored in the new public `FileCategory.CategoryImage` folder. A category with
+no image falls back to its first letter on a tinted tile, so the catalogue never has a hole in it.
+
+---
+
+## 2026-09-06 — Order history, and a support enquiry against one order
+
+**Asked:** show all orders in the profile for both the customer and the partner, with a "need help"
+button per order, and an enquiry screen in the admin panel carrying a resolution status.
+
+**Rule — order history.** `/{portal}/profile/orders` renders the same list for both sides;
+`IOrderHistoryService.ForUserAsync` decides the filter from the role and nothing else. Paged, with a
+search box and a status filter. An administrator has no order history — they neither book nor work.
+
+**Rule — enquiries.** `SupportEnquiry` is raised against exactly one order.
+
+| Rule | Detail |
+|---|---|
+| Who may raise one | Only the customer on that task or the partner assigned to it. |
+| Topic | `payment`, `quality`, `behaviour`, `timing` or `other`, backed by a check constraint. |
+| Message | At least ten characters. "Help" tells the support team nothing. |
+| One at a time | A second enquiry is refused while that person still has one open on the same order — the answer belongs on the existing thread. |
+| Status | `open → in_progress → resolved`. |
+| Resolving | **Requires a reply.** It is the only thing the person who raised it ever sees. |
+| Re-resolving | Refused. A resolved enquiry is closed; a new problem is a new enquiry. |
+
+On success the person is told **"We have noted your complaint. Our team will connect with you
+shortly."** along with a reference of the form `SUP-42`, which is what they quote on a call.
+
+`/admin/enquiries` lists them **open first, then being looked at, then resolved**, newest within
+each — a resolved enquiry is waiting on nobody and must not push live work down the page. The
+sidebar badge counts open **and** in-progress, because both are still the support team's problem.
+
+Both sides see the status and, once resolved, the reply, in their own order history.
+
+---
+
 ## 2026-09-06 — One image component for every upload
 
 **Asked:** the "select image" control is very old; build one reusable, modern component, because

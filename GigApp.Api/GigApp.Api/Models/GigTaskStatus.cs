@@ -15,6 +15,9 @@ namespace GigApp.Api.Models
         public static readonly string[] All =
             { Pending, Accepted, InProgress, Completed, Cancelled };
 
+        /// <summary>Still live. Usable in a query, unlike <see cref="IsOpen"/>.</summary>
+        public static readonly string[] Open = { Pending, Accepted, InProgress };
+
         /// <summary>Which statuses a task may move to from its current one.</summary>
         private static readonly Dictionary<string, string[]> Transitions = new()
         {

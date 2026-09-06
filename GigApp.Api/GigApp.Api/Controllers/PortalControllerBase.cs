@@ -3,7 +3,10 @@ using GigApp.Api.Models;
 using GigApp.Api.Services;
 using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Banking;
+using GigApp.Api.Services.Orders;
 using GigApp.Api.Services.Profile;
+using GigApp.Api.Services.Ratings;
+using GigApp.Api.Services.Support;
 using GigApp.Api.Services.Tracking;
 using GigApp.Api.ViewModels;
 using Microsoft.AspNetCore.Authorization;
@@ -24,17 +27,26 @@ namespace GigApp.Api.Controllers
         protected readonly IProfileService ProfileService;
         protected readonly IAddressService AddressService;
         protected readonly IBankAccountService BankAccounts;
+        protected readonly IOrderHistoryService OrderHistory;
+        protected readonly ISupportService Support;
+        protected readonly IRatingService Ratings;
 
         protected PortalControllerBase(
             IAuthService authService,
             IProfileService profileService,
             IAddressService addressService,
-            IBankAccountService bankAccounts)
+            IBankAccountService bankAccounts,
+            IOrderHistoryService orderHistory,
+            ISupportService support,
+            IRatingService ratings)
         {
             AuthService = authService;
             ProfileService = profileService;
             AddressService = addressService;
             BankAccounts = bankAccounts;
+            OrderHistory = orderHistory;
+            Support = support;
+            Ratings = ratings;
         }
 
         protected string ProfilePath => $"/{PortalSlug}/profile";
@@ -92,6 +104,52 @@ namespace GigApp.Api.Controllers
         public Task<IActionResult> ProfileAddresses(CancellationToken ct) =>
             ProfileSectionAsync(ProfileSections.Addresses, ct);
 
+        [HttpGet("profile/orders")]
+        [Authorize]
+        public Task<IActionResult> ProfileOrders(CancellationToken ct) =>
+            ProfileSectionAsync(ProfileSections.Orders, ct);
+
+        [HttpGet("profile/post")]
+        [Authorize]
+        public Task<IActionResult> ProfilePostTask(CancellationToken ct) =>
+            ProfileSectionAsync(ProfileSections.PostTask, ct);
+
+        [HttpGet("profile/tasks")]
+        [Authorize]
+        public Task<IActionResult> ProfileTasks(CancellationToken ct) =>
+            ProfileSectionAsync(ProfileSections.Tasks, ct);
+
+        [HttpPost("orders/{id:int}/help")]
+        [Authorize]
+        [ValidateAntiForgeryToken]
+        [TrackForm("SupportEnquiry")]
+        public async Task<IActionResult> RaiseEnquiry(
+            int id, RaiseEnquiryRequest form, CancellationToken ct)
+        {
+            var ordersPath = $"{ProfilePath}/{ProfileSections.Orders}";
+
+            if (!ModelState.IsValid)
+            {
+                TempData["Error"] = FirstError();
+                return Redirect(ordersPath);
+            }
+
+            var result = await Support.RaiseAsync(
+                User.GetRequiredUserId(), RequiredRole, id, form, ct);
+
+            if (result.Succeeded)
+            {
+                TrackDoc(result.Enquiry!.Id, result.Enquiry);
+                TempData["Success"] = $"{ISupportService.RaisedMessage} Your reference is {result.Enquiry.Reference}.";
+            }
+            else
+            {
+                TempData["Error"] = result.Error;
+            }
+
+            return Redirect(ordersPath);
+        }
+
         [HttpGet("profile/settings")]
         [Authorize]
         public Task<IActionResult> ProfileSettings(CancellationToken ct) =>
@@ -128,11 +186,39 @@ namespace GigApp.Api.Controllers
         protected virtual Task<ProfileExtras> LoadProfileExtrasAsync(
             string section, CancellationToken ct) => Task.FromResult(new ProfileExtras());
 
-        // An administrator is never paid and never booked, so a bank account and
-        // a delivery address mean nothing on their account.
+        private static readonly string[] CustomerOnlySections =
+            { ProfileSections.PostTask, ProfileSections.Tasks };
+
+        private static readonly string[] BookingSections =
+            { ProfileSections.Bank, ProfileSections.Addresses, ProfileSections.Orders };
+
+        // An administrator is never paid and never booked, so a bank account, a
+        // delivery address and an order history mean nothing on their account.
         private static bool SectionApplies(string section, string role) =>
-            !UserRoles.IsAdminRole(role)
-            || (section != ProfileSections.Bank && section != ProfileSections.Addresses);
+            (!UserRoles.IsAdminRole(role) || !BookingSections.Contains(section))
+            && (role == UserRoles.Customer || !CustomerOnlySections.Contains(section));
+
+        private async Task<OrderHistoryViewModel> LoadOrdersAsync(int userId, CancellationToken ct)
+        {
+            var paging = new PageRequest
+            {
+                Page = int.TryParse(Request.Query["page"], out var page) ? page : 1,
+                Search = Request.Query["search"].ToString(),
+            };
+
+            var status = Request.Query["status"].ToString();
+            var orders = await OrderHistory.ForUserAsync(userId, RequiredRole, paging, status, ct);
+            var ids = orders.Items.Select(o => o.Id).ToList();
+
+            return new OrderHistoryViewModel
+            {
+                Orders = orders,
+                StatusFilter = status,
+                PortalSlug = PortalSlug,
+                MyRatings = await Ratings.ForTasksAsync(ids, RequiredRole, ct),
+                Enquiries = await Support.LatestForTasksAsync(userId, ids, ct),
+            };
+        }
 
         protected async Task<IActionResult> ProfileSectionAsync(string section, CancellationToken ct)
         {
@@ -176,6 +262,10 @@ namespace GigApp.Api.Controllers
                 Partner = extras.Partner,
                 KycHistory = extras.KycHistory,
                 Earnings = extras.Earnings,
+                Orders = section == ProfileSections.Orders
+                    ? await LoadOrdersAsync(userId, ct)
+                    : null,
+                Work = extras.Work,
                 Addresses = section == ProfileSections.Addresses
                     ? new AddressBookViewModel
                       {

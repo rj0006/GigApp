@@ -8,6 +8,9 @@ namespace GigApp.Api.Dtos
         public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
+        public string? ImageFileName { get; set; }
+        public string? ImageUrl =>
+            string.IsNullOrWhiteSpace(ImageFileName) ? null : $"/uploads/category/{ImageFileName}";
         public bool IsActive { get; set; }
         public int DisplayOrder { get; set; }
         public DateTime CreatedAt { get; set; }
@@ -24,6 +27,7 @@ namespace GigApp.Api.Dtos
             Id = category.Id,
             Name = category.Name,
             Description = category.Description,
+            ImageFileName = category.ImageFileName,
             IsActive = category.IsActive,
             DisplayOrder = category.DisplayOrder,
             CreatedAt = category.CreatedAt,
@@ -54,5 +58,8 @@ namespace GigApp.Api.Dtos
         [Range(0, 9999)]
         [Display(Name = "Display order")]
         public int DisplayOrder { get; set; }
+
+        [Display(Name = "Category image")]
+        public IFormFile? Image { get; set; }
     }
 }

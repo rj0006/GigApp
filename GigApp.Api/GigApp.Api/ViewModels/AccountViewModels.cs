@@ -101,11 +101,32 @@ namespace GigApp.Api.ViewModels
         public IReadOnlyDictionary<int, TaskRatingDto> MyRatings { get; set; } =
             new Dictionary<int, TaskRatingDto>();
 
+        /// <summary>Set when the customer arrived from a catalogue tile.</summary>
+        public int? PresetCategoryId { get; set; }
+
+        public string? PresetCategoryName =>
+            Categories.FirstOrDefault(c => c.Id == PresetCategoryId)?.Name;
+
         public TaskRatingDto? RatingFor(int taskId) =>
             MyRatings.TryGetValue(taskId, out var rating) ? rating : null;
 
         public IReadOnlyList<BidDto> BidsFor(int taskId) =>
             BidsByTask.TryGetValue(taskId, out var bids) ? bids : Array.Empty<BidDto>();
+    }
+
+    public class CatalogCategoryViewModel
+    {
+        public SkillCategoryDto Category { get; set; } = new();
+        public int ServiceCount { get; set; }
+        public decimal? StartingFrom { get; set; }
+    }
+
+    public class CustomerCatalogViewModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public IReadOnlyList<CatalogCategoryViewModel> Categories { get; set; } =
+            Array.Empty<CatalogCategoryViewModel>();
+        public int OpenTaskCount { get; set; }
     }
 
     public class ProviderDashboardViewModel
@@ -270,6 +291,12 @@ namespace GigApp.Api.ViewModels
         public string? Search { get; set; }
     }
 
+    public class AdminEnquiriesViewModel
+    {
+        public PagedResult<SupportEnquiryDto> Enquiries { get; set; } = new();
+        public string? StatusFilter { get; set; }
+    }
+
     public class AdminTasksViewModel
     {
         public PagedResult<GigTaskDto> Tasks { get; set; } = new();
@@ -326,6 +353,8 @@ namespace GigApp.Api.ViewModels
 
         public bool IsEdit => Id is not null;
         public string Heading => IsEdit ? "Edit category" : "New category";
+
+        public string? ImageUrl { get; set; }
 
         /// <summary>Set on edit so the form can warn before deactivating something in use.</summary>
         public int PartnerCount { get; set; }

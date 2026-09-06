@@ -66,6 +66,8 @@ namespace GigApp.Api.Models
 
         public ICollection<TaskRating> Ratings { get; set; } = new List<TaskRating>();
 
+        public ICollection<SupportEnquiry> Enquiries { get; set; } = new List<SupportEnquiry>();
+
         /// <summary>How soon this is needed — see <see cref="TaskUrgency"/>.</summary>
         public string Urgency { get; set; } = TaskUrgency.Normal;
 

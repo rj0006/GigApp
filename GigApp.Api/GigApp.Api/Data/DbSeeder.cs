@@ -143,7 +143,11 @@ namespace GigApp.Api.Data
 
         private static async Task SeedMenuAsync(AppDbContext context, ILogger logger, CancellationToken ct)
         {
-            if (await context.MenuItems.AnyAsync(ct)) return;
+            if (await context.MenuItems.AnyAsync(ct))
+            {
+                await AddMissingMenuItemsAsync(context, logger, ct);
+                return;
+            }
 
             var dashboard = new MenuItem
             {
@@ -182,6 +186,7 @@ namespace GigApp.Api.Data
                 new MenuItem { Label = "Administrators", ControllerName = "Admin", ActionName = "Admins", Icon = "◕", SortOrder = 3, ParentId = groups["User management"].Id },
                 new MenuItem { Label = "My profile", ControllerName = "Admin", ActionName = "Profile", Icon = "☻", SortOrder = 1, ParentId = groups["Account"].Id },
                 new MenuItem { Label = "Tasks", ControllerName = "Admin", ActionName = "Tasks", Icon = "▤", SortOrder = 1, ParentId = groups["Operations"].Id },
+                new MenuItem { Label = "Support enquiries", ControllerName = "Admin", ActionName = "Enquiries", Icon = "☎", SortOrder = 4, ParentId = groups["Operations"].Id, BadgeKey = MenuBadgeKeys.OpenEnquiries },
                 new MenuItem { Label = "Partner payouts", ControllerName = "Admin", ActionName = "Payouts", Icon = "₹", SortOrder = 2, ParentId = groups["Money"].Id },
                 new MenuItem { Label = "Error log", ControllerName = "Admin", ActionName = "Errors", Icon = "⚠", SortOrder = 3, ParentId = groups["Operations"].Id, Visibility = MenuVisibility.SuperAdmin },
                 new MenuItem { Label = "API reference", Url = "/swagger", Icon = "↗", SortOrder = 2, ParentId = groups["Operations"].Id, OpensInNewTab = true },
@@ -191,6 +196,50 @@ namespace GigApp.Api.Data
             await context.SaveChangesAsync(ct);
 
             logger.LogInformation("Seeded {Count} admin menu items", leaves.Length + groups.Count + 1);
+        }
+
+        // The bulk seed runs only on an empty table, so a screen added later
+        // would never appear on a database that already has a menu.
+        private static async Task AddMissingMenuItemsAsync(
+            AppDbContext context, ILogger logger, CancellationToken ct)
+        {
+            var wanted = new[]
+            {
+                (Group: "Operations", Item: new MenuItem
+                {
+                    Label = "Support enquiries",
+                    ControllerName = "Admin",
+                    ActionName = "Enquiries",
+                    Icon = "☎",
+                    SortOrder = 4,
+                    BadgeKey = MenuBadgeKeys.OpenEnquiries,
+                }),
+            };
+
+            var added = 0;
+
+            foreach (var (groupLabel, item) in wanted)
+            {
+                var exists = await context.MenuItems.AnyAsync(
+                    m => m.ControllerName == item.ControllerName
+                      && m.ActionName == item.ActionName, ct);
+
+                if (exists) continue;
+
+                var group = await context.MenuItems.FirstOrDefaultAsync(
+                    m => m.Label == groupLabel && m.ParentId == null, ct);
+
+                if (group is null) continue;
+
+                item.ParentId = group.Id;
+                context.MenuItems.Add(item);
+                added++;
+            }
+
+            if (added == 0) return;
+
+            await context.SaveChangesAsync(ct);
+            logger.LogInformation("Added {Count} missing admin menu items", added);
         }
 
         private static async Task SeedServiceItemsAsync(AppDbContext context, ILogger logger, CancellationToken ct)

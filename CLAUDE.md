@@ -161,11 +161,28 @@ create a dead link. Two levels deep, no more. `BadgeKey` names a counter the app
 to compute — adding one means a `MenuBadgeKeys` constant and a line in `_AdminLayout`.
 
 **Profile is a section shell, not one page.** `/{portal}/profile` renders `_ProfileBody`, which draws
-the left menu and switches on `ProfilePageViewModel.Section`. Sections: Profile, Account details
-(bank), My addresses, My earnings and KYC (both partners only), Manage devices (disabled — no session table to revoke
-against yet) and Settings, which is where password change lives. Adding one means a
-`ProfileSections` constant, a row in the menu list, a partial, and a `GET` on `PortalControllerBase`. A portal supplies extra data by
-overriding `LoadProfileExtrasAsync` — that is how the partner portal adds its KYC.
+the left menu and switches on `ProfilePageViewModel.Section`. Sections: Profile, Post a task and My
+tasks (customers only), Order history, Account details (bank), My addresses, My earnings and KYC
+(both partners only), Manage devices (disabled — no session table to revoke against yet) and
+Settings, which is where password change lives. Adding one means a `ProfileSections` constant, a row
+in the menu list, a partial, and a `GET` on `PortalControllerBase`. A portal supplies extra data by
+overriding `LoadProfileExtrasAsync` — that is how the partner portal adds its KYC and the customer
+portal adds its booking form. `SectionApplies` is the one place that decides which role sees what.
+
+**The customer home page is a catalogue; the work lives in the profile.** `/customer` lists active
+categories as image tiles and does nothing else — a tile links to the booking form with that category
+preselected. Posting, tracking and history are profile sections, so every task action redirects into
+the profile rather than back to the catalogue.
+
+- **My tasks is live work only**; completed and cancelled rows belong to Order history. The two lists
+  never overlap.
+- `SkillCategory.ImageFileName` is the tile artwork. No image falls back to the first letter, so the
+  grid never has a hole in it.
+
+**A support enquiry hangs off exactly one order.** Only the customer or the assigned partner may
+raise one, one open enquiry per person per order, and `open → in_progress → resolved`. **Resolving
+requires a reply** — it is the only thing the person who raised it sees. `/admin/enquiries` orders
+open first and badges open plus in-progress, because both are still the support team's problem.
 
 **KYC lives in the profile, and an unapproved partner sees almost nothing else.** `/provider` renders
 only a greeting and the KYC status until `KycStatus == approved` — no available work, no bids. The

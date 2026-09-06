@@ -7,10 +7,19 @@
         (ProfileSections.Details, "Profile", "&#128100;", true, null),
     };
 
+    // Booking a task is the customer's side of the app; a partner takes work
+    // rather than posting it.
+    if (user.Role == UserRoles.Customer)
+    {
+        sections.Add((ProfileSections.PostTask, "Post a task", "&#10133;", true, null));
+        sections.Add((ProfileSections.Tasks, "My tasks", "&#128203;", true, null));
+    }
+
     // An administrator is never paid and never booked, so a bank account and a
     // delivery address mean nothing on their account.
     if (!UserRoles.IsAdminRole(user.Role))
     {
+        sections.Add((ProfileSections.Orders, "Order history", "&#128230;", true, null));
         sections.Add((ProfileSections.Bank, "Account details", "&#127974;", true, null));
         sections.Add((ProfileSections.Addresses, "My addresses", "&#128205;", true, null));
     }
@@ -92,6 +101,18 @@
 
             case ProfileSections.Addresses:
                 <partial name="_ProfileAddresses" model="Model" />
+                break;
+
+            case ProfileSections.PostTask:
+                <partial name="_ProfilePostTask" model="Model" />
+                break;
+
+            case ProfileSections.Tasks:
+                <partial name="_ProfileTasks" model="Model" />
+                break;
+
+            case ProfileSections.Orders:
+                <partial name="_ProfileOrders" model="Model" />
                 break;
 
             case ProfileSections.Earnings:

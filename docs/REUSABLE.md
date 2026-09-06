@@ -128,6 +128,19 @@ var amount = service.IsInstant ? service.FixedPrice : request.Budget;
 Both return `TaskClaimResult`, whose `Outcome` maps straight onto HTTP: `Claimed` 200, `NotFound`
 404, `Taken` 409, `NotAllowed` 403. Portals just read `Succeeded` and `Error`.
 
+### Orders and support — `Services/Orders/`, `Services/Support/`
+
+| Method | Purpose |
+|---|---|
+| `IOrderHistoryService.ForUserAsync(userId, role, paging, status)` | Every order that person was on, paged and filtered. The role picks the side; nothing else differs between the two portals. |
+| `ISupportService.RaiseAsync(userId, role, taskId, request)` | Raise an enquiry against one order. Enforces ownership, the ten-character minimum and one open enquiry per person per order. |
+| `ISupportService.ReviewAsync(adminUserId, enquiryId, request)` | Move it to in-progress, or resolve it with a required reply. |
+| `ISupportService.LatestForTasksAsync(userId, taskIds)` | That person's newest enquiry per order — for showing status instead of a "Need help?" button. |
+| `ISupportService.ListAsync(paging, status)` | The admin queue: open first, then in-progress, then resolved. |
+| `ISupportService.OpenCountAsync()` | The sidebar badge. Counts open **and** in-progress. |
+
+`ISupportService.RaisedMessage` is the confirmation text. Use it rather than retyping the wording.
+
 ### Ratings — `Services/Ratings/RatingService.cs`
 
 | Method | Purpose |
@@ -278,7 +291,7 @@ Forms carrying a file need `enctype="multipart/form-data"`; API actions need
 | `_StarInput` | `string` group id | Five radio buttons posting as `Stars`, styled as clickable stars. The group id must be unique on the page. Pair it with a textarea named `Feedback`. |
 | `_Stars` | `int?` | Read-only star row. Renders "Not rated yet" for null or zero. |
 | `_ProfileBody` | `ProfilePageViewModel` | Profile shell: left menu plus the section named by `Model.Section`. |
-| `_ProfileDetails` / `_ProfileBank` / `_ProfileAddresses` / `_ProfileKyc` / `_ProfileSettings` | `ProfilePageViewModel` | The profile sections. Add a new one by adding to `ProfileSections`, the menu list in `_ProfileBody`, and a `GET` on `PortalControllerBase`. |
+| `_ProfileDetails` / `_ProfileBank` / `_ProfileAddresses` / `_ProfileKyc` / `_ProfileSettings` / `_ProfileOrders` / `_ProfilePostTask` / `_ProfileTasks` | `ProfilePageViewModel` | The profile sections. Add a new one by adding to `ProfileSections`, the menu list in `_ProfileBody`, a `case` in its switch, and a `GET` on `PortalControllerBase`. Gate it by role in `SectionApplies`. |
 
 ### Images — `_ImageUpload`
 

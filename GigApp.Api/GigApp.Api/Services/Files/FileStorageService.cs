@@ -8,6 +8,9 @@ namespace GigApp.Api.Services.Files
         /// <summary>Served straight from wwwroot — customers see a partner's photo.</summary>
         ProfileImage,
 
+        /// <summary>Public catalogue artwork, served from wwwroot like a profile photo.</summary>
+        CategoryImage,
+
         /// <summary>
         /// Identity documents. Stored outside wwwroot so a guessed URL cannot
         /// reach them; only <see cref="Controllers.FilesController"/> serves them.
@@ -32,6 +35,9 @@ namespace GigApp.Api.Services.Files
 
         /// <summary>Public folder, relative to wwwroot.</summary>
         public string ProfileFolder { get; set; } = "uploads/profile";
+
+        /// <summary>Public folder for catalogue images, relative to wwwroot.</summary>
+        public string CategoryFolder { get; set; } = "uploads/category";
 
         /// <summary>Private folder, relative to the content root (NOT wwwroot).</summary>
         public string KycFolder { get; set; } = "App_Data/kyc";
@@ -149,6 +155,7 @@ namespace GigApp.Api.Services.Files
             return category switch
             {
                 FileCategory.ProfileImage => $"/{_options.ProfileFolder}/{fileName}",
+                FileCategory.CategoryImage => $"/{_options.CategoryFolder}/{fileName}",
                 FileCategory.KycDocument => $"/api/files/kyc/{fileName}",
                 _ => null,
             };
@@ -158,6 +165,9 @@ namespace GigApp.Api.Services.Files
         {
             FileCategory.ProfileImage =>
                 Path.Combine(_environment.WebRootPath ?? "wwwroot", _options.ProfileFolder),
+
+            FileCategory.CategoryImage =>
+                Path.Combine(_environment.WebRootPath ?? "wwwroot", _options.CategoryFolder),
 
             // Content root, not web root — this must not be publicly served.
             FileCategory.KycDocument =>

@@ -1,0 +1,172 @@
+@model AdminEnquiriesViewModel
+@{
+    Layout = "_AdminLayout";
+    var list = Model.Enquiries;
+}
+
+<h1 class="h4">Support enquiries</h1>
+<p class="text-secondary small">
+    Raised by a customer or a partner against one order. Resolving one requires a reply, because
+    that reply is the only thing they see.
+</p>
+
+<div class="card">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end mb-3" data-auto-submit>
+            <div class="col-sm-5 col-md-4">
+                <label class="form-label" for="search">Search</label>
+                <input class="form-control form-control-sm" id="search" name="search"
+                       value="@list.Search" placeholder="Message, name or mobile" />
+            </div>
+            <div class="col-sm-4 col-md-3">
+                <label class="form-label" for="status">Status</label>
+                <select class="form-select form-select-sm" id="status" name="status">
+                    <option value="" selected="@string.IsNullOrEmpty(Model.StatusFilter)">All</option>
+                    @foreach (var status in EnquiryStatus.All)
+                    {
+                        <option value="@status" selected="@(Model.StatusFilter == status)">
+                            @EnquiryStatus.Label(status)
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+                <a class="btn btn-sm btn-outline-secondary" href="/admin/enquiries">Reset</a>
+            </div>
+        </form>
+
+        @if (list.TotalCount == 0)
+        {
+            <p class="text-center text-secondary py-4 mb-0">No enquiries match this filter.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Reference</th><th>Order</th><th>Raised by</th><th>About</th>
+                            <th>Problem</th><th>Status</th><th>Raised</th><th class="text-end"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var enquiry in list.Items)
+                    {
+                        <tr>
+                            <td class="mono small">@enquiry.Reference</td>
+                            <td class="text-secondary">#@enquiry.GigTaskId</td>
+                            <td>
+                                <div>@(enquiry.RaisedByName ?? "—")</div>
+                                <span class="badge text-bg-light border">@enquiry.RaisedByRole</span>
+                            </td>
+                            <td class="small">@enquiry.TopicLabel</td>
+                            <td class="small" style="max-width:22rem">@enquiry.Message</td>
+                            <td>
+                                <span class="badge @enquiry.StatusBadgeClass">@enquiry.StatusLabel</span>
+                                @if (enquiry.ResolvedAt is not null)
+                                {
+                                    <div class="small text-secondary">
+                                        by @enquiry.ResolvedByName
+                                    </div>
+                                }
+                            </td>
+                            <td class="small text-secondary">@enquiry.CreatedAt.ToString("dd MMM, HH:mm")</td>
+                            <td class="text-end">
+                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                        data-bs-toggle="modal" data-bs-target="#enquiry-@enquiry.Id">
+                                    @(enquiry.IsLive ? "Handle" : "View")
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+
+            <partial name="_Pagination" model="PagerModel.From(list, Context)" />
+
+            @foreach (var enquiry in list.Items)
+            {
+                <div class="modal fade" id="enquiry-@enquiry.Id" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    @enquiry.Reference
+                                    <span class="badge @enquiry.StatusBadgeClass">@enquiry.StatusLabel</span>
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <dl class="row small">
+                                    <dt class="col-3">Order</dt>
+                                    <dd class="col-9">
+                                        #@enquiry.GigTaskId · @enquiry.CategoryName
+                                        <div class="text-secondary">@enquiry.TaskDescription</div>
+                                    </dd>
+
+                                    <dt class="col-3">Raised by</dt>
+                                    <dd class="col-9">@enquiry.RaisedByName (@enquiry.RaisedByRole)</dd>
+
+                                    <dt class="col-3">About</dt>
+                                    <dd class="col-9">@enquiry.TopicLabel</dd>
+
+                                    <dt class="col-3">Problem</dt>
+                                    <dd class="col-9">@enquiry.Message</dd>
+
+                                    @if (enquiry.Resolution is not null)
+                                    {
+                                        <dt class="col-3">Reply sent</dt>
+                                        <dd class="col-9">
+                                            @enquiry.Resolution
+                                            <div class="text-secondary mt-1">
+                                                @enquiry.ResolvedByName · @enquiry.ResolvedAt!.Value.ToString("dd MMM yyyy, HH:mm")
+                                            </div>
+                                        </dd>
+                                    }
+                                </dl>
+
+                                @if (enquiry.IsLive)
+                                {
+                                    <hr />
+                                    <form method="post" asp-action="ReviewEnquiry" asp-route-id="@enquiry.Id"
+                                          class="gig-form">
+                                        <div class="mb-3">
+                                            <label for="resolution-@enquiry.Id" class="form-label required">
+                                                What was done
+                                            </label>
+                                            <textarea id="resolution-@enquiry.Id" name="Resolution"
+                                                      class="form-control" rows="3" maxlength="1000"
+                                                      placeholder="We called the partner and the refund of ₹450 has been approved."></textarea>
+                                            <div class="form-text">
+                                                Required to resolve. This is the only thing they see.
+                                            </div>
+                                        </div>
+
+                                        <div class="row-actions">
+                                            @if (enquiry.Status == EnquiryStatus.Open)
+                                            {
+                                                <button type="submit" name="Status" value="@EnquiryStatus.InProgress"
+                                                        class="btn btn-sm btn-outline-warning">
+                                                    Mark as being looked at
+                                                </button>
+                                            }
+                                            <button type="submit" name="Status" value="@EnquiryStatus.Resolved"
+                                                    class="btn btn-sm btn-success">
+                                                Resolve and reply
+                                            </button>
+                                        </div>
+                                    </form>
+                                }
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>

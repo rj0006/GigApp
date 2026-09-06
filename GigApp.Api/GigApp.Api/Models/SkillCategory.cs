@@ -14,6 +14,8 @@ namespace GigApp.Api.Models
 
         public string? Description { get; set; }
 
+        public string? ImageFileName { get; set; }
+
         /// <summary>
         /// Deactivating hides a category from new selections without invalidating
         /// the partners and tasks already using it.

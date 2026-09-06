@@ -1,0 +1,267 @@
+@model ProfilePageViewModel
+@{
+    var orders = Model.Orders ?? new OrderHistoryViewModel();
+    var list = orders.Orders;
+}
+
+<div class="card">
+    <div class="card-body">
+        <h2 class="h6 mb-1">Order history</h2>
+        <p class="text-secondary small">
+            Every order you have been on, newest first.
+            @(orders.IsPartner
+                ? "Raise a support enquiry if something about a job needs sorting out."
+                : "Raise a support enquiry if something about an order needs sorting out.")
+        </p>
+
+        <form method="get" class="row g-2 align-items-end mb-3">
+            <div class="col-sm-5">
+                <label class="form-label" for="search">Search</label>
+                <input class="form-control form-control-sm" id="search" name="search"
+                       value="@list.Search" placeholder="Work, address or category" />
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label" for="status">Status</label>
+                <select class="form-select form-select-sm" id="status" name="status">
+                    <option value="" selected="@string.IsNullOrEmpty(orders.StatusFilter)">All</option>
+                    @foreach (var status in GigTaskStatus.All)
+                    {
+                        <option value="@status" selected="@(orders.StatusFilter == status)">
+                            @status.Replace('_', ' ')
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+                <a class="btn btn-sm btn-outline-secondary"
+                   href="@Model.SectionPath(ProfileSections.Orders)">Reset</a>
+            </div>
+        </form>
+
+        @if (list.TotalCount == 0)
+        {
+            <p class="text-center text-secondary py-4 mb-0">No orders match this filter.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>#</th><th>Work</th><th>@(orders.IsPartner ? "Customer" : "Partner")</th>
+                            <th>Amount</th><th>Status</th><th>Booked</th><th class="text-end">Support</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var order in list.Items)
+                    {
+                        var enquiry = orders.EnquiryFor(order.Id);
+                        var rating = orders.RatingFor(order.Id);
+
+                        <tr>
+                            <td class="text-secondary">@order.Id</td>
+                            <td>
+                                <div>@(order.ServiceItemName ?? order.CategoryName)</div>
+                                <span class="badge text-bg-light border">@order.CategoryName</span>
+                                @if (order.IsInstant)
+                                {
+                                    <span class="badge text-bg-success">Fixed price</span>
+                                }
+                                <div class="small text-secondary">@order.Address</div>
+                            </td>
+                            <td>
+                                @(orders.IsPartner ? order.CustomerName : order.PartnerName ?? "—")
+                                @if (order.WasAssignedBySupport)
+                                {
+                                    <div class="small text-secondary">Assigned by support</div>
+                                }
+                            </td>
+                            <td class="fw-semibold">₹@order.EffectiveAmount.ToString("N0")</td>
+                            <td>
+                                <span class="badge badge-@order.Status text-white">@order.StatusLabel</span>
+                                @if (rating is not null)
+                                {
+                                    <div class="mt-1"><partial name="_Stars" model="rating.Stars" /></div>
+                                }
+                                else if (!orders.IsPartner && order.Status == GigTaskStatus.Completed)
+                                {
+                                    <div class="mt-1">
+                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                                data-bs-toggle="modal" data-bs-target="#rate-modal-@order.Id">
+                                            Rate partner
+                                        </button>
+                                    </div>
+                                }
+                            </td>
+                            <td class="small text-secondary">@order.CreatedAt.ToString("dd MMM yyyy")</td>
+                            <td class="text-end">
+                                @if (enquiry is not null)
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            data-bs-toggle="modal" data-bs-target="#enquiry-view-@enquiry.Id">
+                                        <span class="badge @enquiry.StatusBadgeClass">@enquiry.StatusLabel</span>
+                                        @enquiry.Reference
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                            data-bs-toggle="modal" data-bs-target="#help-modal-@order.Id">
+                                        Need help?
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+
+            <partial name="_Pagination" model="PagerModel.From(list, Context)" />
+
+            @foreach (var order in list.Items.Where(o => !orders.IsPartner
+                                                      && o.Status == GigTaskStatus.Completed
+                                                      && orders.RatingFor(o.Id) is null))
+            {
+                <div class="modal fade" id="rate-modal-@order.Id" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <form method="post" action="/customer/tasks/@order.Id/rate" class="modal-content">
+                            @Html.AntiForgeryToken()
+                            <div class="modal-header">
+                                <h5 class="modal-title">Rate order #@order.Id</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body gig-form">
+                                <p class="small text-secondary mb-3">
+                                    @(order.ServiceItemName ?? order.CategoryName) ·
+                                    <span class="text-body">@(order.PartnerName ?? "your partner")</span>
+                                </p>
+                                <div class="mb-3">
+                                    <label class="form-label required d-block">How was the work?</label>
+                                    <partial name="_StarInput" model="@($"rate-{order.Id}")" />
+                                    <div class="form-text">
+                                        Ratings are how the next customer knows who to trust.
+                                    </div>
+                                </div>
+                                <div>
+                                    <label for="rate-note-@order.Id" class="form-label">Feedback</label>
+                                    <textarea id="rate-note-@order.Id" name="Feedback" class="form-control" rows="2"
+                                              maxlength="500" placeholder="Came on time and cleaned up afterwards"></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Not now</button>
+                                <button type="submit" class="btn btn-sm btn-primary">Send rating</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            }
+
+            @foreach (var order in list.Items.Where(o => orders.EnquiryFor(o.Id) is null))
+            {
+                <div class="modal fade" id="help-modal-@order.Id" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <form method="post" action="/@orders.PortalSlug/orders/@order.Id/help"
+                              class="modal-content">
+                            @Html.AntiForgeryToken()
+                            <div class="modal-header">
+                                <h5 class="modal-title">Need help with order #@order.Id?</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body gig-form">
+                                <p class="small text-secondary mb-3">
+                                    @(order.ServiceItemName ?? order.CategoryName) ·
+                                    ₹@order.EffectiveAmount.ToString("N0") ·
+                                    @order.CreatedAt.ToString("dd MMM yyyy")
+                                </p>
+                                <div class="mb-3">
+                                    <label for="topic-@order.Id" class="form-label required">What is this about?</label>
+                                    <select id="topic-@order.Id" name="Topic" class="form-select" required>
+                                        @foreach (var topic in EnquiryTopics.All)
+                                        {
+                                            <option value="@topic">@EnquiryTopics.Label(topic)</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="message-@order.Id" class="form-label required">Tell us what happened</label>
+                                    <textarea id="message-@order.Id" name="Message" class="form-control" rows="4"
+                                              required minlength="10" maxlength="1000"
+                                              placeholder="Be specific — what went wrong, and what you would like done about it"></textarea>
+                                    <div class="form-text">
+                                        Our team reads every enquiry and replies here with what was done.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-sm btn-primary">Send to support</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            }
+
+            @foreach (var order in list.Items)
+            {
+                var enquiry = orders.EnquiryFor(order.Id);
+                if (enquiry is null) { continue; }
+
+                <div class="modal fade" id="enquiry-view-@enquiry.Id" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">@enquiry.Reference</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <dl class="row mb-0 small">
+                                    <dt class="col-4">Order</dt>
+                                    <dd class="col-8">#@enquiry.GigTaskId</dd>
+
+                                    <dt class="col-4">About</dt>
+                                    <dd class="col-8">@enquiry.TopicLabel</dd>
+
+                                    <dt class="col-4">Raised</dt>
+                                    <dd class="col-8">@enquiry.CreatedAt.ToString("dd MMM yyyy, HH:mm")</dd>
+
+                                    <dt class="col-4">Status</dt>
+                                    <dd class="col-8">
+                                        <span class="badge @enquiry.StatusBadgeClass">@enquiry.StatusLabel</span>
+                                    </dd>
+
+                                    <dt class="col-4">You wrote</dt>
+                                    <dd class="col-8">@enquiry.Message</dd>
+
+                                    @if (enquiry.Resolution is not null)
+                                    {
+                                        <dt class="col-4">Our reply</dt>
+                                        <dd class="col-8">
+                                            @enquiry.Resolution
+                                            <div class="text-secondary mt-1">
+                                                @enquiry.ResolvedByName · @enquiry.ResolvedAt!.Value.ToString("dd MMM yyyy")
+                                            </div>
+                                        </dd>
+                                    }
+                                </dl>
+
+                                @if (enquiry.IsLive)
+                                {
+                                    <p class="small text-secondary mt-3 mb-0">
+                                        Our team will connect with you shortly. Quote
+                                        <strong>@enquiry.Reference</strong> if you call.
+                                    </p>
+                                }
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>

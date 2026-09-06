@@ -1,6 +1,7 @@
 @{
     var displayName = User.Identity?.IsAuthenticated == true ? User.Identity.Name : null;
     var pendingKyc = ViewData["PendingKycCount"] as int? ?? 0;
+    var openEnquiries = ViewData["OpenEnquiryCount"] as int? ?? 0;
     var sidebar = ViewData["Sidebar"] as IReadOnlyList<MenuNodeDto> ?? Array.Empty<MenuNodeDto>();
 
     var path = (Context.Request.Path.Value ?? "/admin").ToLowerInvariant().TrimEnd('/');
@@ -10,7 +11,12 @@
         ? null
         : Url.Action(item.ActionName, item.ControllerName));
 
-    int Badge(string? key) => key == MenuBadgeKeys.PendingKyc ? pendingKyc : 0;
+    int Badge(string? key) => key switch
+    {
+        MenuBadgeKeys.PendingKyc => pendingKyc,
+        MenuBadgeKeys.OpenEnquiries => openEnquiries,
+        _ => 0,
+    };
 
     string NavClass(string? href) =>
         href is not null && href != "/admin" && path.StartsWith(href.ToLowerInvariant())

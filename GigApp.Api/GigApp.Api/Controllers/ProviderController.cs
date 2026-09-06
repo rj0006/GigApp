@@ -10,7 +10,9 @@ using GigApp.Api.Services.Files;
 using GigApp.Api.Services.Kyc;
 using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Profile;
+using GigApp.Api.Services.Orders;
 using GigApp.Api.Services.Ratings;
+using GigApp.Api.Services.Support;
 using GigApp.Api.Services.Tracking;
 using GigApp.Api.ViewModels;
 using Microsoft.AspNetCore.Authorization;
@@ -27,7 +29,6 @@ namespace GigApp.Api.Controllers
         private readonly IFileStorageService _storage;
         private readonly IBidService _bids;
         private readonly ITaskClaimService _claims;
-        private readonly IRatingService _ratings;
         private readonly IKycHistoryService _kycHistory;
         private readonly IEarningsService _earnings;
 
@@ -43,15 +44,16 @@ namespace GigApp.Api.Controllers
             IRatingService ratings,
             IBankAccountService bankAccounts,
             IKycHistoryService kycHistory,
-            IEarningsService earnings)
-            : base(authService, profileService, addressService, bankAccounts)
+            IEarningsService earnings,
+            IOrderHistoryService orderHistory,
+            ISupportService support)
+            : base(authService, profileService, addressService, bankAccounts, orderHistory, support, ratings)
         {
             _context = context;
             _categories = categories;
             _storage = storage;
             _bids = bids;
             _claims = claims;
-            _ratings = ratings;
             _kycHistory = kycHistory;
             _earnings = earnings;
         }
@@ -383,7 +385,7 @@ namespace GigApp.Api.Controllers
 
             if (isCompleting)
             {
-                var rating = await _ratings.BuildAsync(
+                var rating = await Ratings.BuildAsync(
                     User.GetRequiredUserId(), RatedBy.Partner, task, stars, feedback, ct);
 
                 if (rating is not null) _context.TaskRatings.Add(rating);
@@ -396,7 +398,7 @@ namespace GigApp.Api.Controllers
             if (isCompleting)
             {
                 await _earnings.PostJobEarningAsync(task, ct);
-                await _ratings.RefreshAverageAsync(task.CustomerId, ct);
+                await Ratings.RefreshAverageAsync(task.CustomerId, ct);
             }
 
             TrackDoc(task.Id, GigTaskDto.From(task));

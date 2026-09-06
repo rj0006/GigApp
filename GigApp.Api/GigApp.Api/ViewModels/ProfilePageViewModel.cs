@@ -8,6 +8,9 @@ namespace GigApp.Api.ViewModels
         public const string Bank = "bank";
         public const string Addresses = "addresses";
         public const string Earnings = "earnings";
+        public const string Orders = "orders";
+        public const string PostTask = "post";
+        public const string Tasks = "tasks";
         public const string Kyc = "kyc";
         public const string Devices = "devices";
         public const string Settings = "settings";
@@ -34,6 +37,8 @@ namespace GigApp.Api.ViewModels
         public AddressBookViewModel Addresses { get; set; } = new();
 
         public PartnerEarningsViewModel? Earnings { get; set; }
+        public OrderHistoryViewModel? Orders { get; set; }
+        public CustomerDashboardViewModel? Work { get; set; }
 
         public IReadOnlyList<KycHistoryEntryDto> KycHistory { get; set; } =
             Array.Empty<KycHistoryEntryDto>();
@@ -51,6 +56,27 @@ namespace GigApp.Api.ViewModels
         public IReadOnlyList<KycHistoryEntryDto> KycHistory { get; set; } =
             Array.Empty<KycHistoryEntryDto>();
         public PartnerEarningsViewModel? Earnings { get; set; }
+        public CustomerDashboardViewModel? Work { get; set; }
+    }
+
+    public class OrderHistoryViewModel
+    {
+        public PagedResult<GigTaskDto> Orders { get; set; } = new();
+        public string? StatusFilter { get; set; }
+        public string PortalSlug { get; set; } = "customer";
+        public bool IsPartner => PortalSlug == "provider";
+
+        public IReadOnlyDictionary<int, TaskRatingDto> MyRatings { get; set; } =
+            new Dictionary<int, TaskRatingDto>();
+
+        public IReadOnlyDictionary<int, SupportEnquiryDto> Enquiries { get; set; } =
+            new Dictionary<int, SupportEnquiryDto>();
+
+        public TaskRatingDto? RatingFor(int taskId) =>
+            MyRatings.TryGetValue(taskId, out var rating) ? rating : null;
+
+        public SupportEnquiryDto? EnquiryFor(int taskId) =>
+            Enquiries.TryGetValue(taskId, out var enquiry) ? enquiry : null;
     }
 
     public class AddressBookViewModel

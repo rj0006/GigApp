@@ -1,0 +1,132 @@
+@model ProfilePageViewModel
+@{
+    var work = Model.Work ?? new CustomerDashboardViewModel();
+    var live = work.Tasks.Where(t => GigTaskStatus.IsOpen(t.Status)).ToList();
+}
+
+<div class="card">
+    <div class="card-body">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+            <h2 class="h6 mb-0">My tasks</h2>
+            <a class="btn btn-sm btn-primary ms-auto"
+               href="@Model.SectionPath(ProfileSections.PostTask)">Post a task</a>
+        </div>
+        <p class="text-secondary small">
+            Work still in progress. Anything finished or cancelled is under
+            <a href="@Model.SectionPath(ProfileSections.Orders)">Order history</a>.
+        </p>
+
+        @if (live.Count == 0)
+        {
+            <p class="text-center text-secondary py-4 mb-0">
+                Nothing in progress. Post a task and partners will pick it up.
+            </p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr><th>#</th><th>Category</th><th>Description</th><th>Amount</th><th>Status</th><th>Bids</th><th>Partner</th><th class="text-end"></th></tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var task in live)
+                    {
+                        <tr>
+                            <td class="text-secondary">@task.Id</td>
+                            <td>
+                                <div>@(task.ServiceItemName ?? task.CategoryName)</div>
+                                <span class="badge text-bg-light border">@task.CategoryName</span>
+                                @if (task.IsInstant)
+                                {
+                                    <span class="badge text-bg-success">Fixed price</span>
+                                }
+                                @if (task.Urgency != TaskUrgency.Normal)
+                                {
+                                    <div class="mt-1">
+                                        <span class="badge @task.UrgencyBadgeClass">@task.UrgencyLabel</span>
+                                    </div>
+                                }
+                            </td>
+                            <td class="small">@task.Description</td>
+                            <td>
+                                <span class="fw-semibold">₹@task.EffectiveAmount.ToString("N0")</span>
+                                @if (task.AgreedAmount is not null && task.AgreedAmount != task.Budget)
+                                {
+                                    <div class="small text-secondary">budget ₹@task.Budget.ToString("N0")</div>
+                                }
+                            </td>
+                            <td><span class="badge badge-@task.Status text-white">@task.StatusLabel</span></td>
+                            <td>
+                                @if (task.IsInstant)
+                                {
+                                    <span class="text-secondary small">
+                                        @(task.Status == GigTaskStatus.Pending ? "Waiting for a partner" : "No bidding")
+                                    </span>
+                                }
+                                else if (task.Status == GigTaskStatus.Pending)
+                                {
+                                    var bidCount = work.BidsFor(task.Id).Count;
+                                    <button type="button" class="btn btn-sm @(bidCount > 0 ? "btn-primary" : "btn-outline-secondary")"
+                                            data-bs-toggle="modal" data-bs-target="#bids-modal-@task.Id">
+                                        @bidCount bid@(bidCount == 1 ? "" : "s")
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="text-secondary">—</span>
+                                }
+                            </td>
+                            <td>
+                                @if (task.PartnerId is not null && task.PartnerName is not null)
+                                {
+                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none"
+                                            data-bs-toggle="modal" data-bs-target="#partner-modal-@task.PartnerId"
+                                            title="View partner details">@task.PartnerName</button>
+
+                                    @if (task.WasAssignedBySupport)
+                                    {
+                                        <div class="small text-secondary mt-1" style="max-width:14rem">
+                                            Assigned for you by our support team.
+                                        </div>
+                                    }
+
+                                    @if (task.PartnerChangedSkill)
+                                    {
+                                        <div class="small text-warning-emphasis mt-1" style="max-width:14rem">
+                                            This partner has changed their skill to
+                                            @task.PartnerSkillCategory since accepting your task. They
+                                            are still expected to finish it as agreed.
+                                        </div>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="text-secondary">—</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                @if (GigTaskStatus.CanTransition(task.Status, GigTaskStatus.Cancelled))
+                                {
+                                    <form method="post" action="/customer/tasks/@task.Id/cancel"
+                                          data-confirm="Cancel task #@task.Id?">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Cancel</button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@foreach (var partner in work.Partners)
+{
+    <partial name="_PartnerInfoModal" model="partner" />
+}
+
+<partial name="_TaskBidsModal" model="work" />

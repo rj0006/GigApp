@@ -6,7 +6,9 @@ using GigApp.Api.Services.Bidding;
 using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Banking;
 using GigApp.Api.Services.Profile;
+using GigApp.Api.Services.Orders;
 using GigApp.Api.Services.Ratings;
+using GigApp.Api.Services.Support;
 using GigApp.Api.Services.Tracking;
 using GigApp.Api.ViewModels;
 using Microsoft.AspNetCore.Authorization;
@@ -22,7 +24,6 @@ namespace GigApp.Api.Controllers
         private readonly ICategoryLookup _categories;
         private readonly IServiceItemLookup _serviceItems;
         private readonly IBidService _bids;
-        private readonly IRatingService _ratings;
 
         public CustomerController(
             IAuthService authService,
@@ -33,15 +34,19 @@ namespace GigApp.Api.Controllers
             IServiceItemLookup serviceItems,
             IBidService bids,
             IRatingService ratings,
-            IBankAccountService bankAccounts)
-            : base(authService, profileService, addressService, bankAccounts)
+            IBankAccountService bankAccounts,
+            IOrderHistoryService orderHistory,
+            ISupportService support)
+            : base(authService, profileService, addressService, bankAccounts, orderHistory, support, ratings)
         {
             _context = context;
             _categories = categories;
             _serviceItems = serviceItems;
             _bids = bids;
-            _ratings = ratings;
         }
+
+        private string TasksPath => $"{ProfilePath}/{ProfileSections.Tasks}";
+        private string OrdersPath => $"{ProfilePath}/{ProfileSections.Orders}";
 
         protected override string PortalSlug => "customer";
         protected override string RequiredRole => UserRoles.Customer;
@@ -116,10 +121,48 @@ namespace GigApp.Api.Controllers
         [Authorize(Policy = Policies.CustomerOnly)]
         public async Task<IActionResult> Index(CancellationToken ct)
         {
-            ViewData["Title"] = "My tasks";
+            ViewData["Title"] = "Services";
 
             var userId = User.GetRequiredUserId();
 
+            var categories = await _context.SkillCategories
+                .AsNoTracking()
+                .Where(c => c.IsActive)
+                .OrderBy(c => c.DisplayOrder).ThenBy(c => c.Name)
+                .Select(c => new CatalogCategoryViewModel
+                {
+                    Category = SkillCategoryDto.From(c),
+                    ServiceCount = c.ServiceItems.Count(s => s.IsActive),
+                    StartingFrom = c.ServiceItems
+                        .Where(s => s.IsActive && s.AllowsInstantBooking && s.BasePayout > 0)
+                        .Min(s => s.BasePayout),
+                })
+                .ToListAsync(ct);
+
+            return View(new CustomerCatalogViewModel
+            {
+                Name = User.Identity?.Name ?? "there",
+                Categories = categories,
+                OpenTaskCount = await _context.GigTasks.CountAsync(
+                    t => t.CustomerId == userId && GigTaskStatus.Open.Contains(t.Status), ct),
+            });
+        }
+
+        protected override async Task<ProfileExtras> LoadProfileExtrasAsync(
+            string section, CancellationToken ct)
+        {
+            if (section != ProfileSections.PostTask && section != ProfileSections.Tasks)
+                return new ProfileExtras();
+
+            return new ProfileExtras
+            {
+                Work = await BuildWorkAsync(User.GetRequiredUserId(), section, ct),
+            };
+        }
+
+        private async Task<CustomerDashboardViewModel> BuildWorkAsync(
+            int userId, string section, CancellationToken ct)
+        {
             var tasks = await _context.GigTasks
                 .AsNoTracking()
                 .Include(t => t.Category)
@@ -174,7 +217,7 @@ namespace GigApp.Api.Controllers
             foreach (var taskId in openTaskIds)
                 bidsByTask[taskId] = await _bids.ForTaskAsync(userId, taskId, ct);
 
-            return View(new CustomerDashboardViewModel
+            return new CustomerDashboardViewModel
             {
                 Name = User.Identity?.Name ?? "there",
                 Tasks = tasks.Select(GigTaskDto.From).ToList(),
@@ -184,8 +227,12 @@ namespace GigApp.Api.Controllers
                     .ToList(),
                 BidsByTask = bidsByTask,
                 Addresses = await AddressService.ListAsync(userId, ct),
-                MyRatings = await _ratings.ForTasksAsync(taskIds, RatedBy.Customer, ct),
-            });
+                MyRatings = await Ratings.ForTasksAsync(taskIds, RatedBy.Customer, ct),
+                PresetCategoryId = section == ProfileSections.PostTask
+                    && int.TryParse(Request.Query["categoryId"], out var preset)
+                        ? preset
+                        : null,
+            };
         }
 
         [HttpPost("tasks")]
@@ -199,19 +246,19 @@ namespace GigApp.Api.Controllers
                     .SelectMany(e => e.Value!.Errors)
                     .Select(e => e.ErrorMessage));
 
-                return Redirect(DashboardPath);
+                return Redirect(TasksPath);
             }
 
             if (!await _categories.IsSelectableAsync(newTask.CategoryId, ct))
             {
                 TempData["Error"] = "Choose a valid category.";
-                return Redirect(DashboardPath);
+                return Redirect(TasksPath);
             }
 
             if (!TaskUrgency.IsValid(newTask.Urgency))
             {
                 TempData["Error"] = "Choose a valid urgency.";
-                return Redirect(DashboardPath);
+                return Redirect(TasksPath);
             }
 
             var service = await _serviceItems.GetBookableAsync(
@@ -220,7 +267,7 @@ namespace GigApp.Api.Controllers
             if (service is null)
             {
                 TempData["Error"] = "Choose a service that belongs to the selected category.";
-                return Redirect(DashboardPath);
+                return Redirect(TasksPath);
             }
 
             var customerId = User.GetRequiredUserId();
@@ -230,7 +277,7 @@ namespace GigApp.Api.Controllers
             if (address is null)
             {
                 TempData["Error"] = "Choose one of your saved addresses.";
-                return Redirect(DashboardPath);
+                return Redirect(TasksPath);
             }
 
             var task = new GigTask
@@ -264,7 +311,7 @@ namespace GigApp.Api.Controllers
                 ? $"Booked at the fixed price of ₹{service.FixedPrice:N0}. The first available partner will take it, so there is nothing to compare."
                 : "Your task has been posted. Partners can now bid on it.";
 
-            return Redirect(DashboardPath);
+            return Redirect(TasksPath);
         }
 
         [HttpPost("tasks/{id:int}/rate")]
@@ -277,10 +324,10 @@ namespace GigApp.Api.Controllers
             if (!ModelState.IsValid)
             {
                 TempData["Error"] = "Choose between one and five stars.";
-                return Redirect(DashboardPath);
+                return Redirect(OrdersPath);
             }
 
-            var result = await _ratings.RateAsync(
+            var result = await Ratings.RateAsync(
                 User.GetRequiredUserId(), RatedBy.Customer, id, form.Stars, form.Feedback, ct);
 
             if (result.Succeeded)
@@ -288,7 +335,7 @@ namespace GigApp.Api.Controllers
             else
                 TempData["Error"] = result.Error;
 
-            return Redirect(DashboardPath);
+            return Redirect(OrdersPath);
         }
 
         [HttpPost("tasks/{id:int}/cancel")]
@@ -316,7 +363,7 @@ namespace GigApp.Api.Controllers
                 TempData["Success"] = $"Task #{id} cancelled.";
             }
 
-            return Redirect(DashboardPath);
+            return Redirect(TasksPath);
         }
 
         [HttpPost("bids/{bidId:int}/accept")]
@@ -333,7 +380,7 @@ namespace GigApp.Api.Controllers
             TempData["Success"] =
                 $"{result.Bid!.PartnerName} is assigned at ₹{result.Bid.Amount:N0}.";
 
-            return Redirect(DashboardPath);
+            return Redirect(TasksPath);
         }
 
         [HttpPost("bids/{bidId:int}/counter")]
@@ -353,7 +400,7 @@ namespace GigApp.Api.Controllers
             TempData["Success"] =
                 $"Counter offer of ₹{form.CounterAmount:N0} sent to {result.Bid!.PartnerName}.";
 
-            return Redirect(DashboardPath);
+            return Redirect(TasksPath);
         }
 
         [HttpPost("bids/{bidId:int}/reject")]
@@ -368,13 +415,13 @@ namespace GigApp.Api.Controllers
 
             TrackDoc(bidId, result.Bid);
             TempData["Success"] = "Bid rejected.";
-            return Redirect(DashboardPath);
+            return Redirect(TasksPath);
         }
 
         private IActionResult BidError(string? message)
         {
             TempData["Error"] = message ?? "Could not update that bid.";
-            return Redirect(DashboardPath);
+            return Redirect(TasksPath);
         }
 
         private string? FirstModelError() => ModelState

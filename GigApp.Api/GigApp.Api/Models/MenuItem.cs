@@ -49,8 +49,9 @@ namespace GigApp.Api.Models
     public static class MenuBadgeKeys
     {
         public const string PendingKyc = "pending_kyc";
+        public const string OpenEnquiries = "open_enquiries";
 
-        public static readonly string[] Options = { PendingKyc };
+        public static readonly string[] Options = { PendingKyc, OpenEnquiries };
 
         public static bool IsValid(string? value) =>
             string.IsNullOrWhiteSpace(value) || Options.Contains(value);

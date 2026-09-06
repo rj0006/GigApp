@@ -3,12 +3,16 @@ using GigApp.Api.Dtos;
 using GigApp.Api.Models;
 using GigApp.Api.Services;
 using GigApp.Api.Services.Earnings;
+using GigApp.Api.Services.Files;
 using GigApp.Api.Services.Kyc;
 using GigApp.Api.Services.Menus;
 using GigApp.Api.Services.Pricing;
 using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Banking;
 using GigApp.Api.Services.Booking;
+using GigApp.Api.Services.Orders;
+using GigApp.Api.Services.Ratings;
+using GigApp.Api.Services.Support;
 using GigApp.Api.Services.Profile;
 using GigApp.Api.Services.Tracking;
 using GigApp.Api.Services.UserAdmin;
@@ -45,6 +49,7 @@ namespace GigApp.Api.Controllers
         private readonly IPlanService _plans;
         private readonly ITaxService _taxes;
         private readonly ITaskClaimService _claims;
+        private readonly IFileStorageService _storage;
 
         public AdminController(
             IAuthService authService,
@@ -60,8 +65,12 @@ namespace GigApp.Api.Controllers
             IEarningsService earnings,
             IPlanService plans,
             ITaxService taxes,
-            ITaskClaimService claims)
-            : base(authService, profileService, addressService, bankAccounts)
+            ITaskClaimService claims,
+            IFileStorageService storage,
+            IOrderHistoryService orderHistory,
+            ISupportService support,
+            IRatingService ratings)
+            : base(authService, profileService, addressService, bankAccounts, orderHistory, support, ratings)
         {
             _context = context;
             _categories = categories;
@@ -73,6 +82,7 @@ namespace GigApp.Api.Controllers
             _plans = plans;
             _taxes = taxes;
             _claims = claims;
+            _storage = storage;
         }
 
         protected override string PortalSlug => "admin";
@@ -97,6 +107,9 @@ namespace GigApp.Api.Controllers
                 // the badge lit with nothing to do.
                 ViewData["PendingKycCount"] = await _context.Partners.CountAsync(
                     p => p.KycStatus == KycStatus.Pending, context.HttpContext.RequestAborted);
+
+                ViewData["OpenEnquiryCount"] = await Support.OpenCountAsync(
+                    context.HttpContext.RequestAborted);
 
                 // The sidebar hides the super-admin section for everyone else.
                 ViewData["IsSuperAdmin"] = User.IsSuperAdmin();
@@ -257,15 +270,23 @@ namespace GigApp.Api.Controllers
                 return View("CategoryForm", model);
             }
 
-            _context.SkillCategories.Add(new SkillCategory
+            var category = new SkillCategory
             {
                 Name = name,
                 Description = Normalize(form.Description),
                 IsActive = form.IsActive,
                 DisplayOrder = form.DisplayOrder,
                 CreatedAt = DateTime.UtcNow,
-            });
+            };
 
+            var imageError = await ApplyCategoryImageAsync(form.Image, category, ct);
+            if (imageError is not null)
+            {
+                ModelState.AddModelError(nameof(form.Image), imageError);
+                return View("CategoryForm", model);
+            }
+
+            _context.SkillCategories.Add(category);
             await _context.SaveChangesAsync(ct);
 
             TempData["Success"] = $"Category '{name}' created.";
@@ -297,6 +318,7 @@ namespace GigApp.Api.Controllers
                     IsActive = category.IsActive,
                     DisplayOrder = category.DisplayOrder,
                 },
+                ImageUrl = SkillCategoryDto.From(category).ImageUrl,
                 PartnerCount = await _context.Partners.CountAsync(p => p.SkillCategoryId == id, ct),
                 TaskCount = await _context.GigTasks.CountAsync(t => t.CategoryId == id, ct),
             });
@@ -324,6 +346,13 @@ namespace GigApp.Api.Controllers
             if (await NameExistsAsync(name, excludingId: id, ct))
             {
                 ModelState.AddModelError(nameof(form.Name), $"'{name}' already exists.");
+                return View("CategoryForm", model);
+            }
+
+            var imageError = await ApplyCategoryImageAsync(form.Image, category, ct);
+            if (imageError is not null)
+            {
+                ModelState.AddModelError(nameof(form.Image), imageError);
                 return View("CategoryForm", model);
             }
 
@@ -1374,6 +1403,60 @@ namespace GigApp.Api.Controllers
                 StatusFilter = status,
                 CategoryFilter = categoryId,
             });
+        }
+
+        private async Task<string?> ApplyCategoryImageAsync(
+            IFormFile? image, SkillCategory category, CancellationToken ct)
+        {
+            if (image is null || image.Length == 0) return null;
+
+            var saved = await _storage.SaveAsync(image, FileCategory.CategoryImage, ct);
+            if (!saved.Succeeded) return saved.Error;
+
+            var previous = category.ImageFileName;
+            category.ImageFileName = saved.FileName;
+
+            _storage.Delete(previous, FileCategory.CategoryImage);
+
+            return null;
+        }
+
+        [HttpGet("enquiries")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        public async Task<IActionResult> Enquiries(
+            [FromQuery] PageRequest paging, string? status, CancellationToken ct = default)
+        {
+            ViewData["Title"] = "Support enquiries";
+
+            return View(new AdminEnquiriesViewModel
+            {
+                Enquiries = await Support.ListAsync(paging, status, ct),
+                StatusFilter = status,
+            });
+        }
+
+        [HttpPost("enquiries/{id:int}/review")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        [ValidateAntiForgeryToken]
+        [TrackForm("SupportEnquiry")]
+        public async Task<IActionResult> ReviewEnquiry(
+            int id, ResolveEnquiryRequest form, CancellationToken ct = default)
+        {
+            var result = await Support.ReviewAsync(User.GetRequiredUserId(), id, form, ct);
+
+            if (result.Succeeded)
+            {
+                TrackDoc(id, result.Enquiry!);
+                TempData["Success"] = result.Enquiry!.Status == EnquiryStatus.Resolved
+                    ? $"{result.Enquiry.Reference} resolved. The person who raised it can now see your reply."
+                    : $"{result.Enquiry.Reference} marked as being looked at.";
+            }
+            else
+            {
+                TempData["Error"] = result.Error;
+            }
+
+            return Redirect("/admin/enquiries");
         }
 
         [HttpPost("tasks/{id:int}/assign")]

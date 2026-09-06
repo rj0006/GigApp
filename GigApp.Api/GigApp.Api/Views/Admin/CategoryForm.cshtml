@@ -23,7 +23,8 @@
         }
 
         @* Standard form format — see docs/REUSABLE.md *@
-        <form method="post" asp-action="@postAction" asp-route-id="@Model.Id" class="gig-form row g-3">
+        <form method="post" asp-action="@postAction" asp-route-id="@Model.Id"
+              enctype="multipart/form-data" class="gig-form row g-3">
             <div class="col-md-8">
                 <label asp-for="Form.Name" class="form-label required"></label>
                 <input asp-for="Form.Name" class="form-control" autofocus placeholder="Plumbing" />
@@ -36,10 +37,21 @@
                 <div class="form-text">Lower numbers appear first in pickers.</div>
             </div>
 
-            <div class="col-12">
+            <div class="col-md-8">
                 <label asp-for="Form.Description" class="form-label"></label>
                 <textarea asp-for="Form.Description" class="form-control" rows="3"
                           placeholder="Taps, pipes, leaks, bathroom and kitchen fittings"></textarea>
+            </div>
+
+            <div class="col-md-4">
+                <partial name="_ImageUpload" model="@(new ImageUploadModel {
+                    Name = "Image",
+                    Label = "Category image",
+                    Hint = "Shown on the customer home page. A wide photo of the work reads best.",
+                    CurrentUrl = Model.ImageUrl,
+                    Shape = ImageUploadShape.Wide,
+                })" />
+                <span asp-validation-for="Form.Image" class="text-danger small"></span>
             </div>
 
             <div class="col-12">

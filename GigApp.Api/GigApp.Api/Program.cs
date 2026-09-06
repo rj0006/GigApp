@@ -14,8 +14,10 @@ using GigApp.Api.Services.Files;
 using GigApp.Api.Services.Kyc;
 using GigApp.Api.Services.Masters;
 using GigApp.Api.Services.Menus;
+using GigApp.Api.Services.Orders;
 using GigApp.Api.Services.Pricing;
 using GigApp.Api.Services.Ratings;
+using GigApp.Api.Services.Support;
 using GigApp.Api.Services.Profile;
 using GigApp.Api.Services.Tracking;
 using GigApp.Api.Services.UserAdmin;
@@ -215,6 +217,8 @@ builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IBidService, BidService>();
 builder.Services.AddScoped<ITaskClaimService, TaskClaimService>();
 builder.Services.AddScoped<IRatingService, RatingService>();
+builder.Services.AddScoped<IOrderHistoryService, OrderHistoryService>();
+builder.Services.AddScoped<ISupportService, SupportService>();
 
 builder.Services.AddControllersWithViews(options =>
 {
