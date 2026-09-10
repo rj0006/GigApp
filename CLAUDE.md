@@ -13,9 +13,10 @@ landing pages. Only the partner portal is replaceable by the app.
 
 How the user wants help delivered on this project. These override default response style.
 
-1. **Be concise.** After code, write a **one-line** summary in simple Indian English that anyone can
-   follow. Do not pad it. Longer explanation is fine when the change genuinely needs it — clarity
-   beats an arbitrary limit.
+1. **Be concise.** After code, write a **one or two line** summary in simple Indian English that
+   anyone can follow. Do not pad it. Do not narrate the investigation — what was checked, files
+   read, theories tried, tests run. Just the code and the one/two-line summary. This has been said
+   multiple times; do not drift back to long explanations.
 2. **Mobile (Flutter) = clean architecture.** Layered `data / domain / presentation`, a proper state
    management solution, and a typed API client with a single auth interceptor. No logic in widgets.
 3. **Language — depends on where it goes:**

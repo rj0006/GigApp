@@ -376,7 +376,7 @@ body {
     cursor: pointer;
 }
 
-.image-thumb { position: absolute; inset: 0; }
+.image-thumb { position: absolute; inset: 0; pointer-events: none; }
 
 .image-thumb img {
     width: 100%;
@@ -398,6 +398,7 @@ body {
     color: #fff;
     background: rgba(17, 24, 39, .65);
     cursor: pointer;
+    pointer-events: auto;
 }
 
 .image-clear:hover { background: rgba(220, 53, 69, .9); }

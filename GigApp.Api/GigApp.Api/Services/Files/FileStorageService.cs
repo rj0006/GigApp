@@ -28,7 +28,7 @@ namespace GigApp.Api.Services.Files
 
         public long MaxBytes { get; set; } = 5 * 1024 * 1024;   // 5 MB
 
-        public static readonly string[] DefaultExtensions = { ".jpg", ".jpeg", ".png", ".webp" };
+        public static readonly string[] DefaultExtensions = { ".jpg", ".jpeg", ".jfif", ".png", ".webp" };
 
         // Binding an array onto a non-empty default appends to it, so a default
         // here would make an extension impossible to remove from configuration.

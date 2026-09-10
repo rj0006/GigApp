@@ -205,8 +205,7 @@ namespace GigApp.Api.Controllers
 
         [HttpGet("masters/categories")]
         [Authorize(Policy = Policies.AdminOnly)]
-        public async Task<IActionResult> Categories(
-            [FromQuery] PageRequest paging, bool showInactive = false, CancellationToken ct = default)
+        public async Task<IActionResult> Categories([FromQuery] PageRequest paging, bool showInactive = false, CancellationToken ct = default)
         {
             ViewData["Title"] = "Skill categories";
 
@@ -226,6 +225,7 @@ namespace GigApp.Api.Controllers
                     Id = c.Id,
                     Name = c.Name,
                     Description = c.Description,
+                    ImageFileName = c.ImageFileName,
                     IsActive = c.IsActive,
                     DisplayOrder = c.DisplayOrder,
                     CreatedAt = c.CreatedAt,
