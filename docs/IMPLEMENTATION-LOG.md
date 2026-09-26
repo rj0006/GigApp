@@ -9,6 +9,76 @@ developer can call the same thing.
 
 ---
 
+## 2026-09-15 — `customer_app`'s Home becomes the storefront, with a real cart and checkout
+
+**Asked:** make `customer_app`'s Home page match the web storefront — banners, categories, popular
+and new-and-noteworthy strips, search — with a working cart and checkout, the same "book now, pay
+after the job" flow the web storefront already uses (there is no separate payment gateway on either
+side; "payment" here means the existing catalogue-to-booking flow, not a new Razorpay/UPI integration).
+
+**Three new JSON endpoints, mirroring the exact ViewModel the Razor storefront already builds** —
+`ShopController.Index`/`Category`/`SearchAsync` were each split into a private `BuildXxxAsync`
+returning the ViewModel and a thin action calling `View(vm)`; `GET /api/shop/home`, `GET
+/api/shop/category/{id}` and `GET /api/shop/search?q=` call the same builders and `Ok(vm)` instead.
+Zero new business logic — the storefront's categories, banners, popular/fresh picks and search were
+already exactly the shape a mobile client needed, just never returned as JSON. `POST /checkout`
+(`ShopController.PlaceOrder`) is called directly from mobile too, over the bearer token — no separate
+mobile checkout endpoint, since JWT auth doesn't care whether the caller is a browser or an app.
+
+**A real, pre-existing bug: `PlaceOrder`'s `[Authorize(Policy = Policies.CustomerOnly)]` was not
+actually enforced.** `ShopController` carried a class-level `[AllowAnonymous]` (correct for browsing
+and the cart, which must work signed out) and `PlaceOrder` relied on an action-level `[Authorize]` to
+require a customer — but ASP.NET Core lets a class-level `[AllowAnonymous]` silently defeat an
+action-level `[Authorize]` on the same action; it does not compose the other way round. Verified live:
+an anonymous `POST /checkout` executed the action body and only failed inside `User.GetRequiredUserId()`,
+landing on the generic error page instead of a clean 401. Fixed by removing `[AllowAnonymous]` from the
+class and adding it individually to every action except `PlaceOrder` — the same class-plain,
+action-tightens shape `ServiceItemsController`/`PartnersController` already use, just inverted. Anyone
+touching this controller again: a class-level `[AllowAnonymous]` blocks every `[Authorize]` beneath it,
+full stop — put `[AllowAnonymous]` on individual actions instead when only some of a controller's
+actions are public.
+
+**`CartService.Read()` only ever checked the session — which meant it always came back empty for
+mobile**, since a mobile client carries no session cookie, only the bearer token; `SaveAsync` already
+wrote every change to the `CartItems` table too, so the DB side was fine, it just was never read back.
+Fixed by having `Read()` query `CartItems` directly for a signed-in customer, falling back to the
+session only for a guest. This is not a second source of truth to keep in sync — `SaveAsync` already
+mirrors every write to both places — just a switch in which one is authoritative on read. Verified over
+a bearer-token-only `curl` session (no cookie jar) that add → read-back → checkout round-trips
+correctly, exactly the shape mobile uses.
+
+**`app.UseStaticFiles()` ran before `app.UseCors(...)` in `Program.cs`**, so an uploaded category,
+service or banner image never got a CORS header — invisible on the same-origin Razor pages, but it
+silently broke every image on Flutter web's separate-origin dev server (`ERR_FAILED` / CORS console
+errors, `Image.network`'s `errorBuilder` masking it as a plain placeholder icon with no visible error
+in the UI). Static files bypass the rest of the pipeline once they match, so anything after them —
+including `UseCors` — never runs for that request. Fixed by moving `UseStaticFiles()` to after
+`UseCors()`. Does not affect a real Android/iOS build at all (native HTTP has no CORS concept), but
+would have made every future Chrome-based verification pass on this app quietly show broken images.
+
+**Mobile's storefront reuses `ServiceItem`/`SkillCategory`-shaped JSON but not the existing Flutter
+entities** — `provider_app`'s `SkillCategory` is a bare `{id, name}` for a dropdown, too thin for a
+storefront tile (needs an image, a service count, a starting price). New `CatalogCategory`,
+`CategoryStrip`, `CatalogBanner`, `StorefrontStats`, `StorefrontHome` and `Cart`/`CartLine` entities
+were added rather than bloating the dropdown-only entity with fields it never needs. `resolveImageUrl`
+(`core/utils/image_url.dart`) prefixes every relative `imageUrl` the API returns with `Env.apiBaseUrl`
+— the API sends `/uploads/...`, never a full URL, since it does not know its own public host.
+
+**One shared `CartController` (`presentation/cart/cart_controller.dart`), not a quantity field per
+screen.** `StateNotifierProvider.autoDispose<CartController, AsyncValue<Cart>>` — `AddToCartControl`
+(the +/- stepper, reused on Home's strips, Category, and the Cart screen itself) and `CartButton` (the
+AppBar badge) all read the same provider, so adding an item on Home instantly updates the Cart screen
+and the badge without any manual refresh wiring. A mutation method (`add`/`setQuantity`/`remove`) lets
+its exception propagate rather than writing it into `state` — the widget's own try/catch shows a
+SnackBar, and the cart's last-known-good data stays on screen instead of being replaced by an error.
+
+**Verified live end-to-end in Chrome, both desktop and mobile (375×812) viewport widths**: Home's
+banners/categories/strips render with real images and no layout overflow, add-to-cart quantity steppers
+sync live across Home → Category → Cart, checkout with an existing saved address places a real booking
+that immediately shows up in Orders' Active tab, and the cart clears after a successful checkout.
+
+---
+
 ## 2026-09-15 — `customer_app` goes from read-only "My tasks" to the full booking loop
 
 **Asked:** advance `customer_app` to cover posting a task, order history, and every profile section

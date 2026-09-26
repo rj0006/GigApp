@@ -552,6 +552,27 @@ portals — Swashbuckle throws on any action without an explicit HTTP verb. Give
 (`WHERE Id = @id AND Status = 'pending'`) — the WHERE clause is the lock. Verified under 8 concurrent
 requests: exactly one 200, seven 409s. Do not refactor this into read-then-write.
 
+**A class-level `[AllowAnonymous]` silently defeats an action-level `[Authorize]` on the same
+action** — ASP.NET Core does not let the more specific attribute win here, unlike two `[Authorize]`
+attributes (which AND together). `ShopController.PlaceOrder` had `[Authorize(Policy =
+Policies.CustomerOnly)]` sitting completely inert under the controller's own `[AllowAnonymous]`;
+an anonymous request ran the action body and only failed inside `User.GetRequiredUserId()`. Any
+controller that mixes public and authenticated actions must put `[AllowAnonymous]` on each public
+action individually, never on the class, or every `[Authorize]` beneath it is dead code.
+
+**`app.UseStaticFiles()` must come after `app.UseCors(...)`, not before.** A static file response
+bypasses the rest of the pipeline once it matches, so anything registered after it — `UseCors`
+included — never runs for that request. With the old order, every `/uploads/...` image came back
+with no CORS header: invisible on the same-origin Razor pages, but it silently broke every image on
+Flutter web's separate-origin dev server. Does not matter for a native Android/iOS build (no CORS
+concept there), but breaks Chrome-based verification of anything that shows an uploaded image.
+
+**`ICartService.Read()` must not trust the session alone.** A mobile client carries no session
+cookie, only the bearer token, so a session-only read always came back empty for it even though
+`SaveAsync` was already writing every change to the `CartItems` table. `Read()` now queries
+`CartItems` directly for a signed-in customer and falls back to the session only for a guest — the
+DB was always the correct answer for an authenticated caller, it just was never consulted on read.
+
 ## Admin portal layout
 
 `/admin` uses `_AdminLayout.cshtml` (sidebar shell), not the plain `_Layout` the other two portals use.
@@ -626,12 +647,26 @@ button name and value forward so multi-button forms still work.
   follows.
 - **`customer_app` now covers the full booking loop**, same clean-architecture shape as
   `provider_app`: sign-in (OTP with inline name for a new account, password fallback, session
-  restore), posting a task (category → real bookable item via the new `GET
-  api/serviceitems/bookable` → address → submit), a three-tab Active/Completed/Cancelled order
-  history with rate-partner, raise-help and cancel actions, live SignalR updates and in-app
-  notifications, and every profile section — edit profile, bank account, addresses (CRUD +
-  set-default), manage devices, change password. `provider_app`'s notification/device/realtime
-  layer and profile dialogs were copied over unchanged, confirming that shape is portal-agnostic.
+  restore), a three-tab Active/Completed/Cancelled order history with rate-partner, raise-help and
+  cancel actions, live SignalR updates and in-app notifications, and every profile section — edit
+  profile, bank account, addresses (CRUD + set-default), manage devices, change password.
+  `provider_app`'s notification/device/realtime layer and profile dialogs were copied over unchanged,
+  confirming that shape is portal-agnostic.
+- **Home is now the storefront**, matching the web `/services` page rather than a bare "post a task"
+  form: banners, category tiles, popular/new-and-noteworthy strips and per-category strips, each
+  service card with a live add-to-cart quantity stepper, off three new JSON siblings of the existing
+  Razor storefront actions — `GET api/shop/home`, `api/shop/category/{id}`, `api/shop/search`. Tapping
+  a category opens the same grid in `CategoryScreen`; the AppBar's search field opens `SearchScreen`
+  with a debounced live search. The old single-item "post a task" flow (category → item → description
+  → budget → urgency → address, for a bidding item that has no catalogue price) still exists as a
+  secondary "Need something else?" card on Home, since the storefront only ever lists fixed-price
+  catalogue items — see `SellableItems()` on `ShopController`.
+- **Cart and checkout reuse the same session-cart backend the web storefront already had** —
+  `api/cart/*` and `POST /checkout` — called directly over the bearer token, no mobile-specific
+  endpoint. One shared `CartController` (`presentation/cart/cart_controller.dart`,
+  `cartControllerProvider`) backs the AppBar's cart badge, every add-to-cart stepper, and the Cart
+  screen itself, so a quantity change on Home is instantly reflected everywhere else without any
+  manual refresh. `CartService.Read()` had to change for this to work at all — see Gotchas.
   Not built yet: Firebase push notifications for when the app is fully closed (deferred pending the
   user's own Firebase account setup).
 - `admin_panel` stays the untouched `flutter create` template permanently — it is slated for

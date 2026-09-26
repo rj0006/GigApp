@@ -1065,6 +1065,26 @@ re-deciding the pattern.
   none of that is partner-specific. Check `provider_app` for an existing screen before writing a new
   one for `customer_app`, the same instinct as checking an existing API controller before writing a
   new one.
+- **A Razor page that already builds the right ViewModel gets a JSON sibling, not a rewrite.**
+  `ShopController.Index`/`Category`/`SearchAsync` each moved their body into a private
+  `BuildXxxAsync(...)` returning the existing `StorefrontXxxViewModel`; the original action becomes
+  `return View(await BuildXxxAsync(...))` and a new `[HttpGet("/api/xxx")]` action becomes `return
+  Ok(await BuildXxxAsync(...))`. Works cleanly whenever the ViewModel is already DTOs all the way
+  down (no raw entities, no circular refs) — check that before assuming this shape applies.
+- **`core/utils/image_url.dart`'s `resolveImageUrl(String? path)` turns the API's relative
+  `/uploads/...` path into `${Env.apiBaseUrl}$path`** for any `_Model.fromJson` that carries an
+  image (`ServiceItemModel`, `CatalogCategoryModel`, `CatalogBannerModel`, `CartLineModel`) — the API
+  never returns a full URL since it does not know its own public host. Call it once, in the model's
+  `fromJson`, not at the widget layer.
+- **One shared cart controller, not a quantity field re-fetched per screen.**
+  `presentation/cart/cart_controller.dart`'s `CartController` (`StateNotifierProvider.autoDispose<
+  CartController, AsyncValue<Cart>>`) is read by every add-to-cart stepper
+  (`AddToCartControl`, keyed off `serviceItemId`) and the AppBar's `CartButton` badge alike, so a
+  change from any one of them is instantly visible everywhere else — same "one shared mutable state,
+  many read sites" shape as `PagedListController<T>`, just not paginated. Its mutation methods
+  (`add`/`setQuantity`/`remove`) let a thrown `ApiException` propagate rather than writing it into
+  `state` — the calling widget's own try/catch shows the SnackBar, and the last good cart stays on
+  screen instead of being replaced by an error page.
 
 `customer-ui.css` holds the customer-facing button look — `.btn-uc-primary`, `.btn-uc-outline`,
 `.btn-uc-pill` — layered on top of Bootstrap's `btn` class (keep `btn` for focus/disabled/sizing,
