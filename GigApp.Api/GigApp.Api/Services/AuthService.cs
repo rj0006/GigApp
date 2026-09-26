@@ -2,6 +2,7 @@ using GigApp.Api.Data;
 using GigApp.Api.Dtos;
 using GigApp.Api.Models;
 using GigApp.Api.Services.Files;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace GigApp.Api.Services
@@ -11,23 +12,30 @@ namespace GigApp.Api.Services
         Task<AuthResult> RegisterCustomerAsync(RegisterCustomerRequest request, CancellationToken ct = default);
         Task<AuthResult> RegisterPartnerAsync(RegisterPartnerRequest request, CancellationToken ct = default);
         Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken ct = default);
+        Task<AuthResult> LoginWithOtpAsync(string phone, string role, CancellationToken ct = default);
     }
 
     public class AuthService : IAuthService
     {
         private readonly AppDbContext _context;
         private readonly ITokenService _tokenService;
+        private readonly IRefreshTokenService _refreshTokens;
+        private readonly IHttpContextAccessor _http;
         private readonly IFileStorageService _storage;
         private readonly ILogger<AuthService> _logger;
 
         public AuthService(
             AppDbContext context,
             ITokenService tokenService,
+            IRefreshTokenService refreshTokens,
+            IHttpContextAccessor http,
             IFileStorageService storage,
             ILogger<AuthService> logger)
         {
             _context = context;
             _tokenService = tokenService;
+            _refreshTokens = refreshTokens;
+            _http = http;
             _storage = storage;
             _logger = logger;
         }
@@ -143,7 +151,7 @@ namespace GigApp.Api.Services
             }
 
             _logger.LogInformation("Registered {Role} account {UserId}", role, user.Id);
-            return AuthResult.Ok(BuildResponse(user));
+            return AuthResult.Ok(await BuildResponseAsync(user, ct));
         }
 
         public async Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken ct = default)
@@ -192,16 +200,51 @@ namespace GigApp.Api.Services
                 return AuthResult.Fail("This account has been deactivated. Contact support.");
             }
 
-            return AuthResult.Ok(BuildResponse(user));
+            return AuthResult.Ok(await BuildResponseAsync(user, ct));
         }
 
-        private AuthResponse BuildResponse(User user)
+        public async Task<AuthResult> LoginWithOtpAsync(
+            string phone, string role, CancellationToken ct = default)
+        {
+            var user = await _context.Users.Include(u => u.PartnerProfile)
+                .FirstOrDefaultAsync(u => u.Phone == phone && u.Role == role, ct);
+
+            if (user is null) return AuthResult.Fail("No account found for this number.");
+
+            if (!user.IsActive)
+            {
+                _logger.LogWarning("OTP login blocked for deactivated user {UserId}", user.Id);
+                return AuthResult.Fail("This account has been deactivated. Contact support.");
+            }
+
+            if (!user.IsPhoneVerified)
+            {
+                user.IsPhoneVerified = true;
+                user.PhoneVerifiedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync(ct);
+            }
+
+            _logger.LogInformation("OTP login for {Role} account {UserId}", role, user.Id);
+            return AuthResult.Ok(await BuildResponseAsync(user, ct));
+        }
+
+        private async Task<AuthResponse> BuildResponseAsync(User user, CancellationToken ct)
         {
             var (token, expiresAtUtc) = _tokenService.CreateToken(user);
+
+            var request = _http.HttpContext?.Request;
+            var deviceLabel = DeviceLabel.FromUserAgent(request?.Headers.UserAgent.ToString());
+            var ipAddress = _http.HttpContext?.Connection.RemoteIpAddress?.ToString();
+
+            var (refreshToken, refreshExpiresAtUtc) =
+                await _refreshTokens.IssueAsync(user.Id, deviceLabel, ipAddress, ct);
+
             return new AuthResponse
             {
                 Token = token,
                 ExpiresAtUtc = expiresAtUtc,
+                RefreshToken = refreshToken,
+                RefreshExpiresAtUtc = refreshExpiresAtUtc,
                 User = UserDto.From(user),
             };
         }

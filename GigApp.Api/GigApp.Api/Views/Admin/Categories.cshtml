@@ -1,7 +1,5 @@
-@model AdminCategoriesViewModel
 @{
     Layout = "_AdminLayout";
-    var list = Model.Categories;
 }
 
 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
@@ -16,97 +14,46 @@
 
 <div class="card">
     <div class="card-body">
-        <form method="get" class="row g-2 align-items-end mb-3">
+        <div class="row g-2 align-items-end mb-3">
             <div class="col-sm-5 col-md-4">
-                <label class="form-label" for="Search">Search</label>
-                <input class="form-control form-control-sm" id="Search" name="search"
-                       value="@Model.Search" placeholder="Category name" />
+                <label class="form-label" for="category-search">Search</label>
+                <input class="form-control form-control-sm" id="category-search" placeholder="Category name" />
             </div>
             <div class="col-auto">
-                <input type="hidden" name="showInactive" value="@(Model.ShowInactive ? "true" : "false")" />
-                <button type="submit" class="btn btn-sm btn-primary">Search</button>
+                <button type="button" id="category-search-btn" class="btn btn-sm btn-primary">Search</button>
             </div>
             <div class="col-auto ms-sm-auto">
                 <div class="btn-group btn-group-sm" role="group">
-                    <a class="btn @(Model.ShowInactive ? "btn-outline-secondary" : "btn-secondary")"
-                       href="/admin/masters/categories">Active only</a>
-                    <a class="btn @(Model.ShowInactive ? "btn-secondary" : "btn-outline-secondary")"
-                       href="/admin/masters/categories?showInactive=true">Show all</a>
+                    <button type="button" id="category-filter-active" class="btn btn-secondary">Active only</button>
+                    <button type="button" id="category-filter-all" class="btn btn-outline-secondary">Show all</button>
                 </div>
             </div>
-        </form>
+        </div>
 
-        @if (list.TotalCount == 0)
-        {
-            <p class="text-center text-secondary py-4 mb-0">
-                No categories found.
-                <a href="/admin/masters/categories/new">Add the first one</a>.
-            </p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>Order</th><th>Image</th><th>Name</th><th>Description</th>
-                            <th>In use</th><th>Status</th><th class="text-end">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var category in list.Items)
-                    {
-                        <tr>
-                            <td class="text-secondary small">@category.DisplayOrder</td>
-                            <td><partial name="_MasterThumb" model="category.ImageUrl" /></td>
-                            <td class="fw-semibold">@category.Name</td>
-                            <td class="small text-secondary">@(category.Description ?? "—")</td>
-                            <td class="small">
-                                @if (category.IsInUse)
-                                {
-                                    <span class="badge text-bg-light border">@category.PartnerCount partner</span>
-                                    <span class="badge text-bg-light border">@category.TaskCount task</span>
-                                }
-                                else
-                                {
-                                    <span class="text-secondary">Unused</span>
-                                }
-                            </td>
-                            <td>
-                                <span class="badge @(category.IsActive ? "text-bg-success" : "text-bg-warning")">
-                                    @(category.IsActive ? "Active" : "Inactive")
-                                </span>
-                            </td>
-                            <td>
-                                <div class="row-actions justify-end">
-                                    <a class="btn btn-sm btn-outline-secondary"
-                                       href="/admin/masters/categories/@category.Id/edit">Edit</a>
+        <div id="category-empty" class="text-center text-secondary py-4 mb-0" hidden>
+            No categories found.
+            <a href="/admin/masters/categories/new">Add the first one</a>.
+        </div>
 
-                                    <form method="post" asp-action="ToggleCategory" asp-route-id="@category.Id">
-                                        <input type="hidden" name="isActive"
-                                               value="@(category.IsActive ? "false" : "true")" />
-                                        <button type="submit" class="btn btn-sm btn-outline-secondary">
-                                            @(category.IsActive ? "Deactivate" : "Activate")
-                                        </button>
-                                    </form>
+        <div id="category-table-wrap" class="table-responsive" hidden>
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Order</th><th>Image</th><th>Name</th><th>Description</th>
+                        <th>In use</th><th>Status</th><th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="category-rows"></tbody>
+            </table>
+        </div>
 
-                                    @if (!category.IsInUse)
-                                    {
-                                        <form method="post" asp-action="DeleteCategory" asp-route-id="@category.Id"
-                                              data-confirm="Delete '@category.Name'? This cannot be undone.">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-                                        </form>
-                                    }
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
+        <div id="category-pager" class="d-flex align-items-center gap-2 mt-3" hidden>
+            <span id="category-pager-summary" class="small text-secondary"></span>
+            <div class="btn-group btn-group-sm ms-auto">
+                <button type="button" id="category-prev" class="btn btn-outline-secondary">Previous</button>
+                <button type="button" id="category-next" class="btn btn-outline-secondary">Next</button>
             </div>
-
-            <partial name="_Pagination" model="PagerModel.From(list, Context)" />
-        }
+        </div>
     </div>
 </div>
 
@@ -114,3 +61,139 @@
     A category already in use cannot be deleted — deactivate it instead. Deactivating removes it from
     new selections while existing partners and tasks continue to work normally.
 </p>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            var state = { page: 1, search: '', showInactive: false };
+
+            function usageCell(category) {
+                if (category.partnerCount > 0 || category.taskCount > 0) {
+                    return '<span class="badge text-bg-light border">' + category.partnerCount + ' partner</span> '
+                        + '<span class="badge text-bg-light border">' + category.taskCount + ' task</span>';
+                }
+                return '<span class="text-secondary">Unused</span>';
+            }
+
+            function statusBadge(category) {
+                var cls = category.isActive ? 'text-bg-success' : 'text-bg-warning';
+                var text = category.isActive ? 'Active' : 'Inactive';
+                return '<span class="badge ' + cls + '">' + text + '</span>';
+            }
+
+            function row(category) {
+                var inUse = category.partnerCount > 0 || category.taskCount > 0;
+                var toggleLabel = category.isActive ? 'Deactivate' : 'Activate';
+
+                var actions = ''
+                    + '<a class="btn btn-sm btn-outline-secondary" href="/admin/masters/categories/' + category.id + '/edit">Edit</a> '
+                    + '<button type="button" class="btn btn-sm btn-outline-secondary" data-toggle="' + category.id
+                    + '" data-active="' + category.isActive + '">' + toggleLabel + '</button>';
+
+                if (!inUse) {
+                    actions += ' <button type="button" class="btn btn-sm btn-outline-danger" data-delete="' + category.id
+                        + '" data-name="' + Admin.escapeHtml(category.name) + '">Delete</button>';
+                }
+
+                return '<tr>'
+                    + '<td class="text-secondary small">' + category.displayOrder + '</td>'
+                    + '<td>' + Admin.thumb(category.imageUrl) + '</td>'
+                    + '<td class="fw-semibold">' + Admin.escapeHtml(category.name) + '</td>'
+                    + '<td class="small text-secondary">' + Admin.escapeHtml(category.description || '—') + '</td>'
+                    + '<td class="small">' + usageCell(category) + '</td>'
+                    + '<td>' + statusBadge(category) + '</td>'
+                    + '<td><div class="row-actions justify-end">' + actions + '</div></td>'
+                    + '</tr>';
+            }
+
+            function load() {
+                var url = '/api/skillcategories/all?page=' + state.page + '&pageSize=10'
+                    + '&showInactive=' + state.showInactive
+                    + (state.search ? '&search=' + encodeURIComponent(state.search) : '');
+
+                App.api.get(url).then(function (result) {
+                    $('#category-empty').prop('hidden', result.totalCount > 0);
+                    $('#category-table-wrap').prop('hidden', result.totalCount === 0);
+                    $('#category-pager').prop('hidden', result.totalCount === 0);
+
+                    $('#category-rows').html(result.items.map(row).join(''));
+
+                    $('#category-pager-summary').text(result.totalCount === 0
+                        ? ''
+                        : 'Showing ' + result.firstRow + '–' + result.lastRow + ' of ' + result.totalCount);
+
+                    $('#category-prev').prop('disabled', !result.hasPrevious);
+                    $('#category-next').prop('disabled', !result.hasNext);
+                });
+            }
+
+            $(function () {
+                load();
+
+                $('#category-search-btn').on('click', function () {
+                    state.search = $('#category-search').val().trim();
+                    state.page = 1;
+                    load();
+                });
+
+                $('#category-search').on('keydown', function (event) {
+                    if (event.which === 13) {
+                        event.preventDefault();
+                        $('#category-search-btn').click();
+                    }
+                });
+
+                $('#category-filter-active').on('click', function () {
+                    state.showInactive = false;
+                    state.page = 1;
+                    $(this).removeClass('btn-outline-secondary').addClass('btn-secondary');
+                    $('#category-filter-all').removeClass('btn-secondary').addClass('btn-outline-secondary');
+                    load();
+                });
+
+                $('#category-filter-all').on('click', function () {
+                    state.showInactive = true;
+                    state.page = 1;
+                    $(this).removeClass('btn-outline-secondary').addClass('btn-secondary');
+                    $('#category-filter-active').removeClass('btn-secondary').addClass('btn-outline-secondary');
+                    load();
+                });
+
+                $('#category-prev').on('click', function () { state.page -= 1; load(); });
+                $('#category-next').on('click', function () { state.page += 1; load(); });
+
+                $('#category-rows').on('click', '[data-toggle]', function () {
+                    var id = $(this).data('toggle');
+                    var isActive = String($(this).data('active')) === 'true';
+
+                    App.api.post('/api/skillcategories/' + id + '/toggle', { isActive: !isActive }).then(function (updated) {
+                        showToast('Success', updated.isActive
+                            ? "'" + updated.name + "' is active and selectable again."
+                            : "'" + updated.name + "' deactivated. Existing partners and tasks keep it.", 'success');
+                        load();
+                    });
+                });
+
+                $('#category-rows').on('click', '[data-delete]', function () {
+                    var id = $(this).data('delete');
+                    var name = $(this).data('name');
+
+                    App.confirmAction({
+                        title: 'Delete this category?',
+                        text: "Delete '" + name + "'? This cannot be undone.",
+                        icon: 'warning',
+                    }).then(function (ok) {
+                        if (!ok) return;
+
+                        App.api.del('/api/skillcategories/' + id).then(function () {
+                            showToast('Success', "Category '" + name + "' deleted.", 'success');
+                            load();
+                        });
+                    });
+                });
+            });
+        })();
+    </script>
+}

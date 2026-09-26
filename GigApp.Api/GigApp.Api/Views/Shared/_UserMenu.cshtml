@@ -5,19 +5,18 @@
     <div class="d-flex align-items-center gap-2">
         @if (Model.NotificationHref is not null)
         {
-            <div class="dropdown">
+            <div class="dropdown" data-notification-menu data-href="@Model.NotificationHref">
                 <button class="btn btn-sm btn-light border position-relative dropdown-toggle no-caret"
                         type="button" data-bs-toggle="dropdown" data-bs-display="static"
                         aria-expanded="false"
+                        aria-label="Notifications"
                         title="@Model.NotificationCount @Model.NotificationLabel">
-                    &#128276;
-                    @if (Model.NotificationCount > 0)
-                    {
-                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger">
-                            @Model.NotificationCount
-                            <span class="visually-hidden">@Model.NotificationLabel</span>
-                        </span>
-                    }
+                    <partial name="_Icon" model="@("bell")" />
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger"
+                          data-notification-badge hidden="@(Model.NotificationCount == 0)">
+                        <span data-notification-count>@Model.NotificationCount</span>
+                        <span class="visually-hidden">@Model.NotificationLabel</span>
+                    </span>
                 </button>
 
                 <div class="dropdown-menu dropdown-menu-end p-0 notification-menu">
@@ -26,46 +25,46 @@
                         <a class="ms-auto small text-decoration-none" href="@Model.NotificationHref">See all</a>
                     </div>
 
-                    @if (Model.Recent.Count == 0)
-                    {
-                        <div class="px-3 py-4 text-center text-secondary small">
-                            Nothing yet. We will tell you when a job moves.
-                        </div>
-                    }
-                    else
-                    {
-                        foreach (var note in Model.Recent)
+                    <div data-notification-list>
+                        @if (Model.Recent.Count == 0)
                         {
-                            <a class="notification-row@(note.IsRead ? "" : " is-unread")"
-                               href="@(note.Link ?? Model.NotificationHref)">
-                                <span class="notification-icon">@note.Icon</span>
-                                <span class="notification-text">
-                                    <span class="notification-title">@note.Title</span>
-                                    <span class="notification-body">@note.Body</span>
-                                    <span class="notification-age">@note.Age</span>
-                                </span>
-                            </a>
+                            <div class="px-3 py-4 text-center text-secondary small" data-notification-empty>
+                                Nothing yet. We will tell you when a job moves.
+                            </div>
                         }
-                    }
+                        else
+                        {
+                            foreach (var note in Model.Recent)
+                            {
+                                <a class="notification-row@(note.IsRead ? "" : " is-unread")"
+                                   href="@(note.Link ?? Model.NotificationHref)">
+                                    <span class="notification-icon">@note.Icon</span>
+                                    <span class="notification-text">
+                                        <span class="notification-title">@note.Title</span>
+                                        <span class="notification-body">@note.Body</span>
+                                        <span class="notification-age">@note.Age</span>
+                                    </span>
+                                </a>
+                            }
+                        }
+                    </div>
                 </div>
             </div>
         }
 
         <div class="dropdown">
-            <button class="btn btn-sm btn-light border d-flex align-items-center gap-2 dropdown-toggle"
-                    type="button" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">
+            <button class="btn btn-sm btn-light border dropdown-toggle no-caret"
+                    type="button" data-bs-toggle="dropdown" data-bs-display="static"
+                    aria-expanded="false" aria-label="Account" title="@Model.DisplayName">
                 @if (Model.PhotoUrl is not null)
                 {
-                    <img src="@Model.PhotoUrl" alt="" width="24" height="24"
+                    <img src="@Model.PhotoUrl" alt="" width="20" height="20"
                          class="rounded-circle" style="object-fit:cover" />
                 }
                 else
                 {
-                    <span class="rounded-circle bg-secondary-subtle text-secondary-emphasis
-                                 d-inline-flex align-items-center justify-content-center fw-semibold"
-                          style="width:24px;height:24px;font-size:.7rem">@Model.Initial</span>
+                    <partial name="_Icon" model="@("user")" />
                 }
-                <span class="d-none d-sm-inline">@Model.DisplayName</span>
             </button>
 
             <div class="dropdown-menu dropdown-menu-end p-2" style="min-width:14rem">

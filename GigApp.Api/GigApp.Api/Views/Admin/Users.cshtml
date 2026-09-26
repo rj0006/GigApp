@@ -1,105 +1,51 @@
-@model AdminUsersViewModel
+@model UsersShellViewModel
 @{
     Layout = "_AdminLayout";
-    var isPartnerList = Model.Role == UserRoles.Partner;
     var isSuperAdmin = ViewData["IsSuperAdmin"] is true;
-    var list = Model.Users;
 }
 
 <h1 class="h4">@Model.Heading</h1>
 <p class="text-secondary small">
-    <strong>@list.TotalCount</strong> account(s) with the <code>@Model.Role</code> role.
+    <strong id="user-count">0</strong> account(s) with the <code>@Model.Role</code> role.
 </p>
 
 <div class="card">
     <div class="card-body">
-        <form method="get" class="row g-2 align-items-end mb-3">
+        <div class="row g-2 align-items-end mb-3">
             <div class="col-sm-5 col-md-4">
-                <label class="form-label" for="search">Search</label>
-                <input class="form-control form-control-sm" id="search" name="search"
-                       value="@Model.Search" placeholder="Name, mobile or email" />
+                <label class="form-label" for="user-search">Search</label>
+                <input class="form-control form-control-sm" id="user-search" placeholder="Name, mobile or email" />
             </div>
             <div class="col-auto">
-                <button type="submit" class="btn btn-sm btn-primary">Search</button>
-                @if (!string.IsNullOrWhiteSpace(Model.Search))
-                {
-                    <a class="btn btn-sm btn-outline-secondary" href="@Context.Request.Path">Clear</a>
-                }
+                <button type="button" id="user-search-btn" class="btn btn-sm btn-primary">Search</button>
+                <button type="button" id="user-search-clear" class="btn btn-sm btn-outline-secondary" hidden>Clear</button>
             </div>
-        </form>
+        </div>
 
-        @if (list.TotalCount == 0)
-        {
-            <p class="text-center text-secondary py-4 mb-0">No accounts match.</p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>#</th><th>Name</th><th>Mobile</th><th>Email</th>
-                            <th>Status</th><th>Phone verified</th>
-                            @if (isPartnerList) { <th>Skill</th> }
-                            <th>Registered</th>
-                            @if (isSuperAdmin) { <th class="text-end">Account</th> }
-                        </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var user in list.Items)
-                    {
-                        <tr>
-                            <td class="text-secondary">@user.Id</td>
-                            <td class="fw-semibold">@user.Name</td>
-                            <td class="mono">@user.Phone</td>
-                            <td class="small">@(user.Email ?? "—")</td>
-                            <td>
-                                <span class="badge @(user.IsActive ? "text-bg-success" : "text-bg-danger")">
-                                    @(user.IsActive ? "Active" : "Deactivated")
-                                </span>
-                            </td>
-                            <td>
-                                <span class="badge @(user.IsPhoneVerified ? "text-bg-success" : "text-bg-warning")">
-                                    @(user.IsPhoneVerified ? "Verified" : "Unverified")
-                                </span>
-                            </td>
-                            @if (isPartnerList)
-                            {
-                                <td>
-                                    <span class="badge text-bg-light border">
-                                        @(user.PartnerProfile?.SkillCategoryName ?? "—")
-                                    </span>
-                                </td>
-                            }
-                            <td class="small text-secondary">@user.CreatedAt.ToString("dd MMM yyyy")</td>
-                            @if (isSuperAdmin)
-                            {
-                                <td class="text-end">
-                                    <button type="button" class="btn btn-sm btn-outline-warning"
-                                            data-bs-toggle="modal" data-bs-target="#account-modal-@user.Id">
-                                        Manage
-                                    </button>
-                                </td>
-                            }
-                        </tr>
-                    }
-                    </tbody>
-                </table>
+        <div id="user-empty" class="text-center text-secondary py-4 mb-0" hidden>No accounts match.</div>
+
+        <div id="user-table-wrap" class="table-responsive" hidden>
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th><th>Name</th><th>Mobile</th><th>Email</th>
+                        <th>Status</th><th>Phone verified</th><th>Registered</th>
+                        @if (isSuperAdmin) { <th class="text-end">Account</th> }
+                    </tr>
+                </thead>
+                <tbody id="user-rows"></tbody>
+            </table>
+        </div>
+
+        <div id="user-pager" class="d-flex align-items-center gap-2 mt-3" hidden>
+            <span id="user-pager-summary" class="small text-secondary"></span>
+            <div class="btn-group btn-group-sm ms-auto">
+                <button type="button" id="user-prev" class="btn btn-outline-secondary">Previous</button>
+                <button type="button" id="user-next" class="btn btn-outline-secondary">Next</button>
             </div>
-
-            <partial name="_Pagination" model="PagerModel.From(list, Context)" />
-        }
+        </div>
     </div>
 </div>
-
-@if (isSuperAdmin)
-{
-    @* Super-admin-only account actions. The endpoints re-check the policy. *@
-    foreach (var user in list.Items)
-    {
-        <partial name="_UserAccountModal" model="user" />
-    }
-}
 
 @if (Model.Role == UserRoles.Admin)
 {
@@ -107,4 +53,103 @@
         There is no public admin registration by design. New administrators are seeded or
         created by an existing administrator.
     </p>
+}
+
+@if (isSuperAdmin)
+{
+    <partial name="_AccountModal" />
+}
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            var role = '@Model.Role';
+            var includeSuperAdmins = @(Model.IncludeSuperAdmins ? "true" : "false");
+            var state = { page: 1, search: '' };
+
+            function row(user, isSuperAdmin) {
+                var statusCls = user.isActive ? 'text-bg-success' : 'text-bg-danger';
+                var statusText = user.isActive ? 'Active' : 'Deactivated';
+                var phoneCls = user.isPhoneVerified ? 'text-bg-success' : 'text-bg-warning';
+                var phoneText = user.isPhoneVerified ? 'Verified' : 'Unverified';
+                var registered = new Date(user.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+                var manageCell = isSuperAdmin
+                    ? '<td class="text-end"><button type="button" class="btn btn-sm btn-outline-warning" data-manage="' + user.id + '">Manage</button></td>'
+                    : '';
+
+                return '<tr>'
+                    + '<td class="text-secondary">' + user.id + '</td>'
+                    + '<td class="fw-semibold">' + Admin.escapeHtml(user.name) + '</td>'
+                    + '<td class="mono">' + Admin.escapeHtml(user.phone) + '</td>'
+                    + '<td class="small">' + Admin.escapeHtml(user.email || '—') + '</td>'
+                    + '<td><span class="badge ' + statusCls + '">' + statusText + '</span></td>'
+                    + '<td><span class="badge ' + phoneCls + '">' + phoneText + '</span></td>'
+                    + '<td class="small text-secondary">' + registered + '</td>'
+                    + manageCell
+                    + '</tr>';
+            }
+
+            function load() {
+                var url = '/api/users/all?role=' + role + '&includeSuperAdmins=' + includeSuperAdmins
+                    + '&page=' + state.page + '&pageSize=10'
+                    + (state.search ? '&search=' + encodeURIComponent(state.search) : '');
+
+                App.api.get(url).then(function (result) {
+                    $('#user-count').text(result.totalCount);
+                    $('#user-empty').prop('hidden', result.totalCount > 0);
+                    $('#user-table-wrap').prop('hidden', result.totalCount === 0);
+                    $('#user-pager').prop('hidden', result.totalCount === 0);
+
+                    var isSuperAdmin = $('#account-modal').length > 0;
+                    $('#user-rows').html(result.items.map(function (u) { return row(u, isSuperAdmin); }).join(''));
+
+                    $('#user-pager-summary').text(result.totalCount === 0
+                        ? ''
+                        : 'Showing ' + result.firstRow + '–' + result.lastRow + ' of ' + result.totalCount);
+
+                    $('#user-prev').prop('disabled', !result.hasPrevious);
+                    $('#user-next').prop('disabled', !result.hasNext);
+                });
+            }
+
+            $(function () {
+                load();
+
+                $('#user-search-btn').on('click', function () {
+                    state.search = $('#user-search').val().trim();
+                    state.page = 1;
+                    $('#user-search-clear').prop('hidden', !state.search);
+                    load();
+                });
+
+                $('#user-search').on('keydown', function (event) {
+                    if (event.which === 13) {
+                        event.preventDefault();
+                        $('#user-search-btn').click();
+                    }
+                });
+
+                $('#user-search-clear').on('click', function () {
+                    $('#user-search').val('');
+                    state.search = '';
+                    state.page = 1;
+                    $(this).prop('hidden', true);
+                    load();
+                });
+
+                $('#user-prev').on('click', function () { state.page -= 1; load(); });
+                $('#user-next').on('click', function () { state.page += 1; load(); });
+
+                $('#user-rows').on('click', '[data-manage]', function () {
+                    var id = $(this).data('manage');
+                    App.api.get('/api/users/' + id).then(function (user) {
+                        Admin.openAccountModal(user, load);
+                    });
+                });
+            });
+        })();
+    </script>
 }

@@ -1,38 +1,37 @@
-@model AdminPartnerLedgerViewModel
+@model PartnerLedgerShellViewModel
 @{
     Layout = "_AdminLayout";
-    var summary = Model.Summary;
     var isSuperAdmin = ViewData["IsSuperAdmin"] is true;
 }
 
 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-    <h1 class="h4 mb-0">@Model.Partner.Name</h1>
-    <span class="badge text-bg-light border">@Model.Partner.SkillCategoryName</span>
+    <h1 class="h4 mb-0" id="ledger-partner-name">Partner earnings</h1>
+    <span class="badge text-bg-light border" id="ledger-partner-skill"></span>
     <a class="btn btn-sm btn-outline-secondary ms-auto" href="/admin/payouts">Back to payouts</a>
 </div>
 
 <div class="row g-3 mb-3">
     <div class="col-6 col-lg-3">
         <div class="card h-100"><div class="card-body py-3">
-            <div class="h4 mb-0 text-success">₹@summary.Balance.ToString("N2")</div>
+            <div class="h4 mb-0 text-success" id="ledger-balance">₹0.00</div>
             <div class="text-secondary text-uppercase" style="font-size:.68rem">Owed now</div>
         </div></div>
     </div>
     <div class="col-6 col-lg-3">
         <div class="card h-100"><div class="card-body py-3">
-            <div class="h4 mb-0">₹@summary.LifetimeEarned.ToString("N2")</div>
+            <div class="h4 mb-0" id="ledger-earned">₹0.00</div>
             <div class="text-secondary text-uppercase" style="font-size:.68rem">Gross earned</div>
         </div></div>
     </div>
     <div class="col-6 col-lg-3">
         <div class="card h-100"><div class="card-body py-3">
-            <div class="h4 mb-0">₹@summary.LifetimeCommission.ToString("N2")</div>
+            <div class="h4 mb-0" id="ledger-commission">₹0.00</div>
             <div class="text-secondary text-uppercase" style="font-size:.68rem">Commission taken</div>
         </div></div>
     </div>
     <div class="col-6 col-lg-3">
         <div class="card h-100"><div class="card-body py-3">
-            <div class="h4 mb-0">@summary.JobsPaid</div>
+            <div class="h4 mb-0" id="ledger-jobs-paid">0</div>
             <div class="text-secondary text-uppercase" style="font-size:.68rem">Jobs credited</div>
         </div></div>
     </div>
@@ -43,126 +42,39 @@
         <div class="card mb-3">
             <div class="card-body">
                 <h2 class="h6 mb-2">Bank account</h2>
-
-                @if (Model.BankAccount is null)
-                {
-                    <div class="alert alert-warning small mb-0">
-                        This partner has not added a bank account, so a payout cannot be sent yet.
-                    </div>
-                }
-                else
-                {
-                    <dl class="row small mb-0">
-                        <dt class="col-5">Holder</dt>
-                        <dd class="col-7">@Model.BankAccount.AccountHolderName</dd>
-                        <dt class="col-5">Account</dt>
-                        <dd class="col-7 mono">@Model.BankAccount.MaskedAccountNumber</dd>
-                        <dt class="col-5">IFSC</dt>
-                        <dd class="col-7 mono">@Model.BankAccount.IfscCode</dd>
-                        <dt class="col-5">Bank</dt>
-                        <dd class="col-7">@Model.BankAccount.BankName</dd>
-                        @if (!string.IsNullOrWhiteSpace(Model.BankAccount.UpiId))
-                        {
-                            <dt class="col-5">UPI</dt>
-                            <dd class="col-7">@Model.BankAccount.UpiId</dd>
-                        }
-                    </dl>
-                }
+                <div id="ledger-bank-account"></div>
             </div>
         </div>
 
         <div class="card mb-3">
             <div class="card-body">
                 <h2 class="h6 mb-2">Commission plan</h2>
+                <div id="ledger-current-plan" class="mb-3"></div>
 
-                @if (Model.CurrentPlan is null)
-                {
-                    <div class="alert alert-warning small">
-                        No plan assigned. The default plan is applied when the next job settles.
-                    </div>
-                }
-                else
-                {
-                    <div class="alert alert-light border small mb-3">
-                        <div class="fw-semibold">@Model.CurrentPlan.PlanName</div>
-                        <div>
-                            @if (Model.CurrentPlan.IsZeroCommission)
-                            {
-                                <span class="text-success">Keeps the whole job amount</span>
-                            }
-                            else
-                            {
-                                <text>@Model.CurrentPlan.CommissionPercent.ToString("0.##")% commission per job</text>
-                            }
-                        </div>
-                        <div class="text-secondary">
-                            Since @Model.CurrentPlan.StartsOn.ToString("dd MMM yyyy")
-                            @if (Model.CurrentPlan.EndsOn is not null)
-                            {
-                                <text>· runs out @Model.CurrentPlan.EndsOn.Value.ToString("dd MMM yyyy")</text>
-                            }
-                        </div>
-                    </div>
-                }
-
-                <form method="post" action="/admin/payouts/@Model.Partner.Id/plan" class="gig-form row g-2"
-                      data-confirm-title="Change the plan?"
-                      data-confirm="The new rate applies to jobs completed from now on. Jobs already settled keep the rate they were charged."
-                      data-confirm-icon="question"
-                      data-confirm-ok="Yes, change it">
-                    @Html.AntiForgeryToken()
-
+                <form id="ledger-plan-form" class="gig-form row g-2">
                     <div class="col-12">
-                        <label for="CommissionPlanId" class="form-label required">Move to</label>
-                        <select id="CommissionPlanId" name="CommissionPlanId" class="form-select form-select-sm">
-                            @foreach (var plan in Model.AvailablePlans)
-                            {
-                                <option value="@plan.Id">
-                                    @plan.Name — @plan.Headline@(plan.SubscriptionFee > 0 ? $", ₹{plan.SubscriptionFee:N0} {plan.BillingLabel.ToLowerInvariant()}" : "")
-                                </option>
-                            }
-                        </select>
+                        <label for="ledger-plan-select" class="form-label required">Move to</label>
+                        <select id="ledger-plan-select" name="CommissionPlanId" class="form-select form-select-sm"></select>
                     </div>
-
                     <div class="col-12">
-                        <input id="Remark" name="Remark" class="form-control form-control-sm"
+                        <input id="ledger-plan-remark" name="Remark" class="form-control form-control-sm"
                                maxlength="300" placeholder="Remark, optional" />
                     </div>
-
                     <div class="col-12">
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="ChargeFee"
+                            <input class="form-check-input" type="checkbox" id="ledger-plan-charge-fee"
                                    name="ChargeFee" value="true" checked />
-                            <label class="form-check-label small" for="ChargeFee">
+                            <label class="form-check-label small" for="ledger-plan-charge-fee">
                                 Debit the plan fee from the balance now
                             </label>
                         </div>
                     </div>
-
                     <div class="col-12">
                         <button type="submit" class="btn btn-sm btn-outline-primary">Change plan</button>
                     </div>
                 </form>
 
-                @if (Model.PlanHistory.Count > 1)
-                {
-                    <hr />
-                    <h3 class="small fw-semibold">Plan history</h3>
-                    <ul class="list-unstyled small mb-0">
-                        @foreach (var past in Model.PlanHistory)
-                        {
-                            <li class="text-secondary">
-                                @past.StartsOn.ToString("dd MMM yyyy") —
-                                <span class="text-body">@past.PlanName</span>
-                                at @past.CommissionPercent.ToString("0.##")%
-                                @if (past.IsActive)
-                                {
-                                    <span class="badge text-bg-success">current</span>
-                                }
-                            </li>
-                        }
-                    </ul>
-                }
+                <div id="ledger-plan-history"></div>
             </div>
         </div>
 
@@ -174,41 +86,27 @@
                     reference. This does not move money by itself.
                 </p>
 
-                <partial name="_ValidationSummary" />
-
-                <form method="post" action="/admin/payouts/@Model.Partner.Id" class="gig-form row g-3"
-                      data-confirm-title="Record this payout?"
-                      data-confirm="This reduces the partner's balance. Only record it once the bank transfer has actually gone out."
-                      data-confirm-ok="Yes, record it">
-                    @Html.AntiForgeryToken()
-
+                <form id="ledger-payout-form" class="gig-form row g-3">
                     <div class="col-12">
-                        <label asp-for="PayoutForm.Amount" class="form-label required"></label>
-                        <input asp-for="PayoutForm.Amount" type="number" step="0.01" min="1"
-                               max="@summary.Balance" class="form-control"
-                               value="@summary.Balance.ToString("0.00")" />
-                        <div class="form-text">Available: ₹@summary.Balance.ToString("N2")</div>
+                        <label for="ledger-payout-amount" class="form-label required">Amount</label>
+                        <input id="ledger-payout-amount" name="Amount" type="number" step="0.01" min="1"
+                               class="form-control" />
+                        <div class="form-text" id="ledger-payout-available"></div>
                     </div>
-
                     <div class="col-12">
-                        <label asp-for="PayoutForm.Reference" class="form-label"></label>
-                        <input asp-for="PayoutForm.Reference" class="form-control mono"
+                        <label for="ledger-payout-reference" class="form-label">Bank reference</label>
+                        <input id="ledger-payout-reference" name="Reference" class="form-control mono"
                                placeholder="UTR or transaction id" />
                         <div class="form-text">
                             Recording the same reference twice is refused, so a retry cannot pay twice.
                         </div>
                     </div>
-
                     <div class="col-12">
-                        <label asp-for="PayoutForm.Remark" class="form-label"></label>
-                        <input asp-for="PayoutForm.Remark" class="form-control" />
+                        <label for="ledger-payout-remark" class="form-label">Remark</label>
+                        <input id="ledger-payout-remark" name="Remark" class="form-control" />
                     </div>
-
                     <div class="col-12">
-                        <button type="submit" class="btn btn-primary"
-                                @(summary.Balance <= 0 ? "disabled" : "")>
-                            Record payout
-                        </button>
+                        <button type="submit" id="ledger-payout-submit" class="btn btn-primary">Record payout</button>
                     </div>
                 </form>
             </div>
@@ -224,32 +122,24 @@
                         entries — an adjustment is a new line, never an edit.
                     </p>
 
-                    <form method="post" action="/admin/payouts/@Model.Partner.Id/adjust" class="gig-form row g-3"
-                          data-confirm-title="Post this adjustment?"
-                          data-confirm="Adjustments change what the platform owes and stay on the ledger permanently."
-                          data-confirm-ok="Yes, post it">
-                        @Html.AntiForgeryToken()
-
+                    <form id="ledger-adjustment-form" class="gig-form row g-3">
                         <div class="col-6">
-                            <label for="Direction" class="form-label required">Direction</label>
-                            <select id="Direction" name="Direction" class="form-select">
+                            <label for="ledger-adjustment-direction" class="form-label required">Direction</label>
+                            <select id="ledger-adjustment-direction" name="Direction" class="form-select">
                                 <option value="@LedgerDirection.Credit">Add to balance</option>
                                 <option value="@LedgerDirection.Debit">Take from balance</option>
                             </select>
                         </div>
-
                         <div class="col-6">
-                            <label for="Amount" class="form-label required">Amount</label>
-                            <input id="Amount" name="Amount" type="number" step="0.01" min="1"
+                            <label for="ledger-adjustment-amount" class="form-label required">Amount</label>
+                            <input id="ledger-adjustment-amount" name="Amount" type="number" step="0.01" min="1"
                                    class="form-control" required />
                         </div>
-
                         <div class="col-12">
-                            <label for="Remark" class="form-label required">Reason</label>
-                            <input id="Remark" name="Remark" class="form-control" maxlength="300" required
+                            <label for="ledger-adjustment-remark" class="form-label required">Reason</label>
+                            <input id="ledger-adjustment-remark" name="Remark" class="form-control" maxlength="300" required
                                    placeholder="e.g. Compensation for a cancelled booking" />
                         </div>
-
                         <div class="col-12">
                             <button type="submit" class="btn btn-outline-warning">Post adjustment</button>
                         </div>
@@ -263,8 +153,221 @@
         <div class="card">
             <div class="card-body">
                 <h2 class="h6 mb-3">Statement</h2>
-                <partial name="_LedgerTable" model="Model.Entries" />
+
+                <div id="ledger-entries-empty" class="text-center text-secondary py-4 mb-0" hidden>Nothing recorded yet.</div>
+
+                <div id="ledger-entries-wrap" class="table-responsive" hidden>
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Date</th><th>Type</th><th>Details</th>
+                                <th class="text-end">Amount</th><th class="text-end">Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ledger-entry-rows"></tbody>
+                    </table>
+                </div>
+
+                <div id="ledger-entries-pager" class="d-flex align-items-center gap-2 mt-3" hidden>
+                    <span id="ledger-entries-summary" class="small text-secondary"></span>
+                    <div class="btn-group btn-group-sm ms-auto">
+                        <button type="button" id="ledger-entries-prev" class="btn btn-outline-secondary">Previous</button>
+                        <button type="button" id="ledger-entries-next" class="btn btn-outline-secondary">Next</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            var partnerId = @Model.PartnerId;
+            var entriesState = { page: 1 };
+            var currentBalance = 0;
+
+            function inr(amount) {
+                return '₹' + Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            function loadPage() {
+                App.api.get('/api/earnings/' + partnerId).then(function (data) {
+                    document.title = data.partner.name + ' — earnings';
+                    $('#ledger-partner-name').text(data.partner.name);
+                    $('#ledger-partner-skill').text(data.partner.skillCategoryName);
+
+                    currentBalance = data.summary.balance;
+                    $('#ledger-balance').text(inr(data.summary.balance));
+                    $('#ledger-earned').text(inr(data.summary.lifetimeEarned));
+                    $('#ledger-commission').text(inr(data.summary.lifetimeCommission));
+                    $('#ledger-jobs-paid').text(data.summary.jobsPaid);
+
+                    $('#ledger-payout-amount').val(data.summary.balance.toFixed(2));
+                    $('#ledger-payout-available').text('Available: ' + inr(data.summary.balance));
+                    $('#ledger-payout-submit').prop('disabled', data.summary.balance <= 0);
+
+                    if (data.bankAccount) {
+                        var b = data.bankAccount;
+                        var html = '<dl class="row small mb-0">'
+                            + '<dt class="col-5">Holder</dt><dd class="col-7">' + Admin.escapeHtml(b.accountHolderName) + '</dd>'
+                            + '<dt class="col-5">Account</dt><dd class="col-7 mono">' + Admin.escapeHtml(b.maskedAccountNumber) + '</dd>'
+                            + '<dt class="col-5">IFSC</dt><dd class="col-7 mono">' + Admin.escapeHtml(b.ifscCode) + '</dd>'
+                            + '<dt class="col-5">Bank</dt><dd class="col-7">' + Admin.escapeHtml(b.bankName) + '</dd>';
+                        if (b.upiId) html += '<dt class="col-5">UPI</dt><dd class="col-7">' + Admin.escapeHtml(b.upiId) + '</dd>';
+                        $('#ledger-bank-account').html(html + '</dl>');
+                    } else {
+                        $('#ledger-bank-account').html('<div class="alert alert-warning small mb-0">'
+                            + 'This partner has not added a bank account, so a payout cannot be sent yet.</div>');
+                    }
+
+                    if (data.currentPlan) {
+                        var p = data.currentPlan;
+                        var commissionLine = p.isZeroCommission
+                            ? '<span class="text-success">Keeps the whole job amount</span>'
+                            : p.commissionPercent.toFixed(2).replace(/\.?0+$/, '') + '% commission per job';
+                        var since = new Date(p.startsOn).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                        var ends = p.endsOn ? ' · runs out ' + new Date(p.endsOn).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+
+                        $('#ledger-current-plan').html('<div class="alert alert-light border small mb-0">'
+                            + '<div class="fw-semibold">' + Admin.escapeHtml(p.planName) + '</div>'
+                            + '<div>' + commissionLine + '</div>'
+                            + '<div class="text-secondary">Since ' + since + ends + '</div></div>');
+                    } else {
+                        $('#ledger-current-plan').html('<div class="alert alert-warning small mb-0">'
+                            + 'No plan assigned. The default plan is applied when the next job settles.</div>');
+                    }
+
+                    $('#ledger-plan-select').html(data.availablePlans.map(function (plan) {
+                        var feeText = plan.subscriptionFee > 0
+                            ? ', ₹' + plan.subscriptionFee.toLocaleString('en-IN') + ' ' + plan.billingLabel.toLowerCase()
+                            : '';
+                        return '<option value="' + plan.id + '">' + Admin.escapeHtml(plan.name) + ' — '
+                            + Admin.escapeHtml(plan.headline) + feeText + '</option>';
+                    }).join(''));
+
+                    if (data.planHistory.length > 1) {
+                        var rows = data.planHistory.map(function (past) {
+                            var startsOn = new Date(past.startsOn).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                            return '<li class="text-secondary">' + startsOn + ' — <span class="text-body">'
+                                + Admin.escapeHtml(past.planName) + '</span> at ' + past.commissionPercent.toFixed(2).replace(/\.?0+$/, '') + '%'
+                                + (past.isActive ? ' <span class="badge text-bg-success">current</span>' : '') + '</li>';
+                        }).join('');
+                        $('#ledger-plan-history').html('<hr /><h3 class="small fw-semibold">Plan history</h3>'
+                            + '<ul class="list-unstyled small mb-0">' + rows + '</ul>');
+                    } else {
+                        $('#ledger-plan-history').empty();
+                    }
+                });
+            }
+
+            function entryRow(entry) {
+                var occurred = new Date(entry.createdAt);
+                var details = '<div>' + Admin.escapeHtml(entry.description) + '</div>';
+
+                if (entry.gigTaskId) {
+                    details += '<div class="text-secondary">' + Admin.escapeHtml(entry.taskCategory || '')
+                        + (entry.customerName ? ' · for ' + Admin.escapeHtml(entry.customerName) : '') + '</div>';
+                    if (entry.taskAddress) details += '<div class="text-body-tertiary">' + Admin.escapeHtml(entry.taskAddress) + '</div>';
+                }
+                if (entry.reference) details += '<div class="text-secondary mono">Ref ' + Admin.escapeHtml(entry.reference) + '</div>';
+                if (entry.remark) details += '<div class="text-secondary">' + Admin.escapeHtml(entry.remark) + '</div>';
+                if (entry.createdByName) details += '<div class="text-body-tertiary">Recorded by ' + Admin.escapeHtml(entry.createdByName) + '</div>';
+
+                return '<tr>'
+                    + '<td class="small text-secondary text-nowrap">'
+                    + occurred.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                    + '<br /><span class="text-body-tertiary">' + occurred.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) + ' UTC</span></td>'
+                    + '<td><span class="badge ' + entry.badgeClass + '">' + entry.typeLabel + '</span></td>'
+                    + '<td class="small">' + details + '</td>'
+                    + '<td class="text-end fw-semibold ' + (entry.isCredit ? 'text-success' : 'text-danger') + '">'
+                    + (entry.isCredit ? '+' : '−') + inr(entry.amount) + '</td>'
+                    + '<td class="text-end text-secondary">' + inr(entry.balanceAfter) + '</td>'
+                    + '</tr>';
+            }
+
+            function loadEntries() {
+                App.api.get('/api/earnings/' + partnerId + '/entries?page=' + entriesState.page + '&pageSize=10').then(function (result) {
+                    $('#ledger-entries-empty').prop('hidden', result.totalCount > 0);
+                    $('#ledger-entries-wrap').prop('hidden', result.totalCount === 0);
+                    $('#ledger-entries-pager').prop('hidden', result.totalCount === 0);
+
+                    $('#ledger-entry-rows').html(result.items.map(entryRow).join(''));
+
+                    $('#ledger-entries-summary').text(result.totalCount === 0
+                        ? ''
+                        : 'Showing ' + result.firstRow + '–' + result.lastRow + ' of ' + result.totalCount);
+
+                    $('#ledger-entries-prev').prop('disabled', !result.hasPrevious);
+                    $('#ledger-entries-next').prop('disabled', !result.hasNext);
+                });
+            }
+
+            $(function () {
+                loadPage();
+                loadEntries();
+
+                $('#ledger-entries-prev').on('click', function () { entriesState.page -= 1; loadEntries(); });
+                $('#ledger-entries-next').on('click', function () { entriesState.page += 1; loadEntries(); });
+
+                $('#ledger-plan-form').on('submit', function (event) {
+                    event.preventDefault();
+
+                    App.confirmAction({
+                        title: 'Change the plan?',
+                        text: 'The new rate applies to jobs completed from now on. Jobs already settled keep the rate they were charged.',
+                        icon: 'question',
+                        confirmText: 'Yes, change it',
+                    }).then(function (ok) {
+                        if (!ok) return;
+
+                        App.api.post('/api/earnings/' + partnerId + '/plan', Admin.formToJson(this)).then(function () {
+                            showToast('Success', 'Plan changed. It applies to jobs completed from now on.', 'success');
+                            loadPage();
+                        });
+                    }.bind(this));
+                });
+
+                $('#ledger-payout-form').on('submit', function (event) {
+                    event.preventDefault();
+                    var amount = $('#ledger-payout-amount').val();
+
+                    App.confirmAction({
+                        title: 'Record this payout?',
+                        text: "This reduces the partner's balance. Only record it once the bank transfer has actually gone out.",
+                        confirmText: 'Yes, record it',
+                    }).then(function (ok) {
+                        if (!ok) return;
+
+                        App.api.post('/api/earnings/' + partnerId + '/payout', Admin.formToJson(this)).then(function () {
+                            showToast('Success', 'Payout of ' + inr(amount) + ' recorded.', 'success');
+                            loadPage();
+                            loadEntries();
+                        });
+                    }.bind(this));
+                });
+
+                $('#ledger-adjustment-form').on('submit', function (event) {
+                    event.preventDefault();
+
+                    App.confirmAction({
+                        title: 'Post this adjustment?',
+                        text: 'Adjustments change what the platform owes and stay on the ledger permanently.',
+                        icon: 'warning',
+                        confirmText: 'Yes, post it',
+                    }).then(function (ok) {
+                        if (!ok) return;
+
+                        App.api.post('/api/earnings/' + partnerId + '/adjustment', Admin.formToJson(this)).then(function () {
+                            showToast('Success', 'Adjustment recorded.', 'success');
+                            loadPage();
+                            loadEntries();
+                        });
+                    }.bind(this));
+                });
+            });
+        })();
+    </script>
+}

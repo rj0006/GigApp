@@ -4,27 +4,25 @@
     <div class="card-body">
         <h2 class="h6 mb-3">Change password</h2>
 
-        <partial name="_ValidationSummary" />
+        <div id="password-errors"></div>
 
-        <form method="post" action="/@Model.PortalSlug/profile/password" class="gig-form row g-3">
-            @Html.AntiForgeryToken()
-
+        <form id="password-form" class="gig-form row g-3">
             <div class="col-12">
-                <label for="CurrentPassword" class="form-label required">Current password</label>
-                <input id="CurrentPassword" name="CurrentPassword" type="password"
+                <label for="current-password" class="form-label required">Current password</label>
+                <input id="current-password" name="CurrentPassword" type="password"
                        class="form-control" required autocomplete="current-password" />
             </div>
 
             <div class="col-md-6">
-                <label for="NewPassword" class="form-label required">New password</label>
-                <input id="NewPassword" name="NewPassword" type="password"
+                <label for="new-password" class="form-label required">New password</label>
+                <input id="new-password" name="NewPassword" type="password"
                        class="form-control" required autocomplete="new-password" />
                 <div class="form-text">@ValidationPatterns.PasswordMessage</div>
             </div>
 
             <div class="col-md-6">
-                <label for="ConfirmPassword" class="form-label required">Confirm new password</label>
-                <input id="ConfirmPassword" name="ConfirmPassword" type="password"
+                <label for="confirm-password" class="form-label required">Confirm new password</label>
+                <input id="confirm-password" name="ConfirmPassword" type="password"
                        class="form-control" required autocomplete="new-password" />
             </div>
 
@@ -44,3 +42,33 @@
         </p>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        'use strict';
+
+        $(function () {
+            $('#password-form').on('submit', function (event) {
+                event.preventDefault();
+                $('#password-errors').empty();
+
+                var newPassword = $('#new-password').val();
+                var confirmPassword = $('#confirm-password').val();
+
+                if (newPassword !== confirmPassword) {
+                    Admin.showFormErrors('#password-errors', 'Passwords do not match.');
+                    return;
+                }
+
+                var form = this;
+
+                App.api.post('/api/profile/password', Admin.formToJson(form), { silent: true })
+                    .then(function () {
+                        showToast('Success', 'Password changed. Use the new one next time you sign in.', 'success');
+                        form.reset();
+                    })
+                    .catch(function (error) { Admin.showFormErrors('#password-errors', error.message); });
+            });
+        });
+    });
+</script>

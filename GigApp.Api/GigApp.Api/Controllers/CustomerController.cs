@@ -1,100 +1,149 @@
-using GigApp.Api.Data;
 using GigApp.Api.Dtos;
 using GigApp.Api.Models;
 using GigApp.Api.Services;
-using GigApp.Api.Services.Bidding;
-using GigApp.Api.Services.Booking;
-using GigApp.Api.Services.Addresses;
-using GigApp.Api.Services.Geo;
-using GigApp.Api.Services.Banking;
+using GigApp.Api.Services.Storefront;
+using GigApp.Api.Services.Otp;
 using GigApp.Api.Services.Profile;
 using GigApp.Api.Services.Notifications;
-using GigApp.Api.Services.Orders;
-using GigApp.Api.Services.Ratings;
 using GigApp.Api.Services.Support;
 using GigApp.Api.Services.Tracking;
 using GigApp.Api.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace GigApp.Api.Controllers
 {
     [Route("customer")]
     public class CustomerController : PortalControllerBase
     {
-        private readonly AppDbContext _context;
-        private readonly ICategoryLookup _categories;
-        private readonly IServiceItemLookup _serviceItems;
-        private readonly IBidService _bids;
-        private readonly IOfferService _offers;
+        private readonly ICartService _cart;
+        private readonly IOtpService _otp;
+        private readonly IAuthSettingsService _authSettings;
 
         public CustomerController(
             IAuthService authService,
+            IRefreshTokenService refreshTokens,
             IProfileService profileService,
-            IAddressService addressService,
-            AppDbContext context,
-            ICategoryLookup categories,
-            IServiceItemLookup serviceItems,
-            IBidService bids,
-            IOfferService offers,
-            IRatingService ratings,
-            IBankAccountService bankAccounts,
-            IOrderHistoryService orderHistory,
             ISupportService support,
-            INotificationService notifier)
-            : base(authService, profileService, addressService, bankAccounts, orderHistory, support, ratings, notifier)
+            INotificationService notifier,
+            ICartService cart,
+            IOtpService otp,
+            IAuthSettingsService authSettings)
+            : base(authService, refreshTokens, profileService, support, notifier)
         {
-            _context = context;
-            _categories = categories;
-            _serviceItems = serviceItems;
-            _bids = bids;
-            _offers = offers;
+            _cart = cart;
+            _otp = otp;
+            _authSettings = authSettings;
         }
-
-        private string TasksPath => $"{ProfilePath}/{ProfileSections.Tasks}";
-        private string OrdersPath => $"{ProfilePath}/{ProfileSections.Orders}";
 
         protected override string PortalSlug => "customer";
         protected override string RequiredRole => UserRoles.Customer;
 
+        // The storefront at /services is the one customer home page — this
+        // portal no longer has a separate dashboard to send anyone to.
+        protected override string DashboardPath => "/services";
+
         [HttpGet("login")]
         [AllowAnonymous]
-        public IActionResult Login(string? returnUrl, bool denied = false)
+        public async Task<IActionResult> Login(string? returnUrl, bool denied, string? mode, CancellationToken ct)
         {
             // Already signed in as a customer — no reason to show the form again.
             if (IsAlreadySignedIn) return RedirectToLocalOr(returnUrl);
 
             ViewData["Title"] = "Customer sign in";
+
+            var settings = await _authSettings.GetAsync(ct);
+
+            if (settings.CustomerLoginMode == LoginMode.Otp && mode != LoginMode.Password)
+            {
+                return View("LoginOtp", new OtpAuthViewModel
+                {
+                    PortalSlug = PortalSlug,
+                    PortalLabel = "Customer",
+                    ReturnUrl = returnUrl,
+                });
+            }
+
             return View(BuildLoginModel(returnUrl, denied));
+        }
+
+        [HttpPost("otp/request")]
+        [AllowAnonymous]
+        [SkipTracking]   // requesting a code changes no data
+        [EnableRateLimiting(RateLimiterPolicies.OtpRequest)]
+        public async Task<IActionResult> RequestOtp([FromBody] RequestOtpRequest form, CancellationToken ct)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(new ProblemDetails { Title = FirstError() ?? "Enter a valid mobile number.", Status = 400 });
+
+            var result = await _otp.RequestAsync(form.Phone, RequiredRole, ct);
+
+            if (!result.Succeeded)
+                return BadRequest(new ProblemDetails { Title = result.Error ?? "Could not send the code.", Status = 400 });
+
+            return Ok(new { devCode = result.DevCode });
+        }
+
+        [HttpPost("otp/verify")]
+        [AllowAnonymous]
+        [SkipTracking]   // signing in changes no data
+        [EnableRateLimiting(RateLimiterPolicies.Auth)]
+        public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpRequest form, CancellationToken ct)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(new ProblemDetails { Title = "Enter the 6-digit code.", Status = 400 });
+
+            var result = await _otp.VerifyAsync(form.Phone, RequiredRole, form.Code, form.Name, ct);
+            var otpAuth = result.Auth;
+
+            if (!result.Succeeded || otpAuth is null)
+                return BadRequest(new ProblemDetails { Title = result.Error ?? "Could not verify that code.", Status = 400 });
+
+            var failed = await SignInJsonAsync(
+                () => Task.FromResult(otpAuth),
+                auth => _cart.MergeIntoAccountAsync(auth.User.Id, ct));
+
+            if (failed is not null) return failed;
+
+            TempData["Success"] = "Signed in.";
+            return Ok(new { redirectTo = LocalRedirectTarget(form.ReturnUrl) });
         }
 
         [HttpPost("login")]
         [AllowAnonymous]
         [SkipTracking]   // signing in changes no data
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Login(LoginViewModel model)
+        [EnableRateLimiting(RateLimiterPolicies.Auth)]
+        public async Task<IActionResult> Login([FromBody] LoginViewModel model, CancellationToken ct)
         {
-            ViewData["Title"] = "Customer sign in";
-            if (!ModelState.IsValid) return View(model);
+            if (!ModelState.IsValid)
+                return BadRequest(new ProblemDetails { Title = FirstError() ?? "Enter your details and try again.", Status = 400 });
 
-            var failed = await SignInAsync(
+            var failed = await SignInJsonAsync(
                 () => AuthService.LoginAsync(new LoginRequest
                 {
                     Identifier = model.Identifier,
                     Password = model.Password,
                     Role = RequiredRole,
                 }),
-                nameof(Login), model);
+                auth => _cart.MergeIntoAccountAsync(auth.User.Id, ct));
 
-            return failed ?? RedirectToLocalOr(model.ReturnUrl);
+            if (failed is not null) return failed;
+
+            return Ok(new { redirectTo = LocalRedirectTarget(model.ReturnUrl) });
         }
 
         [HttpGet("register")]
         [AllowAnonymous]
-        public IActionResult Register()
+        public async Task<IActionResult> Register(CancellationToken ct)
         {
             if (IsAlreadySignedIn) return Redirect(DashboardPath);
+
+            var settings = await _authSettings.GetAsync(ct);
+
+            // A new account is just an unrecognised number on the OTP flow —
+            // there is no separate registration screen for it to go to.
+            if (settings.CustomerLoginMode == LoginMode.Otp) return Redirect("/customer/login");
 
             ViewData["Title"] = "Create a customer account";
             return View(new RegisterCustomerViewModel());
@@ -103,7 +152,8 @@ namespace GigApp.Api.Controllers
         [HttpPost("register")]
         [AllowAnonymous]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Register(RegisterCustomerViewModel model)
+        [EnableRateLimiting(RateLimiterPolicies.Auth)]
+        public async Task<IActionResult> Register(RegisterCustomerViewModel model, CancellationToken ct)
         {
             ViewData["Title"] = "Create a customer account";
             if (!ModelState.IsValid) return View(model);
@@ -116,7 +166,8 @@ namespace GigApp.Api.Controllers
                     Email = model.Email,
                     Password = model.Password,
                 }),
-                nameof(Register), model);
+                nameof(Register), model,
+                auth => _cart.MergeIntoAccountAsync(auth.User.Id, ct));
 
             if (failed is not null) return failed;
 
@@ -124,327 +175,18 @@ namespace GigApp.Api.Controllers
             return Redirect(DashboardPath);
         }
 
+        // The storefront at /services is the single customer home page now —
+        // this route is kept only so old links and bookmarks still land somewhere.
         [HttpGet("")]
         [Authorize(Policy = Policies.CustomerOnly)]
-        public async Task<IActionResult> Index(CancellationToken ct)
-        {
-            ViewData["Title"] = "Services";
-
-            var userId = User.GetRequiredUserId();
-
-            var categories = await _context.SkillCategories
-                .AsNoTracking()
-                .Where(c => c.IsActive)
-                .OrderBy(c => c.DisplayOrder).ThenBy(c => c.Name)
-                .Select(c => new CatalogCategoryViewModel
-                {
-                    Category = SkillCategoryDto.From(c),
-                    ServiceCount = c.ServiceItems.Count(s => s.IsActive),
-                    StartingFrom = c.ServiceItems
-                        .Where(s => s.IsActive && s.AllowsInstantBooking && s.BasePayout > 0)
-                        .Min(s => s.BasePayout),
-                })
-                .ToListAsync(ct);
-
-            return View(new CustomerCatalogViewModel
-            {
-                Name = User.Identity?.Name ?? "there",
-                Categories = categories,
-                OpenTaskCount = await _context.GigTasks.CountAsync(
-                    t => t.CustomerId == userId && GigTaskStatus.Open.Contains(t.Status), ct),
-            });
-        }
-
-        protected override async Task<ProfileExtras> LoadProfileExtrasAsync(
-            string section, CancellationToken ct)
-        {
-            if (section != ProfileSections.PostTask && section != ProfileSections.Tasks)
-                return new ProfileExtras();
-
-            return new ProfileExtras
-            {
-                Work = await BuildWorkAsync(User.GetRequiredUserId(), section, ct),
-            };
-        }
-
-        private async Task<CustomerDashboardViewModel> BuildWorkAsync(
-            int userId, string section, CancellationToken ct)
-        {
-            var tasks = await _context.GigTasks
-                .AsNoTracking()
-                .Include(t => t.Category)
-                .Include(t => t.ServiceItem)
-                .Include(t => t.Partner)!.ThenInclude(p => p!.User)
-                .Include(t => t.Partner)!.ThenInclude(p => p!.SkillCategory)
-                .Where(t => t.CustomerId == userId)
-                .OrderByDescending(t => t.CreatedAt)
-                .ToListAsync(ct);
-
-            // Everyone the customer might click on: partners already assigned,
-            // plus anyone who has bid on one of their open tasks.
-            var taskIds = tasks.Select(t => t.Id).ToList();
-
-            // Fetch the ids first, then load the partners. Include cannot be
-            // applied after a Select that projects through a navigation.
-            var bidderPartnerIds = await _context.TaskBids
-                .AsNoTracking()
-                .Where(b => taskIds.Contains(b.GigTaskId) && b.Status != BidStatus.Withdrawn)
-                .Select(b => b.PartnerId)
-                .Distinct()
-                .ToListAsync(ct);
-
-            var bidderPartners = await _context.Partners
-                .AsNoTracking()
-                .Include(p => p.User)
-                .Include(p => p.SkillCategory)
-                .Where(p => bidderPartnerIds.Contains(p.Id))
-                .ToListAsync(ct);
-
-            var partners = tasks
-                .Where(t => t.Partner is not null)
-                .Select(t => t.Partner!)
-                .Concat(bidderPartners)
-                .GroupBy(p => p.Id)
-                .Select(g => g.First())
-                .ToList();
-
-            var completedCounts = await _context.GigTasks
-                .Where(t => t.Status == GigTaskStatus.Completed && t.PartnerId != null)
-                .GroupBy(t => t.PartnerId!.Value)
-                .Select(g => new { PartnerId = g.Key, Count = g.Count() })
-                .ToDictionaryAsync(x => x.PartnerId, x => x.Count, ct);
-
-            // Bids only matter while a task is still open for them.
-            var openTaskIds = tasks
-                .Where(t => t.Status == GigTaskStatus.Pending)
-                .Select(t => t.Id)
-                .ToList();
-
-            var bidsByTask = new Dictionary<int, IReadOnlyList<BidDto>>();
-            foreach (var taskId in openTaskIds)
-                bidsByTask[taskId] = await _bids.ForTaskAsync(userId, taskId, ct);
-
-            return new CustomerDashboardViewModel
-            {
-                Name = User.Identity?.Name ?? "there",
-                Tasks = tasks.Select(GigTaskDto.From).ToList(),
-                Categories = await _categories.GetActiveOptionsAsync(ct),
-                Partners = partners
-                    .Select(p => PartnerPublicDto.From(p, completedCounts.GetValueOrDefault(p.Id)))
-                    .ToList(),
-                BidsByTask = bidsByTask,
-                Addresses = await AddressService.ListAsync(userId, ct),
-                MyRatings = await Ratings.ForTasksAsync(taskIds, RatedBy.Customer, ct),
-                PresetCategoryId = section == ProfileSections.PostTask
-                    && int.TryParse(Request.Query["categoryId"], out var preset)
-                        ? preset
-                        : null,
-            };
-        }
-
-        [HttpPost("tasks")]
-        [Authorize(Policy = Policies.CustomerOnly)]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateTask(CreateGigTaskRequest newTask, CancellationToken ct)
-        {
-            if (!ModelState.IsValid)
-            {
-                TempData["Error"] = string.Join(" ", ModelState
-                    .SelectMany(e => e.Value!.Errors)
-                    .Select(e => e.ErrorMessage));
-
-                return Redirect(TasksPath);
-            }
-
-            if (!await _categories.IsSelectableAsync(newTask.CategoryId, ct))
-            {
-                TempData["Error"] = "Choose a valid category.";
-                return Redirect(TasksPath);
-            }
-
-            if (!TaskUrgency.IsValid(newTask.Urgency))
-            {
-                TempData["Error"] = "Choose a valid urgency.";
-                return Redirect(TasksPath);
-            }
-
-            var service = await _serviceItems.GetBookableAsync(
-                newTask.ServiceItemId, newTask.CategoryId, ct);
-
-            if (service is null)
-            {
-                TempData["Error"] = "Choose a service that belongs to the selected category.";
-                return Redirect(TasksPath);
-            }
-
-            var customerId = User.GetRequiredUserId();
-
-            // Ownership is checked here, not taken on trust from the form.
-            var address = await AddressService.FindOwnedAsync(customerId, newTask.AddressId, ct);
-            if (address is null)
-            {
-                TempData["Error"] = "Choose one of your saved addresses.";
-                return Redirect(TasksPath);
-            }
-
-            var task = new GigTask
-            {
-                CustomerId = customerId,
-                CategoryId = newTask.CategoryId,
-                ServiceItemId = newTask.ServiceItemId,
-                Urgency = newTask.Urgency,
-                Description = newTask.Description.Trim(),
-
-                // Snapshot the address so editing it later cannot relocate
-                // work that has already happened.
-                AddressId = address.Id,
-                Address = address.ToSingleLine(),
-                Latitude = address.Latitude,
-                Longitude = address.Longitude,
-                Location = GeoPoint.From(address.Latitude, address.Longitude),
-                Budget = service.IsInstant ? service.FixedPrice : newTask.Budget,
-                AgreedAmount = service.IsInstant ? service.FixedPrice : null,
-                BookingMode = service.IsInstant ? TaskBookingMode.Instant : TaskBookingMode.Bidding,
-                PreferredDateTime = newTask.PreferredDateTime.ToUtc(),
-                Status = GigTaskStatus.Pending,
-                CreatedAt = DateTime.UtcNow,
-            };
-
-            _context.GigTasks.Add(task);
-            await _context.SaveChangesAsync(ct);
-
-            TrackDoc(task.Id, GigTaskDto.From(task));
-
-            if (service.IsInstant) await _offers.StartAsync(task.Id, ct);
-
-            TempData["Success"] = service.IsInstant
-                ? $"Booked at the fixed price of ₹{service.FixedPrice:N0}. We are finding you the nearest partner now."
-                : "Your task has been posted. Partners can now bid on it.";
-
-            return Redirect(TasksPath);
-        }
-
-        [HttpPost("tasks/{id:int}/rate")]
-        [Authorize(Policy = Policies.CustomerOnly)]
-        [ValidateAntiForgeryToken]
-        [TrackForm("TaskRating")]
-        public async Task<IActionResult> RateTask(
-            int id, RateTaskRequest form, CancellationToken ct)
-        {
-            if (!ModelState.IsValid)
-            {
-                TempData["Error"] = "Choose between one and five stars.";
-                return Redirect(OrdersPath);
-            }
-
-            var result = await Ratings.RateAsync(
-                User.GetRequiredUserId(), RatedBy.Customer, id, form.Stars, form.Feedback, ct);
-
-            if (result.Succeeded)
-                TempData["Success"] = "Thank you. Your rating helps other customers choose well.";
-            else
-                TempData["Error"] = result.Error;
-
-            return Redirect(OrdersPath);
-        }
-
-        [HttpPost("tasks/{id:int}/cancel")]
-        [Authorize(Policy = Policies.CustomerOnly)]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CancelTask(int id, CancellationToken ct)
-        {
-            var userId = User.GetRequiredUserId();
-            var task = await _context.GigTasks.FirstOrDefaultAsync(t => t.Id == id && t.CustomerId == userId, ct);
-
-            if (task is null)
-            {
-                TempData["Error"] = "Task not found.";
-            }
-            else if (!GigTaskStatus.CanTransition(task.Status, GigTaskStatus.Cancelled))
-            {
-                TempData["Error"] = $"A {task.Status.Replace('_', ' ')} task cannot be cancelled.";
-            }
-            else
-            {
-                task.Status = GigTaskStatus.Cancelled;
-                await _context.SaveChangesAsync(ct);
-
-                TrackDoc(task.Id, GigTaskDto.From(task));
-                TempData["Success"] = $"Task #{id} cancelled.";
-            }
-
-            return Redirect(TasksPath);
-        }
-
-        [HttpPost("bids/{bidId:int}/accept")]
-        [Authorize(Policy = Policies.CustomerOnly)]
-        [ValidateAntiForgeryToken]
-        [TrackForm("Bid")]
-        [TrackEntry(TrackingEntryType.Update)]
-        public async Task<IActionResult> AcceptBid(int bidId, CancellationToken ct)
-        {
-            var result = await _bids.AcceptAsync(User.GetRequiredUserId(), bidId, ct);
-            if (!result.Succeeded) return BidError(result.Error);
-
-            TrackDoc(bidId, result.Bid);
-            TempData["Success"] =
-                $"{result.Bid!.PartnerName} is assigned at ₹{result.Bid.Amount:N0}.";
-
-            return Redirect(TasksPath);
-        }
-
-        [HttpPost("bids/{bidId:int}/counter")]
-        [Authorize(Policy = Policies.CustomerOnly)]
-        [ValidateAntiForgeryToken]
-        [TrackForm("Bid")]
-        [TrackEntry(TrackingEntryType.Update)]
-        public async Task<IActionResult> CounterBid(
-            int bidId, CounterBidRequest form, CancellationToken ct)
-        {
-            if (!ModelState.IsValid) return BidError(FirstModelError());
-
-            var result = await _bids.CounterAsync(User.GetRequiredUserId(), bidId, form, ct);
-            if (!result.Succeeded) return BidError(result.Error);
-
-            TrackDoc(bidId, result.Bid);
-            TempData["Success"] =
-                $"Counter offer of ₹{form.CounterAmount:N0} sent to {result.Bid!.PartnerName}.";
-
-            return Redirect(TasksPath);
-        }
-
-        [HttpPost("bids/{bidId:int}/reject")]
-        [Authorize(Policy = Policies.CustomerOnly)]
-        [ValidateAntiForgeryToken]
-        [TrackForm("Bid")]
-        [TrackEntry(TrackingEntryType.Update)]
-        public async Task<IActionResult> RejectBid(int bidId, CancellationToken ct)
-        {
-            var result = await _bids.RejectAsync(User.GetRequiredUserId(), bidId, ct);
-            if (!result.Succeeded) return BidError(result.Error);
-
-            TrackDoc(bidId, result.Bid);
-            TempData["Success"] = "Bid rejected.";
-            return Redirect(TasksPath);
-        }
-
-        private IActionResult BidError(string? message)
-        {
-            TempData["Error"] = message ?? "Could not update that bid.";
-            return Redirect(TasksPath);
-        }
-
-        private string? FirstModelError() => ModelState
-            .SelectMany(e => e.Value!.Errors)
-            .Select(e => e.ErrorMessage)
-            .FirstOrDefault(m => !string.IsNullOrWhiteSpace(m));
+        public IActionResult Index() => Redirect("/services");
 
         [HttpPost("logout")]
         [SkipTracking]   // signing out changes no data
         [ValidateAntiForgeryToken]
-        public IActionResult Logout()
+        public async Task<IActionResult> Logout(CancellationToken ct)
         {
-            ClearAuthCookie();
+            await ClearAuthCookieAsync(ct);
             return Redirect(LoginPath);
         }
     }

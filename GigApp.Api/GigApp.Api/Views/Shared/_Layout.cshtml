@@ -1,7 +1,17 @@
 @{
     var portal = ViewData["Portal"] as string;
-    var logoutAction = ViewData["LogoutPath"] as string;
     var displayName = User.Identity?.IsAuthenticated == true ? User.Identity.Name : null;
+
+    // The JWT cookie is shared across all three portals, so being signed in
+    // somewhere is not the same as being signed in HERE — an admin session
+    // must never show up as "signed in" on the customer or partner chrome.
+    var signedInForThisPortal = portal switch
+    {
+        "Customer" => User.IsInRole(UserRoles.Customer),
+        "Partner" => User.IsInRole(UserRoles.Partner),
+        "Admin" => User.IsInRole(UserRoles.Admin) || User.IsInRole(UserRoles.SuperAdmin),
+        _ => false,
+    };
 
     // Signed-in users should land on their own dashboard, not the public page.
     var brandHref = ViewData["PortalHome"] as string ?? "/";
@@ -14,6 +24,7 @@
     <title>@ViewData["Title"] · GigApp</title>
     <link rel="stylesheet" href="~/lib/bootstrap/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/customer-ui.css" asp-append-version="true" />
 </head>
 <body class="bg-body-tertiary">
     <nav class="navbar navbar-expand bg-body border-bottom">
@@ -24,7 +35,7 @@
                 <span class="badge text-bg-primary-subtle text-primary-emphasis">@portal</span>
             }
             <div class="ms-auto d-flex align-items-center gap-2">
-                @if (displayName is not null && portal is not null)
+                @if (signedInForThisPortal && displayName is not null && portal is not null)
                 {
                     var portalSlug = portal.ToLowerInvariant().Replace("partner", "provider");
 
@@ -38,18 +49,6 @@
                         Recent = ViewData["RecentNotifications"] as IReadOnlyList<NotificationDto>
                                  ?? Array.Empty<NotificationDto>(),
                     })" />
-                }
-                else if (displayName is not null)
-                {
-                    <span class="small text-secondary d-none d-sm-inline">@displayName</span>
-
-                    @if (logoutAction is not null)
-                    {
-                        <form method="post" action="@logoutAction">
-                            @Html.AntiForgeryToken()
-                            <button type="submit" class="btn btn-outline-secondary btn-sm">Sign out</button>
-                        </form>
-                    }
                 }
             </div>
         </div>
@@ -68,6 +67,7 @@
     <script src="~/lib/jquery-ui/jquery-ui.min.js"></script>
     <script src="~/lib/bootstrap/js/bootstrap.bundle.min.js"></script>
     <script src="~/lib/sweetalert2/sweetalert2.all.min.js"></script>
+    <script src="~/lib/signalr/signalr.min.js"></script>
     <script src="~/js/global.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>

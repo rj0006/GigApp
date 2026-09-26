@@ -1,7 +1,6 @@
-@model PlanFormViewModel
+@model PlanFormShellViewModel
 @{
     Layout = "_AdminLayout";
-    var postTo = Model.IsNew ? "/admin/masters/plans/new" : $"/admin/masters/plans/{Model.Id}";
 }
 
 <h1 class="h4">@(Model.IsNew ? "New plan" : "Edit plan")</h1>
@@ -13,69 +12,69 @@
 
 <div class="card">
     <div class="card-body">
-        <partial name="_ValidationSummary" />
+        <div id="plan-form-errors"></div>
 
-        <form method="post" action="@postTo" class="gig-form row g-3">
-            @Html.AntiForgeryToken()
+        <form id="plan-form" class="gig-form row g-3">
+            <input type="hidden" name="Id" value="@Model.Id" />
 
             <div class="col-md-6">
-                <label asp-for="Form.Name" class="form-label required"></label>
-                <input asp-for="Form.Name" class="form-control" placeholder="Zero commission" />
-                <span asp-validation-for="Form.Name" class="text-danger small"></span>
+                <label for="plan-name" class="form-label required">Plan name</label>
+                <input id="plan-name" name="Name" class="form-control" placeholder="Zero commission" />
             </div>
 
             <div class="col-md-6">
-                <label asp-for="Form.Code" class="form-label required"></label>
-                <input asp-for="Form.Code" class="form-control mono text-uppercase" placeholder="ZERO" />
+                <label for="plan-code" class="form-label required">Code</label>
+                <input id="plan-code" name="Code" class="form-control mono text-uppercase" placeholder="ZERO" />
                 <div class="form-text">Short and permanent. It appears on ledger entries.</div>
             </div>
 
             <div class="col-12">
-                <label asp-for="Form.Description" class="form-label"></label>
-                <input asp-for="Form.Description" class="form-control"
+                <label for="plan-description" class="form-label">Description</label>
+                <input id="plan-description" name="Description" class="form-control"
                        placeholder="Keep the whole job amount for a fixed monthly fee" />
             </div>
 
             <div class="col-md-4">
-                <label asp-for="Form.CommissionPercent" class="form-label required"></label>
-                <input asp-for="Form.CommissionPercent" type="number" step="0.01" min="0" max="100"
-                       class="form-control" />
+                <label for="plan-commission" class="form-label required">Commission per job (%)</label>
+                <input id="plan-commission" name="CommissionPercent" type="number" step="0.01" min="0" max="100"
+                       class="form-control" value="0" />
                 <div class="form-text">Zero means the partner keeps the whole job amount.</div>
             </div>
 
             <div class="col-md-4">
-                <label asp-for="Form.SubscriptionFee" class="form-label"></label>
-                <input asp-for="Form.SubscriptionFee" type="number" step="0.01" min="0"
-                       class="form-control" />
+                <label for="plan-fee" class="form-label">Plan fee</label>
+                <input id="plan-fee" name="SubscriptionFee" type="number" step="0.01" min="0"
+                       class="form-control" value="0" />
                 <div class="form-text">Leave at zero for a pure commission plan.</div>
             </div>
 
             <div class="col-md-4">
-                <label asp-for="Form.BillingPeriod" class="form-label required"></label>
-                <select asp-for="Form.BillingPeriod" class="form-select">
-                    @foreach (var period in PlanBillingPeriod.All)
-                    {
-                        <option value="@period">@PlanBillingPeriod.Label(period)</option>
-                    }
+                <label for="plan-billing" class="form-label required">Charged</label>
+                <select id="plan-billing" name="BillingPeriod" class="form-select">
+                    <option value="none">No recurring charge</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="yearly">Yearly</option>
                 </select>
             </div>
 
             <div class="col-md-4">
-                <label asp-for="Form.DisplayOrder" class="form-label"></label>
-                <input asp-for="Form.DisplayOrder" type="number" min="0" max="999" class="form-control" />
+                <label for="plan-order" class="form-label">Sort order</label>
+                <input id="plan-order" name="DisplayOrder" type="number" min="0" max="999"
+                       class="form-control" value="0" />
             </div>
 
             <div class="col-md-8">
                 <div class="form-check">
-                    <input asp-for="Form.IsDefault" class="form-check-input" />
-                    <label asp-for="Form.IsDefault" class="form-check-label"></label>
+                    <input id="plan-default" name="IsDefault" class="form-check-input" type="checkbox" value="true" />
+                    <label for="plan-default" class="form-check-label">Default plan for new partners</label>
                     <div class="form-text">
                         Only one plan can be the default. Setting this clears it from the other one.
                     </div>
                 </div>
                 <div class="form-check">
-                    <input asp-for="Form.IsActive" class="form-check-input" />
-                    <label asp-for="Form.IsActive" class="form-check-label"></label>
+                    <input id="plan-active" name="IsActive" class="form-check-input" type="checkbox" value="true" checked />
+                    <label for="plan-active" class="form-check-label">Active</label>
                 </div>
             </div>
 
@@ -86,3 +85,44 @@
         </form>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            function fillForm(plan) {
+                $('#plan-name').val(plan.name);
+                $('#plan-code').val(plan.code);
+                $('#plan-description').val(plan.description || '');
+                $('#plan-commission').val(plan.commissionPercent);
+                $('#plan-fee').val(plan.subscriptionFee);
+                $('#plan-billing').val(plan.billingPeriod);
+                $('#plan-order').val(plan.displayOrder);
+                $('#plan-default').prop('checked', plan.isDefault);
+                $('#plan-active').prop('checked', plan.isActive);
+            }
+
+            $(function () {
+                var form = document.getElementById('plan-form');
+                var id = $(form).find('input[name="Id"]').val();
+
+                if (id) {
+                    App.api.get('/api/commissionplans/' + id).then(fillForm);
+                }
+
+                $(form).on('submit', function (event) {
+                    event.preventDefault();
+                    $('#plan-form-errors').empty();
+
+                    App.api.post('/api/commissionplans', Admin.formToJson(form), { silent: true })
+                        .then(function () {
+                            showToast('Success', 'Plan saved.', 'success');
+                            window.location.href = '/admin/masters/plans';
+                        })
+                        .catch(function (error) { Admin.showFormErrors('#plan-form-errors', error.message); });
+                });
+            });
+        })();
+    </script>
+}

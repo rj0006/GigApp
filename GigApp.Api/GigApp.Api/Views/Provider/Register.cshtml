@@ -1,7 +1,6 @@
-@model RegisterPartnerViewModel
+@model RegisterPartnerShellViewModel
 @{
     ViewData["Portal"] = "Partner";
-    var selectedName = Model.Categories.FirstOrDefault(c => c.Id == Model.SkillCategoryId)?.Name;
 }
 
 <div class="card form-card-narrow mx-auto">
@@ -12,23 +11,26 @@
             before you can accept work.
         </p>
 
-        <partial name="_ValidationSummary" />
+        <div id="register-form-errors"></div>
 
-        <form method="post" asp-action="Register" enctype="multipart/form-data" class="gig-form row g-3">
+        <form id="register-form" enctype="multipart/form-data" class="gig-form row g-3">
+            <input type="hidden" id="phone-verified-via-otp" name="phoneVerifiedViaOtp" value="false" />
+
             <div class="col-12">
-                <label asp-for="Name" class="form-label required"></label>
-                <input asp-for="Name" class="form-control" autocomplete="name" autofocus />
+                <label for="Name" class="form-label required">Full name</label>
+                <input id="Name" name="Name" class="form-control" autocomplete="name" autofocus required />
             </div>
 
             <div class="col-12">
-                <label asp-for="Phone" class="form-label required"></label>
-                <input asp-for="Phone" type="tel" class="form-control"
-                       autocomplete="tel" placeholder="9876543210" />
+                <label for="Phone" class="form-label required">Mobile number</label>
+                <input id="Phone" name="Phone" type="tel" class="form-control"
+                       autocomplete="tel" placeholder="9876543210" maxlength="10" required />
+                <div id="phone-verified-note" class="form-text text-success" hidden>Number verified.</div>
             </div>
 
             <div class="col-12">
-                <label asp-for="Email" class="form-label"></label>
-                <input asp-for="Email" type="email" class="form-control" autocomplete="email" />
+                <label for="Email" class="form-label">Email (optional)</label>
+                <input id="Email" name="Email" type="email" class="form-control" autocomplete="email" />
             </div>
 
             @*
@@ -39,9 +41,8 @@
             <div class="col-12">
                 <label for="SkillPicker" class="form-label required">Skill category</label>
                 <input id="SkillPicker" class="form-control" placeholder="Start typing to choose"
-                       data-options="skill-options" data-target="SkillCategoryId"
-                       data-alert="skill category" value="@selectedName" />
-                <input type="hidden" asp-for="SkillCategoryId" />
+                       data-options="skill-options" data-target="SkillCategoryId" data-alert="skill category" />
+                <input type="hidden" id="SkillCategoryId" name="SkillCategoryId" />
                 <datalist id="skill-options">
                     @foreach (var option in Model.Categories)
                     {
@@ -61,7 +62,7 @@
 
             <div class="col-md-4">
                 <partial name="_ImageUpload" model="@(new ImageUploadModel {
-                    Name = nameof(Model.Selfie),
+                    Name = "Selfie",
                     Label = "Your selfie",
                     Hint = "A clear photo of your face, matching your Aadhaar card.",
                     Shape = ImageUploadShape.Circle,
@@ -72,7 +73,7 @@
 
             <div class="col-md-4">
                 <partial name="_ImageUpload" model="@(new ImageUploadModel {
-                    Name = nameof(Model.AadhaarFront),
+                    Name = "AadhaarFront",
                     Label = "Aadhaar front",
                     Shape = ImageUploadShape.Square,
                     AllowCamera = true,
@@ -82,7 +83,7 @@
 
             <div class="col-md-4">
                 <partial name="_ImageUpload" model="@(new ImageUploadModel {
-                    Name = nameof(Model.AadhaarBack),
+                    Name = "AadhaarBack",
                     Label = "Aadhaar back",
                     Shape = ImageUploadShape.Square,
                     AllowCamera = true,
@@ -91,30 +92,79 @@
             </div>
 
             <div class="col-12">
-                <label asp-for="AadhaarNumber" class="form-label required"></label>
-                <input asp-for="AadhaarNumber" class="form-control" inputmode="numeric"
-                       maxlength="12" placeholder="12 digits" />
+                <label for="AadhaarNumber" class="form-label required">Aadhaar number</label>
+                <input id="AadhaarNumber" name="AadhaarNumber" class="form-control" inputmode="numeric"
+                       maxlength="12" placeholder="12 digits" required />
             </div>
 
-            <div class="col-12"><hr class="my-1" /></div>
-            <div class="col-12">
-                <label asp-for="Password" class="form-label required"></label>
-                <input asp-for="Password" type="password" class="form-control" autocomplete="new-password" />
+            <div class="col-12" id="password-section">
+                <hr class="my-1" />
+            </div>
+
+            <div class="col-12" id="password-field-group">
+                <label for="Password" class="form-label required">Password</label>
+                <input id="Password" name="Password" type="password" class="form-control" autocomplete="new-password" />
                 <div class="form-text">@ValidationPatterns.PasswordMessage</div>
             </div>
 
-            <div class="col-12">
-                <label asp-for="ConfirmPassword" class="form-label required"></label>
-                <input asp-for="ConfirmPassword" type="password" class="form-control" autocomplete="new-password" />
+            <div class="col-12" id="confirm-password-field-group">
+                <label for="ConfirmPassword" class="form-label required">Confirm password</label>
+                <input id="ConfirmPassword" type="password" class="form-control" autocomplete="new-password" />
             </div>
 
             <div class="col-12">
-                <button type="submit" class="btn btn-primary w-100">Create partner account</button>
+                <button type="submit" id="register-submit" class="btn btn-primary w-100">Create partner account</button>
             </div>
         </form>
 
         <p class="small text-secondary mt-3 mb-0">
-            Already registered? <a asp-action="Login">Sign in</a>
+            Already registered? <a href="/provider/login">Sign in</a>
         </p>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            var params = new URLSearchParams(location.search);
+            var verifiedPhone = params.get('verified') === 'true' ? params.get('phone') : null;
+
+            if (verifiedPhone) {
+                $('#phone-verified-via-otp').val('true');
+                $('#Phone').val(verifiedPhone).prop('readonly', true);
+                $('#phone-verified-note').prop('hidden', false);
+                $('#password-section, #password-field-group, #confirm-password-field-group').hide();
+            }
+
+            $('#register-form').on('submit', function (event) {
+                event.preventDefault();
+                $('#register-form-errors').empty();
+
+                if (!verifiedPhone && $('#Password').val() !== $('#ConfirmPassword').val()) {
+                    Admin.showFormErrors('#register-form-errors', 'Passwords do not match.');
+                    return;
+                }
+
+                var form = this;
+                var formData = new FormData(form);
+
+                if (verifiedPhone) {
+                    formData.set('Password', crypto.randomUUID().replace(/-/g, '') + 'Aa1!');
+                }
+
+                var $submit = $('#register-submit').prop('disabled', true);
+
+                App.api.post('/provider/register', formData, { silent: true })
+                    .then(function (body) {
+                        window.location.href = body.redirectTo;
+                    })
+                    .catch(function (error) {
+                        Admin.showFormErrors('#register-form-errors', error.message);
+                        $submit.prop('disabled', false);
+                    });
+            });
+        })();
+    </script>
+}

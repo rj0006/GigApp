@@ -1,0 +1,62 @@
+@model AuthSettingsViewModel
+@{
+    Layout = "_AdminLayout";
+}
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <h1 class="h4 mb-0">Login settings</h1>
+</div>
+
+<div class="card form-card" style="max-width:40rem">
+    <div class="card-body">
+        <p class="text-secondary small">
+            Choose how customers and partners sign in. OTP needs no password — a phone number
+            already known to us signs straight in, and a new one is registered on the spot. The
+            admin portal always uses a password.
+        </p>
+
+        <partial name="_ValidationSummary" />
+
+        <form method="post" asp-action="AuthSettings" class="gig-form row g-3">
+            @Html.AntiForgeryToken()
+
+            <div class="col-12">
+                <label class="form-label required">Customer portal</label>
+                <div class="btn-group w-100" role="group">
+                    <input type="radio" class="btn-check" name="CustomerLoginMode" id="customer-password"
+                           value="@LoginMode.Password" autocomplete="off"
+                           checked="@(Model.CustomerLoginMode == LoginMode.Password)" />
+                    <label class="btn btn-outline-primary" for="customer-password">Password</label>
+
+                    <input type="radio" class="btn-check" name="CustomerLoginMode" id="customer-otp"
+                           value="@LoginMode.Otp" autocomplete="off"
+                           checked="@(Model.CustomerLoginMode == LoginMode.Otp)" />
+                    <label class="btn btn-outline-primary" for="customer-otp">Mobile OTP</label>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label required">Partner portal</label>
+                <div class="btn-group w-100" role="group">
+                    <input type="radio" class="btn-check" name="PartnerLoginMode" id="partner-password"
+                           value="@LoginMode.Password" autocomplete="off"
+                           checked="@(Model.PartnerLoginMode == LoginMode.Password)" />
+                    <label class="btn btn-outline-primary" for="partner-password">Password</label>
+
+                    <input type="radio" class="btn-check" name="PartnerLoginMode" id="partner-otp"
+                           value="@LoginMode.Otp" autocomplete="off"
+                           checked="@(Model.PartnerLoginMode == LoginMode.Otp)" />
+                    <label class="btn btn-outline-primary" for="partner-otp">Mobile OTP</label>
+                </div>
+                <div class="form-text">
+                    A brand-new partner number still finishes KYC (skill and documents) right after
+                    verifying — OTP only replaces the password, not the review.
+                </div>
+            </div>
+
+            <div class="col-12 pt-2">
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+</div>

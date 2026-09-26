@@ -1,49 +1,12 @@
 @model ProfilePageViewModel
-@{
-    var partner = Model.Partner!;
-}
 
 <div class="card mb-3">
     <div class="card-body">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
             <h2 class="h6 mb-0">KYC status</h2>
-            <span class="badge @partner.KycBadgeClass">@partner.KycLabel</span>
+            <span class="badge" id="kyc-status-badge"></span>
         </div>
-
-        @if (partner.IsRejected)
-        {
-            <div class="alert alert-danger mb-0">
-                <strong>Your KYC was rejected.</strong>
-                @if (partner.KycReviewedAt is not null)
-                {
-                    <span class="small">Reviewed on @partner.KycReviewedAt.Value.ToString("dd MMM yyyy").</span>
-                }
-                <div class="mt-2"><strong>Reason:</strong> @partner.KycRejectionReason</div>
-                <div class="mt-2 small">
-                    Fix the problem and upload the affected document again below. That puts you
-                    straight back into the review queue — you do not need a new account.
-                </div>
-            </div>
-        }
-        else if (partner.IsVerified)
-        {
-            <div class="alert alert-success mb-0">
-                <strong>You are verified.</strong> You can bid on work in @partner.SkillCategoryName.
-            </div>
-        }
-        else
-        {
-            <div class="alert alert-info mb-0">
-                <strong>Verification pending.</strong>
-                @(partner.HasCompleteKyc
-                    ? "Your documents are with an administrator for review. You cannot accept work until they are approved."
-                    : "Your KYC is incomplete. Upload the missing documents below to start the review.")
-                @if (!string.IsNullOrWhiteSpace(partner.KycReviewNote))
-                {
-                    <div class="mt-2 small">@partner.KycReviewNote</div>
-                }
-            </div>
-        }
+        <div id="kyc-status-alert"></div>
     </div>
 </div>
 
@@ -51,20 +14,13 @@
     <div class="card-body">
         <h2 class="h6 mb-3">Skill category</h2>
 
-        <form method="post" action="/provider/skill" class="gig-form row g-3"
-              data-confirm-title="Change your skill?"
-              data-confirm="@PartnerKyc.SkillChangeWarning"
-              data-confirm-ok="Yes, change my skill"
-              data-confirm-changed="skillCategoryId">
-            @Html.AntiForgeryToken()
-
+        <form id="kyc-skill-form" class="gig-form row g-3">
             <div class="col-md-8">
                 <label for="SkillPicker" class="form-label required">Skill category</label>
                 <input id="SkillPicker" class="form-control"
                        data-master="skill-category" data-target="skillCategoryId"
-                       data-alert="skill category" value="@partner.SkillCategoryName" />
-                <input type="hidden" id="skillCategoryId" name="skillCategoryId"
-                       value="@partner.SkillCategoryId" />
+                       data-alert="skill category" />
+                <input type="hidden" id="skillCategoryId" name="skillCategoryId" />
                 <div class="form-text text-warning-emphasis">
                     Changing your skill sends your account back for KYC approval.
                 </div>
@@ -81,12 +37,9 @@
     <div class="card-body">
         <h2 class="h6 mb-3">Documents</h2>
 
-        <partial name="_KycReview" model="partner" />
+        <div id="kyc-review"></div>
 
-        <form method="post" action="/provider/kyc" enctype="multipart/form-data"
-              class="gig-form row g-3 mt-1">
-            @Html.AntiForgeryToken()
-
+        <form id="kyc-upload-form" class="gig-form row g-3 mt-1">
             <div class="col-12">
                 <div class="form-text mb-0">
                     Upload only what you want to replace. Any upload returns your account to
@@ -122,8 +75,7 @@
             <div class="col-md-6">
                 <label for="AadhaarNumber" class="form-label">Aadhaar number</label>
                 <input id="AadhaarNumber" name="AadhaarNumber" class="form-control form-control-sm"
-                       inputmode="numeric" maxlength="12" value="@partner.AadhaarNumber"
-                       placeholder="12 digits" />
+                       inputmode="numeric" maxlength="12" placeholder="12 digits" />
             </div>
 
             <div class="col-12">
@@ -136,6 +88,123 @@
 <div class="card">
     <div class="card-body">
         <h2 class="h6 mb-1">KYC history</h2>
-        <partial name="_KycHistory" model="Model.KycHistory" />
+        <div id="kyc-history"></div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        'use strict';
+
+        function docBlock(label, url, alt) {
+            return '<div class="col-md-4"><div class="small fw-semibold mb-1">' + label + '</div>'
+                + (url
+                    ? '<a href="' + url + '" target="_blank" rel="noopener noreferrer">'
+                      + '<img src="' + url + '" alt="' + alt + '" class="img-fluid rounded border" style="max-height:200px" /></a>'
+                    : '<div class="border rounded d-flex align-items-center justify-content-center text-secondary small" style="height:140px">Not submitted</div>')
+                + '</div>';
+        }
+
+        function renderReview(partner) {
+            var html = '<div class="row g-3">'
+                + docBlock('Selfie', partner.selfieUrl, 'Partner selfie')
+                + docBlock('Aadhaar — front', partner.aadhaarFrontUrl, 'Aadhaar front')
+                + docBlock('Aadhaar — back', partner.aadhaarBackUrl, 'Aadhaar back')
+                + '<div class="col-12"><span class="small fw-semibold">Aadhaar number:</span> '
+                + (partner.aadhaarNumber
+                    ? '<span class="mono">' + Admin.escapeHtml(partner.aadhaarNumber) + '</span>'
+                    : '<span class="text-secondary small">Not provided</span>')
+                + '</div></div>';
+
+            $('#kyc-review').html(html);
+        }
+
+        function renderStatus(partner) {
+            $('#kyc-status-badge').attr('class', 'badge ' + partner.kycBadgeClass).text(partner.kycLabel);
+
+            var html;
+
+            if (partner.isRejected) {
+                html = '<div class="alert alert-danger mb-0"><strong>Your KYC was rejected.</strong> '
+                    + (partner.kycReviewedAt ? '<span class="small">Reviewed on '
+                      + new Date(partner.kycReviewedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + '.</span>' : '')
+                    + '<div class="mt-2"><strong>Reason:</strong> ' + Admin.escapeHtml(partner.kycRejectionReason || '') + '</div>'
+                    + '<div class="mt-2 small">Fix the problem and upload the affected document again below. '
+                    + 'That puts you straight back into the review queue — you do not need a new account.</div></div>';
+            } else if (partner.isVerified) {
+                html = '<div class="alert alert-success mb-0"><strong>You are verified.</strong> '
+                    + 'You can bid on work in ' + Admin.escapeHtml(partner.skillCategoryName) + '.</div>';
+            } else {
+                html = '<div class="alert alert-info mb-0"><strong>Verification pending.</strong> '
+                    + (partner.hasCompleteKyc
+                        ? 'Your documents are with an administrator for review. You cannot accept work until they are approved.'
+                        : 'Your KYC is incomplete. Upload the missing documents below to start the review.')
+                    + (partner.kycReviewNote ? '<div class="mt-2 small">' + Admin.escapeHtml(partner.kycReviewNote) + '</div>' : '')
+                    + '</div>';
+            }
+
+            $('#kyc-status-alert').html(html);
+        }
+
+        var originalSkillCategoryId = null;
+
+        function load() {
+            App.api.get('/api/partners/me').then(function (partner) {
+                renderStatus(partner);
+                renderReview(partner);
+
+                originalSkillCategoryId = String(partner.skillCategoryId);
+                $('#SkillPicker').val(partner.skillCategoryName);
+                $('#skillCategoryId').val(partner.skillCategoryId);
+                $('#AadhaarNumber').val(partner.aadhaarNumber || '');
+
+                Admin.showImagePreview(partner.selfieUrl, 'Selfie');
+                Admin.showImagePreview(partner.aadhaarFrontUrl, 'AadhaarFront');
+                Admin.showImagePreview(partner.aadhaarBackUrl, 'AadhaarBack');
+            });
+
+            App.api.get('/api/partners/me/kyc-history').then(function (history) {
+                $('#kyc-history').html(Admin.kycHistoryHtml(history));
+            });
+        }
+
+        $(function () {
+            load();
+
+            $('#kyc-skill-form').on('submit', function (event) {
+                event.preventDefault();
+
+                var newId = $('#skillCategoryId').val();
+
+                var proceed = (newId && newId !== originalSkillCategoryId)
+                    ? App.confirmAction({
+                        title: 'Change your skill?',
+                        text: 'Changing your skill sends your account back for KYC approval — you cannot accept work until it is approved again.',
+                        icon: 'warning',
+                        confirmText: 'Yes, change my skill',
+                    })
+                    : Promise.resolve(true);
+
+                proceed.then(function (ok) {
+                    if (!ok) return;
+
+                    App.api.put('/api/partners/me', { skillCategoryId: newId }).then(function () {
+                        showToast('Success', 'Skill category updated.', 'success');
+                        load();
+                    });
+                });
+            });
+
+            $('#kyc-upload-form').on('submit', function (event) {
+                event.preventDefault();
+
+                App.api.post('/api/partners/me/kyc', new FormData(this), { silent: true })
+                    .then(function () {
+                        showToast('Success', 'Documents uploaded. An admin will review them shortly.', 'success');
+                        load();
+                    })
+                    .catch(function (error) { showToast('Error', error.message, 'error'); });
+            });
+        });
+    });
+</script>

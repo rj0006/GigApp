@@ -1,7 +1,5 @@
-@model AdminBannersViewModel
 @{
     Layout = "_AdminLayout";
-    var list = Model.Banners;
 }
 
 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
@@ -16,62 +14,108 @@
 
 <div class="card">
     <div class="card-body">
-        @if (list.TotalCount == 0)
-        {
-            <p class="text-center text-secondary py-4 mb-0">
-                No banners yet. The storefront hides the spotlight row until there is one.
-            </p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>Image</th><th>Headline</th><th>Placement</th><th>Links to</th>
-                            <th>Runs</th><th>Order</th><th>Status</th><th class="text-end">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var banner in list.Items)
-                    {
-                        <tr>
-                            <td><partial name="_MasterThumb" model="banner.ImageUrl" /></td>
-                            <td>
-                                <div class="fw-semibold">@banner.Title</div>
-                                @if (!string.IsNullOrWhiteSpace(banner.Subtitle))
-                                {
-                                    <div class="small text-secondary">@banner.Subtitle</div>
-                                }
-                            </td>
-                            <td><span class="badge text-bg-light border">@banner.PlacementLabel</span></td>
-                            <td class="small text-secondary">@(banner.LinkUrl ?? "—")</td>
-                            <td class="small text-secondary">@banner.Window</td>
-                            <td class="small text-secondary">@banner.SortOrder</td>
-                            <td>
-                                <span class="badge @(banner.IsLive ? "text-bg-success" : "text-bg-warning")">
-                                    @(banner.IsLive ? "Live" : banner.IsActive ? "Scheduled" : "Off")
-                                </span>
-                            </td>
-                            <td>
-                                <div class="row-actions justify-end">
-                                    <a class="btn btn-sm btn-outline-secondary"
-                                       href="/admin/masters/banners/@banner.Id/edit">Edit</a>
+        <div id="banner-empty" class="text-center text-secondary py-4 mb-0" hidden>
+            No banners yet. The storefront hides the spotlight row until there is one.
+        </div>
 
-                                    <form method="post" asp-action="DeleteBanner" asp-route-id="@banner.Id"
-                                          data-confirm-title="Delete this banner?"
-                                          data-confirm="@($"{banner.Title} and its image are removed for good.")">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
+        <div id="banner-table-wrap" class="table-responsive" hidden>
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Image</th><th>Headline</th><th>Placement</th><th>Links to</th>
+                        <th>Runs</th><th>Order</th><th>Status</th><th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="banner-rows"></tbody>
+            </table>
+        </div>
+
+        <div id="banner-pager" class="d-flex align-items-center gap-2 mt-3" hidden>
+            <span id="banner-pager-summary" class="small text-secondary"></span>
+            <div class="btn-group btn-group-sm ms-auto">
+                <button type="button" id="banner-prev" class="btn btn-outline-secondary">Previous</button>
+                <button type="button" id="banner-next" class="btn btn-outline-secondary">Next</button>
             </div>
-
-            <partial name="_Pagination" model="PagerModel.From(list, Context)" />
-        }
+        </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            var state = { page: 1 };
+
+            function statusBadge(banner) {
+                var cls = banner.isLive ? 'text-bg-success' : 'text-bg-warning';
+                var text = banner.isLive ? 'Live' : (banner.isActive ? 'Scheduled' : 'Off');
+                return '<span class="badge ' + cls + '">' + text + '</span>';
+            }
+
+            function row(banner) {
+                var subtitle = banner.subtitle
+                    ? '<div class="small text-secondary">' + Admin.escapeHtml(banner.subtitle) + '</div>'
+                    : '';
+
+                var actions = ''
+                    + '<a class="btn btn-sm btn-outline-secondary" href="/admin/masters/banners/' + banner.id + '/edit">Edit</a> '
+                    + '<button type="button" class="btn btn-sm btn-outline-danger" data-delete="' + banner.id
+                    + '" data-title="' + Admin.escapeHtml(banner.title) + '">Delete</button>';
+
+                return '<tr>'
+                    + '<td>' + Admin.thumb(banner.imageUrl) + '</td>'
+                    + '<td><div class="fw-semibold">' + Admin.escapeHtml(banner.title) + '</div>' + subtitle + '</td>'
+                    + '<td><span class="badge text-bg-light border">' + Admin.escapeHtml(banner.placementLabel) + '</span></td>'
+                    + '<td class="small text-secondary">' + Admin.escapeHtml(banner.linkUrl || '—') + '</td>'
+                    + '<td class="small text-secondary">' + Admin.escapeHtml(banner.window) + '</td>'
+                    + '<td class="small text-secondary">' + banner.sortOrder + '</td>'
+                    + '<td>' + statusBadge(banner) + '</td>'
+                    + '<td><div class="row-actions justify-end">' + actions + '</div></td>'
+                    + '</tr>';
+            }
+
+            function load() {
+                App.api.get('/api/banners?page=' + state.page + '&pageSize=10').then(function (result) {
+                    $('#banner-empty').prop('hidden', result.totalCount > 0);
+                    $('#banner-table-wrap').prop('hidden', result.totalCount === 0);
+                    $('#banner-pager').prop('hidden', result.totalCount === 0);
+
+                    $('#banner-rows').html(result.items.map(row).join(''));
+
+                    $('#banner-pager-summary').text(result.totalCount === 0
+                        ? ''
+                        : 'Showing ' + result.firstRow + '–' + result.lastRow + ' of ' + result.totalCount);
+
+                    $('#banner-prev').prop('disabled', !result.hasPrevious);
+                    $('#banner-next').prop('disabled', !result.hasNext);
+                });
+            }
+
+            $(function () {
+                load();
+
+                $('#banner-prev').on('click', function () { state.page -= 1; load(); });
+                $('#banner-next').on('click', function () { state.page += 1; load(); });
+
+                $('#banner-rows').on('click', '[data-delete]', function () {
+                    var id = $(this).data('delete');
+                    var title = $(this).data('title');
+
+                    App.confirmAction({
+                        title: 'Delete this banner?',
+                        text: title + ' and its image are removed for good.',
+                        icon: 'warning',
+                    }).then(function (ok) {
+                        if (!ok) return;
+
+                        App.api.del('/api/banners/' + id).then(function () {
+                            showToast('Success', "Banner '" + title + "' deleted.", 'success');
+                            load();
+                        });
+                    });
+                });
+            });
+        })();
+    </script>
+}

@@ -53,6 +53,8 @@ namespace GigApp.Api.Dtos
 
     public class SaveBannerRequest
     {
+        public int? Id { get; set; }
+
         [Required(ErrorMessage = "Enter a headline.")]
         [StringLength(120, MinimumLength = 2)]
         [Display(Name = "Headline")]

@@ -88,6 +88,16 @@ namespace GigApp.Api.Dtos
         };
     }
 
+    public class PartnerLedgerPageDto
+    {
+        public PartnerDto Partner { get; set; } = new();
+        public EarningsSummaryDto Summary { get; set; } = new();
+        public BankAccountDto? BankAccount { get; set; }
+        public PartnerPlanDto? CurrentPlan { get; set; }
+        public IReadOnlyList<CommissionPlanDto> AvailablePlans { get; set; } = Array.Empty<CommissionPlanDto>();
+        public IReadOnlyList<PartnerPlanDto> PlanHistory { get; set; } = Array.Empty<PartnerPlanDto>();
+    }
+
     public class RecordPayoutRequest
     {
         [Range(1, 1000000)]
@@ -116,6 +126,12 @@ namespace GigApp.Api.Dtos
         [Required, StringLength(300)]
         [Display(Name = "Reason")]
         public string Remark { get; set; } = string.Empty;
+    }
+
+    public class ResolveErrorLogRequest
+    {
+        [StringLength(500)]
+        public string? Note { get; set; }
     }
 
     public class ErrorLogDto

@@ -38,6 +38,17 @@ namespace GigApp.Api.Dtos
         public DateTime? PreferredDateTime { get; set; }
     }
 
+    public class AssignTaskRequest
+    {
+        [Required(ErrorMessage = "Choose a partner.")]
+        [Range(1, int.MaxValue, ErrorMessage = "Choose a partner.")]
+        public int PartnerId { get; set; }
+
+        [Required(ErrorMessage = "Say why this partner.")]
+        [StringLength(300)]
+        public string Note { get; set; } = string.Empty;
+    }
+
     public class UpdateGigTaskStatusRequest
     {
         [Required]
@@ -48,6 +59,10 @@ namespace GigApp.Api.Dtos
 
         [StringLength(500)]
         public string? Feedback { get; set; }
+
+        /// <summary>Optional — shown to nobody but recorded when a partner cancels.</summary>
+        [StringLength(500)]
+        public string? CancelReason { get; set; }
     }
 
     public class GigTaskDto

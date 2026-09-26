@@ -1,7 +1,4 @@
 @model ProfilePageViewModel
-@{
-    var summary = Model.Earnings!.Summary;
-}
 
 <h2 class="h5 mb-1">My earnings</h2>
 <p class="text-secondary small">
@@ -9,94 +6,182 @@
     lines, so you can always see the full amount the customer agreed.
 </p>
 
-@if (summary.Plan is not null)
-{
-    <div class="alert @(summary.Plan.IsZeroCommission ? "alert-success" : "alert-light border") d-flex flex-wrap align-items-center gap-2">
-        <div>
-            <strong>@summary.Plan.PlanName plan.</strong>
-            @if (summary.Plan.IsZeroCommission)
-            {
-                <text>You keep the whole job amount — no commission is taken.</text>
-            }
-            else
-            {
-                <text>@summary.Plan.CommissionPercent.ToString("0.##")% commission is taken from each job.</text>
-            }
-        </div>
-
-        @if (summary.Plan.EndsOn is not null)
-        {
-            <span class="badge text-bg-warning ms-auto">
-                Runs out @summary.Plan.EndsOn.Value.ToString("dd MMM yyyy")
-            </span>
-        }
-    </div>
-}
+<div id="earnings-plan"></div>
 
 <div class="row g-3 mb-3">
     <div class="col-6 col-lg-3">
         <div class="card h-100"><div class="card-body py-3">
-            <div class="h4 mb-0 text-success">₹@summary.Balance.ToString("N2")</div>
+            <div class="h4 mb-0 text-success" id="earnings-balance">₹0.00</div>
             <div class="text-secondary text-uppercase" style="font-size:.68rem">Available balance</div>
         </div></div>
     </div>
     <div class="col-6 col-lg-3">
         <div class="card h-100"><div class="card-body py-3">
-            <div class="h4 mb-0">₹@summary.EarnedThisMonth.ToString("N2")</div>
+            <div class="h4 mb-0" id="earnings-this-month">₹0.00</div>
             <div class="text-secondary text-uppercase" style="font-size:.68rem">Earned this month</div>
         </div></div>
     </div>
     <div class="col-6 col-lg-3">
         <div class="card h-100"><div class="card-body py-3">
-            <div class="h4 mb-0">₹@summary.LifetimeNet.ToString("N2")</div>
-            <div class="text-secondary text-uppercase" style="font-size:.68rem">
-                Lifetime, after deductions
-            </div>
+            <div class="h4 mb-0" id="earnings-lifetime-net">₹0.00</div>
+            <div class="text-secondary text-uppercase" style="font-size:.68rem">Lifetime, after deductions</div>
         </div></div>
     </div>
     <div class="col-6 col-lg-3">
         <div class="card h-100"><div class="card-body py-3">
-            <div class="h4 mb-0">₹@summary.LifetimePaidOut.ToString("N2")</div>
+            <div class="h4 mb-0" id="earnings-paid-out">₹0.00</div>
             <div class="text-secondary text-uppercase" style="font-size:.68rem">Paid out</div>
         </div></div>
     </div>
 </div>
 
-@if (Model.Earnings!.BankAccount is null)
-{
-    <div class="alert alert-warning">
-        <strong>No bank account on file.</strong>
-        Your balance cannot be paid out until you add one under
-        <a href="/provider/profile/bank">Account details</a>.
-    </div>
-}
-else
-{
-    <div class="alert alert-light border small">
-        Payouts go to <strong>@Model.Earnings!.BankAccount.BankName</strong>
-        <span class="mono">@Model.Earnings!.BankAccount.MaskedAccountNumber</span>.
-        <a href="/provider/profile/bank">Change</a>
-    </div>
-}
+<div id="earnings-bank-note"></div>
 
 <div class="card">
     <div class="card-body">
         <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
             <h2 class="h6 mb-0">Statement</h2>
 
-            <form method="get" class="ms-auto" data-auto-submit>
-                <select name="entryType" class="form-select form-select-sm">
-                    <option value="">All entries</option>
-                    @foreach (var type in LedgerEntryTypes.All)
-                    {
-                        <option value="@type" selected="@(Model.Earnings!.EntryTypeFilter == type)">
-                            @LedgerEntryTypes.Label(type)
-                        </option>
-                    }
-                </select>
-            </form>
+            <select id="earnings-entry-type" class="form-select form-select-sm ms-auto" style="max-width:12rem">
+                <option value="">All entries</option>
+                @foreach (var type in LedgerEntryTypes.All)
+                {
+                    <option value="@type">@LedgerEntryTypes.Label(type)</option>
+                }
+            </select>
         </div>
 
-        <partial name="_LedgerTable" model="Model.Earnings!.Entries" />
+        <div id="earnings-entries-empty" class="text-center text-secondary py-4 mb-0" hidden>Nothing recorded yet.</div>
+
+        <div id="earnings-entries-wrap" class="table-responsive" hidden>
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Date</th><th>Type</th><th>Details</th>
+                        <th class="text-end">Amount</th><th class="text-end">Balance</th>
+                    </tr>
+                </thead>
+                <tbody id="earnings-entry-rows"></tbody>
+            </table>
+        </div>
+
+        <div id="earnings-entries-pager" class="d-flex align-items-center gap-2 mt-3" hidden>
+            <span id="earnings-entries-summary" class="small text-secondary"></span>
+            <div class="btn-group btn-group-sm ms-auto">
+                <button type="button" id="earnings-entries-prev" class="btn btn-outline-secondary">Previous</button>
+                <button type="button" id="earnings-entries-next" class="btn btn-outline-secondary">Next</button>
+            </div>
+        </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        'use strict';
+
+        var entriesState = { page: 1, entryType: '' };
+
+        function inr(amount) {
+            return '₹' + Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function load() {
+            App.api.get('/api/partners/me/earnings').then(function (data) {
+                var summary = data.summary;
+
+                if (summary.plan) {
+                    var commissionLine = summary.plan.isZeroCommission
+                        ? 'You keep the whole job amount — no commission is taken.'
+                        : summary.plan.commissionPercent.toFixed(2).replace(/\.?0+$/, '') + '% commission is taken from each job.';
+
+                    var endsBadge = summary.plan.endsOn
+                        ? '<span class="badge text-bg-warning ms-auto">Runs out '
+                          + new Date(summary.plan.endsOn).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + '</span>'
+                        : '';
+
+                    $('#earnings-plan').html('<div class="alert ' + (summary.plan.isZeroCommission ? 'alert-success' : 'alert-light border')
+                        + ' d-flex flex-wrap align-items-center gap-2"><div><strong>' + Admin.escapeHtml(summary.plan.planName)
+                        + ' plan.</strong> ' + commissionLine + '</div>' + endsBadge + '</div>');
+                } else {
+                    $('#earnings-plan').empty();
+                }
+
+                $('#earnings-balance').text(inr(summary.balance));
+                $('#earnings-this-month').text(inr(summary.earnedThisMonth));
+                $('#earnings-lifetime-net').text(inr(summary.lifetimeNet));
+                $('#earnings-paid-out').text(inr(summary.lifetimePaidOut));
+
+                if (!data.bankAccount) {
+                    $('#earnings-bank-note').html('<div class="alert alert-warning"><strong>No bank account on file.</strong> '
+                        + 'Your balance cannot be paid out until you add one under '
+                        + '<a href="/provider/profile/bank">Account details</a>.</div>');
+                } else {
+                    $('#earnings-bank-note').html('<div class="alert alert-light border small">Payouts go to <strong>'
+                        + Admin.escapeHtml(data.bankAccount.bankName) + '</strong> <span class="mono">'
+                        + Admin.escapeHtml(data.bankAccount.maskedAccountNumber) + '</span>. '
+                        + '<a href="/provider/profile/bank">Change</a></div>');
+                }
+            });
+
+            loadEntries();
+        }
+
+        function entryRow(entry) {
+            var occurred = new Date(entry.createdAt);
+            var details = '<div>' + Admin.escapeHtml(entry.description) + '</div>';
+
+            if (entry.gigTaskId) {
+                details += '<div class="text-secondary">' + Admin.escapeHtml(entry.taskCategory || '')
+                    + (entry.customerName ? ' · for ' + Admin.escapeHtml(entry.customerName) : '') + '</div>';
+                if (entry.taskAddress) details += '<div class="text-body-tertiary">' + Admin.escapeHtml(entry.taskAddress) + '</div>';
+            }
+            if (entry.reference) details += '<div class="text-secondary mono">Ref ' + Admin.escapeHtml(entry.reference) + '</div>';
+            if (entry.remark) details += '<div class="text-secondary">' + Admin.escapeHtml(entry.remark) + '</div>';
+            if (entry.createdByName) details += '<div class="text-body-tertiary">Recorded by ' + Admin.escapeHtml(entry.createdByName) + '</div>';
+
+            return '<tr>'
+                + '<td class="small text-secondary text-nowrap">'
+                + occurred.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                + '<br /><span class="text-body-tertiary">' + occurred.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) + ' UTC</span></td>'
+                + '<td><span class="badge ' + entry.badgeClass + '">' + entry.typeLabel + '</span></td>'
+                + '<td class="small">' + details + '</td>'
+                + '<td class="text-end fw-semibold ' + (entry.isCredit ? 'text-success' : 'text-danger') + '">'
+                + (entry.isCredit ? '+' : '−') + inr(entry.amount) + '</td>'
+                + '<td class="text-end text-secondary">' + inr(entry.balanceAfter) + '</td>'
+                + '</tr>';
+        }
+
+        function loadEntries() {
+            var url = '/api/partners/me/earnings/entries?page=' + entriesState.page + '&pageSize=10'
+                + (entriesState.entryType ? '&entryType=' + entriesState.entryType : '');
+
+            App.api.get(url).then(function (result) {
+                $('#earnings-entries-empty').prop('hidden', result.totalCount > 0);
+                $('#earnings-entries-wrap').prop('hidden', result.totalCount === 0);
+                $('#earnings-entries-pager').prop('hidden', result.totalCount === 0);
+
+                $('#earnings-entry-rows').html(result.items.map(entryRow).join(''));
+
+                $('#earnings-entries-summary').text(result.totalCount === 0
+                    ? ''
+                    : 'Showing ' + result.firstRow + '–' + result.lastRow + ' of ' + result.totalCount);
+
+                $('#earnings-entries-prev').prop('disabled', !result.hasPrevious);
+                $('#earnings-entries-next').prop('disabled', !result.hasNext);
+            });
+        }
+
+        $(function () {
+            load();
+
+            $('#earnings-entry-type').on('change', function () {
+                entriesState.entryType = $(this).val();
+                entriesState.page = 1;
+                loadEntries();
+            });
+
+            $('#earnings-entries-prev').on('click', function () { entriesState.page -= 1; loadEntries(); });
+            $('#earnings-entries-next').on('click', function () { entriesState.page += 1; loadEntries(); });
+        });
+    });
+</script>

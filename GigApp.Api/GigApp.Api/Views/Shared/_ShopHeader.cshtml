@@ -17,29 +17,31 @@
         </form>
 
         <div class="ms-auto d-flex align-items-center gap-2">
-            <a class="btn btn-sm btn-outline-secondary position-relative" href="/cart">
-                Cart
-                @if (cartCount > 0)
-                {
-                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-primary">
-                        @cartCount
-                        <span class="visually-hidden">items in your cart</span>
-                    </span>
-                }
+            <a class="btn btn-sm btn-uc-outline btn-uc-icon position-relative" href="/cart"
+               aria-label="Cart" title="Cart">
+                <partial name="_Icon" model="@("cart")" />
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-primary"
+                      data-cart-badge hidden="@(cartCount == 0)">
+                    <span data-cart-badge-count>@cartCount</span>
+                    <span class="visually-hidden">items in your cart</span>
+                </span>
             </a>
 
             @if (isCustomer)
             {
-                <a class="btn btn-sm btn-primary" href="/customer">My account</a>
-            }
-            else if (signedIn)
-            {
-                <span class="small text-secondary d-none d-sm-inline">@User.Identity!.Name</span>
+                <a class="btn btn-sm btn-uc-primary btn-uc-icon" href="/customer/profile"
+                   aria-label="My account" title="My account">
+                    <partial name="_Icon" model="@("user")" />
+                </a>
             }
             else
             {
-                <a class="btn btn-sm btn-outline-primary" href="/customer/login">Login</a>
-                <a class="btn btn-sm btn-primary d-none d-sm-inline-block" href="/customer/register">Sign up</a>
+                @* One entry point only — the phone-first login screen signs in an existing
+                   number and registers an unknown one, so there is nothing else to link to. *@
+                <a class="btn btn-sm btn-uc-outline btn-uc-icon" href="/customer/login"
+                   aria-label="Sign in" title="Sign in">
+                    <partial name="_Icon" model="@("user")" />
+                </a>
             }
         </div>
     </div>

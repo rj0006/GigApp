@@ -41,4 +41,10 @@ namespace GigApp.Api.Dtos
             CreatedAt = notification.CreatedAt,
         };
     }
+
+    public class NotificationSummaryDto
+    {
+        public int UnreadCount { get; set; }
+        public IReadOnlyList<NotificationDto> Recent { get; set; } = Array.Empty<NotificationDto>();
+    }
 }

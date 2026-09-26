@@ -1,9 +1,4 @@
 @model ProfilePageViewModel
-@{
-    var area = Model.ServiceArea ?? new ServiceAreaViewModel();
-    var form = area.Form;
-    var pinned = area.Addresses.Where(a => a.HasCoordinates).ToList();
-}
 
 <div class="card mb-3">
     <div class="card-body">
@@ -13,41 +8,25 @@
             you will travel, and the board shows the nearest jobs first and hides the rest.
         </p>
 
-        @if (!area.HasPin)
-        {
-            <div class="alert alert-warning small">
-                <strong>No location set.</strong> Until you add one you see every open job in your
-                category, in no particular order.
-            </div>
-        }
-        else
-        {
-            <div class="alert alert-success small">
-                <strong>@area.OpenTasksInRange</strong> open job(s) in your category are within
-                @form.ServiceRadiusKm km of you right now.
-            </div>
-        }
+        <div id="area-status-alert"></div>
 
-        <form method="post" action="/provider/profile/area" class="gig-form row g-3">
-            @Html.AntiForgeryToken()
-
+        <form id="area-form" class="gig-form row g-3">
             <div class="col-md-6">
                 <label for="ServiceRadiusKm" class="form-label required">How far will you travel? (km)</label>
                 <input id="ServiceRadiusKm" name="ServiceRadiusKm" type="number" min="1" max="100"
-                       class="form-control" required value="@form.ServiceRadiusKm" />
+                       class="form-control" required />
                 <div class="form-text">Between 1 and 100. Jobs beyond this are hidden from your board.</div>
             </div>
 
             <div class="col-md-3">
                 <label for="BaseCity" class="form-label">Base city</label>
-                <input id="BaseCity" name="BaseCity" class="form-control" maxlength="80"
-                       value="@form.BaseCity" placeholder="Gurugram" />
+                <input id="BaseCity" name="BaseCity" class="form-control" maxlength="80" placeholder="Gurugram" />
             </div>
 
             <div class="col-md-3">
                 <label for="BasePincode" class="form-label">Base pincode</label>
                 <input id="BasePincode" name="BasePincode" class="form-control" inputmode="numeric"
-                       maxlength="6" value="@form.BasePincode" placeholder="122002" />
+                       maxlength="6" placeholder="122002" />
             </div>
 
             <div class="col-12">
@@ -55,11 +34,11 @@
                 <div class="row g-2">
                     <div class="col-sm-4">
                         <input id="BaseLatitude" name="BaseLatitude" class="form-control"
-                               readonly value="@form.BaseLatitude" placeholder="Latitude" />
+                               readonly placeholder="Latitude" />
                     </div>
                     <div class="col-sm-4">
                         <input id="BaseLongitude" name="BaseLongitude" class="form-control"
-                               readonly value="@form.BaseLongitude" placeholder="Longitude" />
+                               readonly placeholder="Longitude" />
                     </div>
                     <div class="col-sm-4">
                         <button type="button" class="btn btn-outline-primary w-100"
@@ -74,25 +53,14 @@
                 </div>
             </div>
 
-            @if (pinned.Count > 0)
-            {
-                <div class="col-12">
-                    <label for="copy-address" class="form-label">Or copy one of your saved addresses</label>
-                    <select id="copy-address" class="form-select"
-                            data-copy-latlon data-lat="BaseLatitude" data-lon="BaseLongitude"
-                            data-city="BaseCity" data-pincode="BasePincode">
-                        <option value="">Choose an address</option>
-                        @foreach (var address in pinned)
-                        {
-                            <option value="@address.Id"
-                                    data-lat="@address.Latitude" data-lon="@address.Longitude"
-                                    data-city="@address.City" data-pincode="@address.Pincode">
-                                @address.Label — @address.SingleLine
-                            </option>
-                        }
-                    </select>
-                </div>
-            }
+            <div class="col-12" id="area-copy-address-wrap" hidden>
+                <label for="copy-address" class="form-label">Or copy one of your saved addresses</label>
+                <select id="copy-address" class="form-select"
+                        data-copy-latlon data-lat="BaseLatitude" data-lon="BaseLongitude"
+                        data-city="BaseCity" data-pincode="BasePincode">
+                    <option value="">Choose an address</option>
+                </select>
+            </div>
 
             <div class="col-12">
                 <button type="submit" class="btn btn-primary">Save service area</button>
@@ -100,3 +68,67 @@
         </form>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        'use strict';
+
+        function load() {
+            App.api.get('/api/partners/me/service-area').then(function (data) {
+                var form = data.form;
+
+                $('#ServiceRadiusKm').val(form.serviceRadiusKm);
+                $('#BaseCity').val(form.baseCity || '');
+                $('#BasePincode').val(form.basePincode || '');
+                $('#BaseLatitude').val(form.baseLatitude != null ? form.baseLatitude : '');
+                $('#BaseLongitude').val(form.baseLongitude != null ? form.baseLongitude : '');
+
+                $('#area-status-alert').html(data.hasPin
+                    ? '<div class="alert alert-success small"><strong>' + data.openTasksInRange
+                      + '</strong> open job(s) in your category are within ' + form.serviceRadiusKm + ' km of you right now.</div>'
+                    : '<div class="alert alert-warning small"><strong>No location set.</strong> Until you add one you see '
+                      + 'every open job in your category, in no particular order.</div>');
+
+                var pinned = data.addresses.filter(function (a) { return a.hasCoordinates; });
+
+                if (pinned.length > 0) {
+                    $('#area-copy-address-wrap').prop('hidden', false);
+                    $('#copy-address').html('<option value="">Choose an address</option>' + pinned.map(function (a) {
+                        return '<option value="' + a.id + '" data-lat="' + a.latitude + '" data-lon="' + a.longitude + '" '
+                            + 'data-city="' + Admin.escapeHtml(a.city) + '" data-pincode="' + Admin.escapeHtml(a.pincode) + '">'
+                            + Admin.escapeHtml(a.label) + ' — ' + Admin.escapeHtml(a.singleLine) + '</option>';
+                    }).join(''));
+                } else {
+                    $('#area-copy-address-wrap').prop('hidden', true);
+                }
+            });
+        }
+
+        $(function () {
+            load();
+
+            $('#area-form').on('submit', function (event) {
+                event.preventDefault();
+
+                var lat = $('#BaseLatitude').val();
+                var lon = $('#BaseLongitude').val();
+
+                if ((lat && !lon) || (!lat && lon)) {
+                    showToast('Error', 'A location needs both a latitude and a longitude.', 'error');
+                    return;
+                }
+
+                var data = Admin.formToJson(this);
+                data.BaseLatitude = lat || null;
+                data.BaseLongitude = lon || null;
+
+                App.api.put('/api/partners/me/service-area', data).then(function (result) {
+                    showToast('Success', result.hasPin
+                        ? 'Saved. You will now see work within ' + result.form.serviceRadiusKm + ' km of your base, nearest first.'
+                        : 'Saved. Add a location pin to see work sorted by how near it is.', 'success');
+                    load();
+                });
+            });
+        });
+    });
+</script>

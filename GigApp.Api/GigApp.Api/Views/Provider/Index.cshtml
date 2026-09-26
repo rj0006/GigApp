@@ -1,111 +1,56 @@
-@model ProviderDashboardViewModel
 @{
+    ViewData["Title"] = "Partner dashboard";
     ViewData["Portal"] = "Partner";
     ViewData["LogoutPath"] = "/provider/logout";
-    var profile = Model.Profile;
 }
 
-<h1 class="h4">Hello, @Model.Name</h1>
+<h1 class="h4">Hello, @(User.Identity?.Name ?? "there")</h1>
 
-@if (profile is null)
-{
-    <div class="alert alert-danger">
-        No partner profile is attached to this account. Please contact an administrator.
-    </div>
-}
-else if (!profile.IsVerified)
-{
+<div id="dash-no-profile" class="alert alert-danger" hidden>
+    No partner profile is attached to this account. Please contact an administrator.
+</div>
+
+<div id="dash-unverified" hidden>
     <div class="card">
-        <div class="card-body text-center py-5">
-            <span class="badge @profile.KycBadgeClass mb-3" style="font-size:.9rem">@profile.KycLabel</span>
-
-            @if (profile.IsRejected)
-            {
-                <h2 class="h5">Your KYC was rejected</h2>
-                <p class="text-secondary mb-2">
-                    @profile.KycRejectionReason
-                </p>
-                <p class="text-secondary small">
-                    Fix the problem and upload the document again. That puts you straight back
-                    into the review queue — you do not need a new account.
-                </p>
-            }
-            else if (profile.HasCompleteKyc)
-            {
-                <h2 class="h5">Your documents are under review</h2>
-                <p class="text-secondary mb-2">
-                    An administrator is checking them. You will be able to see and bid on work
-                    as soon as they approve.
-                </p>
-                @if (!string.IsNullOrWhiteSpace(profile.KycReviewNote))
-                {
-                    <p class="text-secondary small">@profile.KycReviewNote</p>
-                }
-            }
-            else
-            {
-                <h2 class="h5">Your KYC is incomplete</h2>
-                <p class="text-secondary mb-2">
-                    Upload your selfie, both sides of your Aadhaar card and your Aadhaar number
-                    to start the review.
-                </p>
-            }
-
-            <a class="btn btn-primary mt-2" href="/provider/profile/kyc">Go to KYC</a>
-        </div>
+        <div class="card-body text-center py-5" id="dash-kyc-gate"></div>
     </div>
 
-    @if (Model.HasOpenJobs)
-    {
-        <div class="alert alert-warning mt-3">
-            <strong>You still have work in hand.</strong>
-            Jobs you had already accepted are listed below so a customer is not left waiting.
-            Finish them as agreed. New work stays hidden until your KYC is approved again.
-        </div>
+    <div id="dash-open-jobs-alert" class="alert alert-warning mt-3" hidden>
+        <strong>You still have work in hand.</strong>
+        Jobs you had already accepted are listed below so a customer is not left waiting.
+        Finish them as agreed. New work stays hidden until your KYC is approved again.
+    </div>
 
-        <partial name="_MyJobs" model="Model" />
-    }
-}
-else
-{
-    if (Model.Offer is not null)
-    {
-        <partial name="_JobOffer" model="Model.Offer" />
-    }
+    <div id="dash-myjobs-unverified"></div>
+</div>
+
+<div id="dash-verified" hidden>
+    <div id="dash-offer"></div>
 
     <div class="row g-3 mb-3">
         <div class="col-md-3">
             <div class="card h-100"><div class="card-body py-3">
-                <div class="h6 mb-0">@profile.SkillCategoryName</div>
+                <div class="h6 mb-0" id="dash-skill"></div>
                 <div class="text-secondary text-uppercase" style="font-size:.68rem">Skill category</div>
             </div></div>
         </div>
         <div class="col-md-3">
             <div class="card h-100"><div class="card-body py-3">
-                <span class="badge @profile.KycBadgeClass">@profile.KycLabel</span>
+                <span class="badge" id="dash-kyc-badge"></span>
                 <div class="text-secondary text-uppercase mt-1" style="font-size:.68rem">KYC status</div>
             </div></div>
         </div>
         <div class="col-md-3">
             <div class="card h-100"><div class="card-body py-3">
-                <partial name="_Stars" model="profile.RoundedRating" />
-                <div class="text-secondary text-uppercase mt-1" style="font-size:.68rem">
-                    @(profile.RatingCount > 0
-                        ? $"{profile.AverageRating:0.0} from {profile.RatingCount} customer{(profile.RatingCount == 1 ? "" : "s")}"
-                        : "Your rating — no customer has rated you yet")
-                </div>
+                <div id="dash-rating"></div>
+                <div class="text-secondary text-uppercase mt-1" style="font-size:.68rem" id="dash-rating-label"></div>
             </div></div>
         </div>
         <div class="col-md-3">
             <div class="card h-100"><div class="card-body py-3">
-                <form method="post" asp-action="ToggleAvailability" class="d-inline">
-                    <input type="hidden" name="isAvailable" value="@(profile.IsAvailable ? "false" : "true")" />
-                    <button type="submit" class="btn btn-sm p-0 border-0 bg-transparent">
-                        <span class="badge @(profile.IsAvailable ? "text-bg-success" : "text-bg-secondary")">
-                            @(profile.IsAvailable ? "On duty" : "Off duty")
-                        </span>
-                    </button>
-                </form>
+                <button type="button" id="dash-duty-toggle" class="btn btn-sm p-0 border-0 bg-transparent">
+                    <span class="badge"></span>
+                </button>
                 <div class="text-secondary text-uppercase mt-1" style="font-size:.68rem">
                     Availability — click to change
                 </div>
@@ -116,153 +61,588 @@ else
     <div class="card mb-4">
         <div class="card-body">
             <h2 class="h6 mb-3">Available work</h2>
-
-            @if (!profile.IsVerified)
-            {
-                <p class="text-center text-secondary py-4 mb-0">Open tasks appear here once your account is verified.</p>
-            }
-            else if (Model.AvailableTasks.Count == 0)
-            {
-                <p class="text-center text-secondary py-4 mb-0">
-                    Nothing new in your category right now. Anything you have already bid on is under
-                    <strong>My bids</strong>.
-                </p>
-            }
-            else
-            {
-                <p class="text-secondary small">
-                    On a bidding job you quote your own amount and the customer decides. A
-                    <strong>fixed price</strong> job has no bidding — the first partner to accept it
-                    gets the work at the listed rate.
-                    @if (Model.HasServiceArea)
-                    {
-                        <text>Showing work within <strong>@Model.ServiceRadiusKm km</strong> of your base, nearest first.</text>
-                    }
-                </p>
-
-                @if (!Model.HasServiceArea)
-                {
-                    <div class="alert alert-warning small">
-                        <strong>You have not set where you work.</strong> Add a location pin under
-                        <a href="/provider/profile/area">Where you work</a> and this list will show
-                        the nearest jobs first and drop the ones too far to be worth the trip.
-                    </div>
-                }
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead>
-                            <tr><th>#</th><th>Category</th><th>Description</th><th>Address</th><th>Amount</th><th>Customer</th><th class="text-end"></th></tr>
-                        </thead>
-                        <tbody>
-                        @foreach (var task in Model.AvailableTasks)
-                        {
-                            <tr class="@(task.IsUrgent ? "table-danger" : "")">
-                                <td class="text-secondary">@task.Id</td>
-                                <td>
-                                    <div>@(task.ServiceItemName ?? task.CategoryName)</div>
-                                    <span class="badge text-bg-light border">@task.CategoryName</span>
-                                    @if (task.IsInstant)
-                                    {
-                                        <span class="badge text-bg-success">Fixed price</span>
-                                    }
-                                    @if (task.Urgency != TaskUrgency.Normal)
-                                    {
-                                        <div class="mt-1">
-                                            <span class="badge @task.UrgencyBadgeClass">@task.UrgencyLabel</span>
-                                        </div>
-                                    }
-                                </td>
-                                <td class="small">@task.Description</td>
-                                <td class="small text-secondary">
-                                    @task.Address
-                                    @if (task.DistanceKm is not null)
-                                    {
-                                        <div class="badge text-bg-light border mt-1">@task.DistanceLabel</div>
-                                    }
-                                </td>
-                                <td>
-                                    <span class="fw-semibold">₹@task.EffectiveAmount.ToString("N0")</span>
-                                    <div class="small text-secondary">@(task.IsInstant ? "fixed" : "budget")</div>
-                                </td>
-                                <td>@(task.CustomerName ?? "—")</td>
-                                <td class="text-end">
-                                    @if (task.IsInstant)
-                                    {
-                                        <form method="post" asp-action="AcceptTask" asp-route-id="@task.Id"
-                                              data-confirm-title="Take this job?"
-                                              data-confirm="@($"You will earn ₹{task.EffectiveAmount:N0} before commission for {task.ServiceItemName ?? task.CategoryName} at {task.Address}. The price is fixed and the job becomes yours immediately.")"
-                                              data-confirm-icon="question"
-                                              data-confirm-ok="Yes, take it">
-                                            <button type="submit" class="btn btn-sm btn-success">
-                                                Accept at ₹@task.EffectiveAmount.ToString("N0")
-                                            </button>
-                                        </form>
-                                    }
-                                    else
-                                    {
-                                        <button type="button" class="btn btn-sm btn-primary"
-                                                data-bs-toggle="modal" data-bs-target="#bid-modal-@task.Id">
-                                            Place bid
-                                        </button>
-                                    }
-                                </td>
-                            </tr>
-                        }
-                        </tbody>
-                    </table>
-                </div>
-
-                @foreach (var task in Model.AvailableTasks.Where(t => !t.IsInstant))
-                {
-                    <div class="modal fade" id="bid-modal-@task.Id" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered">
-                            <form method="post" asp-action="PlaceBid" asp-route-id="@task.Id" class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Bid on task #@task.Id</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body gig-form">
-                                    <p class="small text-secondary mb-3">
-                                        @task.Description<br />
-                                        <span class="text-body">@task.Address</span> ·
-                                        customer's budget <strong>₹@task.Budget.ToString("N0")</strong>
-                                    </p>
-                                    <div class="mb-3">
-                                        <label for="amount-@task.Id" class="form-label required">Your amount (₹)</label>
-                                        <input id="amount-@task.Id" name="Amount" type="number" min="1" step="50"
-                                               class="form-control" required value="@task.Budget.ToString("0")" />
-                                        <div class="form-text">You can ask for more or less than the budget.</div>
-                                    </div>
-                                    <div>
-                                        <label for="note-@task.Id" class="form-label">Message to the customer</label>
-                                        <textarea id="note-@task.Id" name="Note" class="form-control" rows="2"
-                                                  maxlength="500" placeholder="Why you are a good fit"></textarea>
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                                    <button type="submit" class="btn btn-sm btn-primary">Send bid</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                }
-            }
+            <div id="dash-available"></div>
         </div>
     </div>
 
     <div class="card mb-4">
         <div class="card-body">
-            <h2 class="h6 mb-3">
-                My bids
-                @if (Model.CountersAwaitingReply > 0)
-                {
-                    <span class="badge text-bg-warning">@Model.CountersAwaitingReply need a reply</span>
-                }
-            </h2>
-            <partial name="_MyBids" model="Model.MyBids" />
+            <h2 class="h6 mb-3">My bids <span id="dash-counters-badge"></span></h2>
+            <div id="dash-mybids"></div>
         </div>
     </div>
 
-    <partial name="_MyJobs" model="Model" />
+    <div id="dash-myjobs-verified"></div>
+</div>
+
+<div class="modal fade" id="bid-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bid-modal-title"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body gig-form">
+                <p class="small text-secondary mb-3" id="bid-modal-summary"></p>
+                <div class="mb-3">
+                    <label for="bid-amount" class="form-label required">Your amount (₹)</label>
+                    <input id="bid-amount" type="number" min="1" step="50" class="form-control" required />
+                    <div class="form-text">You can ask for more or less than the budget.</div>
+                </div>
+                <div>
+                    <label for="bid-note" class="form-label">Message to the customer</label>
+                    <textarea id="bid-note" class="form-control" rows="2" maxlength="500"
+                              placeholder="Why you are a good fit"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="bid-modal-submit" class="btn btn-sm btn-primary">Send bid</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="complete-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="complete-modal-title"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body gig-form">
+                <p class="small text-secondary mb-3" id="complete-modal-summary"></p>
+                <div class="mb-3">
+                    <label class="form-label required d-block" id="complete-modal-rate-label"></label>
+                    <div class="star-input">
+                        @for (var n = RatingScale.Maximum; n >= RatingScale.Minimum; n--)
+                        {
+                            <input type="radio" name="complete-stars" value="@n" id="complete-star-@n" />
+                            <label for="complete-star-@n" title="@RatingScale.Label(n)">&#9733;</label>
+                        }
+                    </div>
+                    <div class="form-text">Your rating is required to close the job. It is not shown to the customer.</div>
+                </div>
+                <div>
+                    <label for="complete-feedback" class="form-label">Anything worth noting</label>
+                    <textarea id="complete-feedback" class="form-control" rows="2" maxlength="500"
+                              placeholder="Address was hard to find, payment was prompt"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="complete-modal-submit" class="btn btn-sm btn-success">Yes, work is done</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="cancel-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cancel-modal-title"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body gig-form">
+                <p class="small text-secondary mb-3" id="cancel-modal-summary"></p>
+                <div>
+                    <label for="cancel-reason" class="form-label">Why are you cancelling</label>
+                    <textarea id="cancel-reason" class="form-control" rows="2" maxlength="500"
+                              placeholder="Vehicle broke down, cannot reach on time"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Back</button>
+                <button type="button" id="cancel-modal-submit" class="btn btn-sm btn-danger">Yes, cancel this job</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            var bidTaskId = null;
+            var completeJobId = null;
+            var cancelJobId = null;
+            var countdownTimer = null;
+
+            function stars(count) {
+                var html = '<span class="stars-read">';
+                for (var n = 1; n <= 5; n++) {
+                    html += '<span class="' + (n <= count ? '' : 'star-off') + '">&#9733;</span>';
+                }
+                return html + '</span>';
+            }
+
+            function inr(amount) {
+                return '₹' + Math.round(amount).toLocaleString('en-IN');
+            }
+
+            function load() {
+                App.api.get('/api/partners/me/dashboard').then(render);
+            }
+
+            function render(data) {
+                if (!data.profile) {
+                    $('#dash-no-profile').prop('hidden', false);
+                    $('#dash-unverified, #dash-verified').prop('hidden', true);
+                    return;
+                }
+
+                var profile = data.profile;
+
+                if (!profile.isVerified) {
+                    $('#dash-unverified').prop('hidden', false);
+                    $('#dash-verified').prop('hidden', true);
+                    renderKycGate(profile);
+
+                    var hasOpenJobs = data.myJobs.some(function (j) { return ['pending', 'accepted', 'in_progress'].indexOf(j.status) !== -1; });
+                    $('#dash-open-jobs-alert').prop('hidden', !hasOpenJobs);
+                    $('#dash-myjobs-unverified').html(hasOpenJobs ? myJobsCard(data.myJobs, profile) : '');
+                } else {
+                    $('#dash-unverified').prop('hidden', true);
+                    $('#dash-verified').prop('hidden', false);
+
+                    renderOffer(data.offer);
+
+                    $('#dash-skill').text(profile.skillCategoryName);
+                    $('#dash-kyc-badge').attr('class', 'badge ' + profile.kycBadgeClass).text(profile.kycLabel);
+
+                    $('#dash-rating').html(stars(profile.roundedRating));
+                    $('#dash-rating-label').text(profile.ratingCount > 0
+                        ? profile.averageRating.toFixed(1) + ' from ' + profile.ratingCount + ' customer' + (profile.ratingCount === 1 ? '' : 's')
+                        : 'Your rating — no customer has rated you yet');
+
+                    $('#dash-duty-toggle .badge')
+                        .attr('class', 'badge ' + (profile.isAvailable ? 'text-bg-success' : 'text-bg-secondary'))
+                        .text(profile.isAvailable ? 'On duty' : 'Off duty');
+                    $('#dash-duty-toggle').data('available', profile.isAvailable);
+
+                    renderAvailable(data.availableTasks, data.hasServiceArea, data.serviceRadiusKm, profile.isVerified);
+
+                    var counters = data.myBids.filter(function (b) { return b.status === 'countered'; }).length;
+                    $('#dash-counters-badge').html(counters > 0
+                        ? '<span class="badge text-bg-warning">' + counters + ' need a reply</span>' : '');
+                    $('#dash-mybids').html(myBidsTable(data.myBids));
+
+                    $('#dash-myjobs-verified').html(myJobsCard(data.myJobs, profile));
+                }
+            }
+
+            function renderKycGate(profile) {
+                var html = '<span class="badge ' + profile.kycBadgeClass + ' mb-3" style="font-size:.9rem">' + profile.kycLabel + '</span><br />';
+
+                if (profile.isRejected) {
+                    html += '<h2 class="h5">Your KYC was rejected</h2>'
+                        + '<p class="text-secondary mb-2">' + Admin.escapeHtml(profile.kycRejectionReason || '') + '</p>'
+                        + '<p class="text-secondary small">Fix the problem and upload the document again. That puts you straight '
+                        + 'back into the review queue — you do not need a new account.</p>';
+                } else if (profile.hasCompleteKyc) {
+                    html += '<h2 class="h5">Your documents are under review</h2>'
+                        + '<p class="text-secondary mb-2">An administrator is checking them. You will be able to see and bid on '
+                        + 'work as soon as they approve.</p>';
+                    if (profile.kycReviewNote) {
+                        html += '<p class="text-secondary small">' + Admin.escapeHtml(profile.kycReviewNote) + '</p>';
+                    }
+                } else {
+                    html += '<h2 class="h5">Your KYC is incomplete</h2>'
+                        + '<p class="text-secondary mb-2">Upload your selfie, both sides of your Aadhaar card and your Aadhaar '
+                        + 'number to start the review.</p>';
+                }
+
+                html += '<a class="btn btn-primary mt-2" href="/provider/profile/kyc">Go to KYC</a>';
+                $('#dash-kyc-gate').html(html);
+            }
+
+            function renderOffer(offer) {
+                if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+
+                if (!offer) { $('#dash-offer').empty(); return; }
+
+                var task = offer.task;
+
+                var html = '<div class="card offer-card mb-4"><div class="card-body">'
+                    + '<div class="d-flex flex-wrap align-items-center gap-2 mb-2">'
+                    + '<h2 class="h6 mb-0">This job is yours first</h2>'
+                    + '<span class="badge text-bg-primary">Rank ' + offer.rank + '</span>'
+                    + '<span class="ms-auto small text-secondary">Goes to the next partner in '
+                    + '<span class="offer-countdown" id="offer-countdown">' + Math.floor(offer.secondsLeft / 60) + 'm ' + (offer.secondsLeft % 60) + 's</span></span>'
+                    + '</div>'
+                    + '<p class="text-secondary small mb-3">You came out nearest and best rated for this one, so you get first '
+                    + 'refusal. Pass on it and it moves straight to the next partner — there is no penalty for saying no.</p>'
+                    + '<div class="row g-3 align-items-center">'
+                    + '<div class="col-md-8">'
+                    + '<div class="fw-semibold">' + Admin.escapeHtml(task.serviceItemName || task.categoryName) + '</div>'
+                    + '<div class="small">' + Admin.escapeHtml(task.description) + '</div>'
+                    + '<div class="small text-secondary">' + Admin.escapeHtml(task.address)
+                    + (task.distanceKm != null ? ' <span class="badge text-bg-light border ms-1">' + task.distanceLabel + '</span>' : '') + '</div>'
+                    + (task.urgency !== 'normal' ? '<span class="badge ' + task.urgencyBadgeClass + ' mt-1">' + task.urgencyLabel + '</span>' : '')
+                    + '</div>'
+                    + '<div class="col-md-4 text-md-end">'
+                    + '<div class="h5 mb-2">' + inr(task.effectiveAmount) + '</div>'
+                    + '<div class="row-actions justify-end">'
+                    + '<button type="button" class="btn btn-sm btn-success" id="offer-accept">Accept</button>'
+                    + '<button type="button" class="btn btn-sm btn-outline-secondary" id="offer-pass">Pass</button>'
+                    + '</div></div></div></div></div>';
+
+                $('#dash-offer').html(html);
+
+                $('#offer-accept').on('click', function () {
+                    App.confirmAction({
+                        title: 'Take this job?',
+                        text: 'You will earn ' + inr(task.effectiveAmount) + ' before commission for '
+                            + (task.serviceItemName || task.categoryName) + ' at ' + task.address + '.',
+                        icon: 'question',
+                        confirmText: 'Yes, it is mine',
+                    }).then(function (ok) {
+                        if (!ok) return;
+                        App.api.post('/api/offers/' + offer.id + '/respond', { accepted: true }).then(function () {
+                            showToast('Success', 'The job is yours. It is now under My jobs.', 'success');
+                            load();
+                        });
+                    });
+                });
+
+                $('#offer-pass').on('click', function () {
+                    App.confirmAction({
+                        title: 'Pass on this job?',
+                        text: 'It goes to the next partner straight away. This does not count against you.',
+                        icon: 'question',
+                        confirmText: 'Yes, pass it on',
+                    }).then(function (ok) {
+                        if (!ok) return;
+                        App.api.post('/api/offers/' + offer.id + '/respond', { accepted: false }).then(function () {
+                            showToast('Success', 'Passed on. It has gone to the next partner.', 'success');
+                            load();
+                        });
+                    });
+                });
+
+                countdownTimer = setInterval(function () {
+                    offer.secondsLeft -= 1;
+                    if (offer.secondsLeft <= 0) { load(); return; }
+                    $('#offer-countdown').text(Math.floor(offer.secondsLeft / 60) + 'm ' + (offer.secondsLeft % 60) + 's');
+                }, 1000);
+            }
+
+            function renderAvailable(tasks, hasServiceArea, serviceRadiusKm, isVerified) {
+                if (!isVerified) {
+                    $('#dash-available').html('<p class="text-center text-secondary py-4 mb-0">Open tasks appear here once your account is verified.</p>');
+                    return;
+                }
+
+                if (tasks.length === 0) {
+                    $('#dash-available').html('<p class="text-center text-secondary py-4 mb-0">Nothing new in your category right now. '
+                        + 'Anything you have already bid on is under <strong>My bids</strong>.</p>');
+                    return;
+                }
+
+                var html = '<p class="text-secondary small">On a bidding job you quote your own amount and the customer decides. A '
+                    + '<strong>fixed price</strong> job has no bidding — the first partner to accept it gets the work at the listed rate.'
+                    + (hasServiceArea ? ' Showing work within <strong>' + serviceRadiusKm + ' km</strong> of your base, nearest first.' : '')
+                    + '</p>';
+
+                if (!hasServiceArea) {
+                    html += '<div class="alert alert-warning small"><strong>You have not set where you work.</strong> Add a location pin '
+                        + 'under <a href="/provider/profile/area">Where you work</a> and this list will show the nearest jobs first and '
+                        + 'drop the ones too far to be worth the trip.</div>';
+                }
+
+                html += '<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr>'
+                    + '<th>#</th><th>Category</th><th>Description</th><th>Address</th><th>Amount</th><th>Customer</th><th class="text-end"></th>'
+                    + '</tr></thead><tbody>';
+
+                tasks.forEach(function (task) {
+                    html += '<tr class="' + (task.isUrgent ? 'table-danger' : '') + '">'
+                        + '<td class="text-secondary">' + task.id + '</td>'
+                        + '<td><div>' + Admin.escapeHtml(task.serviceItemName || task.categoryName) + '</div>'
+                        + '<span class="badge text-bg-light border">' + Admin.escapeHtml(task.categoryName) + '</span>'
+                        + (task.isInstant ? ' <span class="badge text-bg-success">Fixed price</span>' : '')
+                        + (task.urgency !== 'normal' ? '<div class="mt-1"><span class="badge ' + task.urgencyBadgeClass + '">' + task.urgencyLabel + '</span></div>' : '')
+                        + '</td>'
+                        + '<td class="small">' + Admin.escapeHtml(task.description) + '</td>'
+                        + '<td class="small text-secondary">' + Admin.escapeHtml(task.address)
+                        + (task.distanceKm != null ? '<div class="badge text-bg-light border mt-1">' + task.distanceLabel + '</div>' : '') + '</td>'
+                        + '<td><span class="fw-semibold">' + inr(task.effectiveAmount) + '</span>'
+                        + '<div class="small text-secondary">' + (task.isInstant ? 'fixed' : 'budget') + '</div></td>'
+                        + '<td>' + Admin.escapeHtml(task.customerName || '—') + '</td>'
+                        + '<td class="text-end">' + (task.isInstant
+                            ? '<button type="button" class="btn btn-sm btn-success" data-accept="' + task.id + '" data-amount="' + task.effectiveAmount + '" data-label="' + Admin.escapeHtml(task.serviceItemName || task.categoryName) + '" data-address="' + Admin.escapeHtml(task.address) + '">Accept at ' + inr(task.effectiveAmount) + '</button>'
+                            : '<button type="button" class="btn btn-sm btn-primary" data-bid="' + task.id + '">Place bid</button>')
+                        + '</td></tr>';
+                });
+
+                html += '</tbody></table></div>';
+                $('#dash-available').html(html);
+
+                var byId = {};
+                tasks.forEach(function (t) { byId[t.id] = t; });
+                $('#dash-available').data('tasks', byId);
+            }
+
+            function bidStatusBadge(status) {
+                switch (status) {
+                    case 'accepted': return 'text-bg-success';
+                    case 'countered': return 'text-bg-warning';
+                    case 'rejected': return 'text-bg-danger';
+                    case 'withdrawn': return 'text-bg-secondary';
+                    default: return 'text-bg-info';
+                }
+            }
+
+            function myBidsTable(bids) {
+                if (bids.length === 0) return '<p class="text-center text-secondary py-4 mb-0">You have not bid on anything yet.</p>';
+
+                var html = '<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr>'
+                    + '<th>Task</th><th>Budget</th><th>Your bid</th><th>Counter offer</th><th>Status</th><th class="text-end">Action</th>'
+                    + '</tr></thead><tbody>';
+
+                bids.forEach(function (bid) {
+                    var label = bid.status === 'pending' ? 'Waiting on customer' : bid.status;
+
+                    html += '<tr><td><div class="small">#' + bid.gigTaskId + ' · ' + Admin.escapeHtml(bid.taskCategoryName || '') + '</div>'
+                        + '<div class="small text-secondary">' + Admin.escapeHtml(bid.taskDescription || '') + '</div></td>'
+                        + '<td class="text-secondary">' + inr(bid.taskBudget) + '</td>'
+                        + '<td class="fw-semibold">' + inr(bid.amount) + '</td>'
+                        + '<td>' + (bid.counterAmount != null
+                            ? '<div class="fw-semibold text-primary">' + inr(bid.counterAmount) + '</div>'
+                              + (bid.counterNote ? '<div class="small text-secondary fst-italic">' + Admin.escapeHtml(bid.counterNote) + '</div>' : '')
+                            : '<span class="text-secondary">—</span>') + '</td>'
+                        + '<td><span class="badge ' + bidStatusBadge(bid.status) + ' text-capitalize">' + Admin.escapeHtml(label) + '</span></td>'
+                        + '<td><div class="row-actions justify-end">'
+                        + (bid.awaitingPartner ? '<button type="button" class="btn btn-sm btn-success" data-accept-counter="' + bid.id + '">Accept ' + inr(bid.currentAmount) + '</button>' : '')
+                        + (bid.isOpen ? '<button type="button" class="btn btn-sm btn-outline-primary" data-rebid="' + bid.id + '">Change bid</button>'
+                            + '<button type="button" class="btn btn-sm btn-outline-danger" data-withdraw="' + bid.id + '">Withdraw</button>' : '')
+                        + '</div></td></tr>';
+                });
+
+                html += '</tbody></table></div>';
+
+                var byId = {};
+                bids.forEach(function (b) { byId[b.id] = b; });
+                $('#dash-mybids').data('bids', byId);
+
+                return html;
+            }
+
+            function myJobsCard(jobs, profile) {
+                var html = '<div class="card"><div class="card-body">'
+                    + '<h2 class="h6 mb-1">My jobs</h2>'
+                    + '<p class="text-secondary small">' + (profile.isVerified
+                        ? 'Only tasks the customer has assigned to you.'
+                        : 'Work you had already accepted. You can still finish these while your KYC is reviewed.') + '</p>';
+
+                if (jobs.length === 0) {
+                    html += '<p class="text-center text-secondary py-4 mb-0">You have not accepted any tasks yet.</p></div></div>';
+                    return html;
+                }
+
+                html += '<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr>'
+                    + '<th>#</th><th>Category</th><th>Address</th><th>Agreed</th><th>Status</th><th>Customer</th><th class="text-end">Actions</th>'
+                    + '</tr></thead><tbody>';
+
+                jobs.forEach(function (job) {
+                    var canStart = job.status === 'accepted';
+                    var canComplete = job.status === 'in_progress';
+                    var canCancel = job.status === 'pending' || job.status === 'accepted' || job.status === 'in_progress';
+
+                    html += '<tr><td class="text-secondary">' + job.id + '</td>'
+                        + '<td><span class="badge text-bg-light border">' + Admin.escapeHtml(job.categoryName) + '</span>'
+                        + (job.wasAssignedBySupport ? '<div class="small text-secondary mt-1" style="max-width:16rem">Given to you by support: ' + Admin.escapeHtml(job.assignmentNote || '') + '</div>' : '')
+                        + (job.categoryId !== profile.skillCategoryId && ['pending', 'accepted', 'in_progress'].indexOf(job.status) !== -1
+                            ? '<div class="small text-warning-emphasis mt-1" style="max-width:14rem">Booked under ' + Admin.escapeHtml(job.categoryName)
+                              + ', which is no longer your skill. Finish it as agreed — you cannot take new work in this category.</div>' : '')
+                        + '</td>'
+                        + '<td class="small text-secondary">' + Admin.escapeHtml(job.address) + '</td>'
+                        + '<td class="fw-semibold">' + inr(job.effectiveAmount) + '</td>'
+                        + '<td><span class="badge badge-' + job.status + ' text-white">' + Admin.escapeHtml(job.statusLabel) + '</span></td>'
+                        + '<td>' + Admin.escapeHtml(job.customerName || '—') + '</td>'
+                        + '<td><div class="row-actions justify-end">'
+                        + (canStart ? '<button type="button" class="btn btn-sm btn-primary" data-start="' + job.id + '" data-address="' + Admin.escapeHtml(job.address) + '">Start</button>' : '')
+                        + (canComplete ? '<button type="button" class="btn btn-sm btn-success" data-complete="' + job.id + '">Complete</button>' : '')
+                        + (canCancel ? '<button type="button" class="btn btn-sm btn-outline-danger" data-cancel="' + job.id + '">Cancel</button>' : '')
+                        + '</div></td></tr>';
+                });
+
+                html += '</tbody></table></div></div></div>';
+
+                var byId = {};
+                jobs.forEach(function (j) { byId[j.id] = j; });
+                $('#dash-myjobs-verified, #dash-myjobs-unverified').data('jobs', byId);
+
+                return html;
+            }
+
+            function updateStatus(id, body, successMessage) {
+                App.api.put('/api/gigtasks/' + id + '/status', body).then(function () {
+                    showToast('Success', successMessage, 'success');
+                    load();
+                });
+            }
+
+            $(function () {
+                load();
+                App.realtime.on('tasks', load);
+
+                $('#dash-duty-toggle').on('click', function () {
+                    var next = !$(this).data('available');
+                    App.api.put('/api/partners/me/availability', { isAvailable: next }).then(function () {
+                        showToast('Success', next ? 'You are now accepting work.' : 'You are now off duty.', 'success');
+                        load();
+                    });
+                });
+
+                $(document).on('click', '[data-accept]', function () {
+                    var id = $(this).data('accept');
+                    var amount = $(this).data('amount');
+                    var label = $(this).data('label');
+                    var address = $(this).data('address');
+
+                    App.confirmAction({
+                        title: 'Take this job?',
+                        text: 'You will earn ' + inr(amount) + ' before commission for ' + label + ' at ' + address
+                            + '. The price is fixed and the job becomes yours immediately.',
+                        icon: 'question',
+                        confirmText: 'Yes, take it',
+                    }).then(function (ok) {
+                        if (!ok) return;
+                        App.api.put('/api/gigtasks/' + id + '/accept', {}).then(function (result) {
+                            showToast('Success', 'Job #' + id + ' is yours at ' + inr(result.effectiveAmount) + '. It is now under My jobs.', 'success');
+                            load();
+                        });
+                    });
+                });
+
+                $(document).on('click', '[data-bid]', function () {
+                    var task = $('#dash-available').data('tasks')[$(this).data('bid')];
+                    bidTaskId = task.id;
+
+                    $('#bid-modal-title').text('Bid on task #' + task.id);
+                    $('#bid-modal-summary').html(Admin.escapeHtml(task.description) + '<br /><span class="text-body">'
+                        + Admin.escapeHtml(task.address) + '</span> · customer\'s budget <strong>' + inr(task.budget) + '</strong>');
+                    $('#bid-amount').val(Math.round(task.budget));
+                    $('#bid-note').val('');
+
+                    new bootstrap.Modal(document.getElementById('bid-modal')).show();
+                });
+
+                $(document).on('click', '[data-rebid]', function () {
+                    var bid = ($('#dash-mybids').data('bids') || {})[$(this).data('rebid')];
+                    if (!bid) return;
+
+                    bidTaskId = bid.gigTaskId;
+                    $('#bid-modal-title').text('Change your bid · task #' + bid.gigTaskId);
+                    $('#bid-modal-summary').html('Customer\'s budget is ' + inr(bid.taskBudget) + '.'
+                        + (bid.counterAmount != null ? ' They countered at ' + inr(bid.counterAmount) + '.' : ''));
+                    $('#bid-amount').val(Math.round(bid.amount));
+                    $('#bid-note').val(bid.note || '');
+
+                    new bootstrap.Modal(document.getElementById('bid-modal')).show();
+                });
+
+                $('#bid-modal-submit').on('click', function () {
+                    var amount = $('#bid-amount').val();
+                    var note = $('#bid-note').val();
+
+                    if (!amount || Number(amount) <= 0) {
+                        showToast('Error', 'Enter an amount greater than zero.', 'error');
+                        return;
+                    }
+
+                    App.api.post('/api/bids/task/' + bidTaskId, { amount: amount, note: note }).then(function () {
+                        bootstrap.Modal.getInstance(document.getElementById('bid-modal')).hide();
+                        showToast('Success', 'Bid of ' + inr(amount) + ' placed on task #' + bidTaskId + '.', 'success');
+                        load();
+                    });
+                });
+
+                $(document).on('click', '[data-withdraw]', function () {
+                    var bidId = $(this).data('withdraw');
+
+                    App.confirmAction({ title: 'Withdraw your bid?' }).then(function (ok) {
+                        if (!ok) return;
+                        App.api.post('/api/bids/' + bidId + '/withdraw', {}).then(function () {
+                            showToast('Success', 'Bid withdrawn.', 'success');
+                            load();
+                        });
+                    });
+                });
+
+                $(document).on('click', '[data-accept-counter]', function () {
+                    var bidId = $(this).data('accept-counter');
+                    App.api.post('/api/bids/' + bidId + '/accept-counter', {}).then(function (bid) {
+                        showToast('Success', 'Counter offer accepted at ' + inr(bid.currentAmount) + '. The job is now yours.', 'success');
+                        load();
+                    });
+                });
+
+                $(document).on('click', '[data-start]', function () {
+                    var id = $(this).data('start');
+                    var address = $(this).data('address');
+
+                    App.confirmAction({
+                        title: 'Start this job?',
+                        text: 'Start only once you have reached ' + address + '. The customer is told the work has begun, '
+                            + 'and the job cannot go back to accepted.',
+                        icon: 'question',
+                        confirmText: 'Yes, I have reached',
+                    }).then(function (ok) {
+                        if (!ok) return;
+                        updateStatus(id, { status: 'in_progress' }, 'Task #' + id + ' is now in progress.');
+                    });
+                });
+
+                $(document).on('click', '[data-complete]', function () {
+                    completeJobId = $(this).data('complete');
+                    var jobs = $('#dash-myjobs-verified').data('jobs') || $('#dash-myjobs-unverified').data('jobs') || {};
+                    var job = jobs[completeJobId];
+
+                    $('#complete-modal-title').text('Close job #' + completeJobId);
+                    $('#complete-modal-summary').text(inr(job.effectiveAmount) + ' will be credited to your balance and the '
+                        + 'customer will be asked to rate you. This cannot be undone.');
+                    $('#complete-modal-rate-label').text('How was ' + (job.customerName || 'this customer') + '?');
+                    $('input[name="complete-stars"]').prop('checked', false);
+                    $('#complete-feedback').val('');
+
+                    new bootstrap.Modal(document.getElementById('complete-modal')).show();
+                });
+
+                $('#complete-modal-submit').on('click', function () {
+                    var stars = $('input[name="complete-stars"]:checked').val();
+
+                    if (!stars) {
+                        showToast('Error', 'Rate the customer before you close this job.', 'error');
+                        return;
+                    }
+
+                    bootstrap.Modal.getInstance(document.getElementById('complete-modal')).hide();
+                    updateStatus(completeJobId,
+                        { status: 'completed', stars: stars, feedback: $('#complete-feedback').val() },
+                        'Task #' + completeJobId + ' is complete. Your earning has been added to your balance.');
+                });
+
+                $(document).on('click', '[data-cancel]', function () {
+                    cancelJobId = $(this).data('cancel');
+
+                    $('#cancel-modal-title').text('Cancel job #' + cancelJobId);
+                    $('#cancel-modal-summary').text('This job goes back to other partners in the same category. '
+                        + 'You will not be offered it again, and this cannot be undone.');
+                    $('#cancel-reason').val('');
+
+                    new bootstrap.Modal(document.getElementById('cancel-modal')).show();
+                });
+
+                $('#cancel-modal-submit').on('click', function () {
+                    bootstrap.Modal.getInstance(document.getElementById('cancel-modal')).hide();
+                    updateStatus(cancelJobId,
+                        { status: 'cancelled', cancelReason: $('#cancel-reason').val() },
+                        'Task #' + cancelJobId + ' cancelled. It has been reopened for other partners.');
+                });
+            });
+        })();
+    </script>
 }

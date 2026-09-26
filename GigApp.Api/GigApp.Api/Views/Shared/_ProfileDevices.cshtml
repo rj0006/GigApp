@@ -1,0 +1,77 @@
+@model ProfilePageViewModel
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+    <h2 class="h5 mb-0">Manage devices</h2>
+    <button type="button" id="devices-revoke-others-btn" class="btn btn-outline-danger btn-sm ms-auto" hidden>
+        Sign out all other devices
+    </button>
+</div>
+<p class="text-secondary small">
+    Every device currently signed in to your account. If you do not recognise one, sign it out —
+    it will need your password or a fresh code to get back in.
+</p>
+
+<div id="devices-list"></div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        'use strict';
+
+        function row(device) {
+            var when = device.lastUsedAt || device.createdAt;
+            var label = Admin.escapeHtml(device.deviceLabel)
+                + (device.isCurrent ? ' <span class="badge text-bg-primary">This device</span>' : '');
+
+            return '<div class="d-flex align-items-center gap-2 py-2 border-bottom">'
+                + '<div class="flex-grow-1">'
+                + '<div class="fw-semibold">' + label + '</div>'
+                + '<div class="small text-secondary">'
+                + 'Last used ' + new Date(when).toLocaleString()
+                + (device.ipAddress ? ' · ' + Admin.escapeHtml(device.ipAddress) : '')
+                + '</div>'
+                + '</div>'
+                + (device.isCurrent ? '' : '<button type="button" class="btn btn-sm btn-outline-danger" data-revoke="'
+                    + device.id + '" data-label="' + Admin.escapeHtml(device.deviceLabel) + '">Sign out</button>')
+                + '</div>';
+        }
+
+        function load() {
+            App.api.get('/api/devices').then(function (devices) {
+                $('#devices-list').html(devices.map(row).join(''));
+                $('#devices-revoke-others-btn').prop('hidden', devices.length <= 1);
+            });
+        }
+
+        $(function () {
+            load();
+
+            $('#devices-list').on('click', '[data-revoke]', function () {
+                var id = $(this).data('revoke');
+                var label = $(this).data('label');
+
+                App.confirmAction({ title: 'Sign out ' + label + '?' }).then(function (ok) {
+                    if (!ok) return;
+
+                    App.api.del('/api/devices/' + id).then(function () {
+                        showToast('Success', 'Device signed out.', 'success');
+                        load();
+                    });
+                });
+            });
+
+            $('#devices-revoke-others-btn').on('click', function () {
+                App.confirmAction({
+                    title: 'Sign out every other device?',
+                    text: 'This device stays signed in. Every other device will need your password or a fresh code.',
+                }).then(function (ok) {
+                    if (!ok) return;
+
+                    App.api.post('/api/devices/revoke-others', {}).then(function () {
+                        showToast('Success', 'Every other device has been signed out.', 'success');
+                        load();
+                    });
+                });
+            });
+        });
+    });
+</script>

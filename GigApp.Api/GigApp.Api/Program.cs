@@ -1,7 +1,9 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
+using System.Threading.RateLimiting;
 using GigApp.Api.Configuration;
 using GigApp.Api.Data;
+using GigApp.Api.Hubs;
 using GigApp.Api.Models;
 using GigApp.Api.Services;
 using GigApp.Api.Services.Addresses;
@@ -17,14 +19,17 @@ using GigApp.Api.Services.Masters;
 using GigApp.Api.Services.Menus;
 using GigApp.Api.Services.Notifications;
 using GigApp.Api.Services.Orders;
+using GigApp.Api.Services.Otp;
 using GigApp.Api.Services.Pricing;
 using GigApp.Api.Services.Ratings;
+using GigApp.Api.Services.Realtime;
 using GigApp.Api.Services.Storefront;
 using GigApp.Api.Services.Support;
 using GigApp.Api.Services.Profile;
 using GigApp.Api.Services.Tracking;
 using GigApp.Api.Services.UserAdmin;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -77,11 +82,24 @@ builder.Services
         {
             OnMessageReceived = context =>
             {
-                if (string.IsNullOrEmpty(context.Token) &&
+                // A SignalR WebSocket upgrade cannot carry a custom Authorization
+                // header, so the client (web or a future mobile app, both using
+                // the same Microsoft SignalR client) puts the token in the query
+                // string instead — this is that client's own well-known
+                // convention, read here only for the hub's own path.
+                var accessToken = context.Request.Query["access_token"];
+
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+                else if (string.IsNullOrEmpty(context.Token) &&
                     context.Request.Cookies.TryGetValue(AuthCookie.Name, out var cookieToken))
                 {
                     context.Token = cookieToken;
                 }
+
                 return Task.CompletedTask;
             },
 
@@ -164,7 +182,11 @@ builder.Services.AddAuthorization(options =>
 });
 
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IOtpService, OtpService>();
+builder.Services.AddScoped<IOtpSender, LoggingOtpSender>();
+builder.Services.AddScoped<IAuthSettingsService, AuthSettingsService>();
 builder.Services.AddScoped<ICategoryLookup, CategoryLookup>();
 builder.Services.AddScoped<IServiceItemLookup, ServiceItemLookup>();
 builder.Services.AddScoped<IPriceInsightService, PriceInsightService>();
@@ -235,10 +257,48 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
     options.IdleTimeout = TimeSpan.FromDays(7);
 });
+builder.Services.AddSignalR();
+builder.Services.AddScoped<IRealtimeNotifier, RealtimeNotifier>();
+builder.Services.AddScoped<INotificationChannel, SignalRNotificationChannel>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IOfferService, OfferService>();
 builder.Services.AddHostedService<OfferExpiryWorker>();
 builder.Services.AddScoped<ISupportService, SupportService>();
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.OnRejected = (context, ct) =>
+    {
+        context.HttpContext.Response.ContentType = "application/json";
+        return new ValueTask(context.HttpContext.Response.WriteAsync(
+            "{\"title\":\"Too many attempts. Please wait a few minutes and try again.\",\"status\":429}", ct));
+    };
+
+    // General auth actions: login, verify, register. Keyed by IP — a device
+    // behind the same NAT shares the bucket, which is an acceptable trade-off
+    // for a first line of defense against brute force and scripted signups.
+    options.AddPolicy(RateLimiterPolicies.Auth, httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+        }));
+
+    // Requesting an OTP costs a real SMS once a provider is wired in, so this
+    // stays tighter than the general auth policy.
+    options.AddPolicy(RateLimiterPolicies.OtpRequest, httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 3,
+            Window = TimeSpan.FromMinutes(5),
+            QueueLimit = 0,
+        }));
+});
 
 builder.Services.AddControllersWithViews(options =>
 {
@@ -292,7 +352,6 @@ else
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles();
 
 app.UseRouting();
 
@@ -302,11 +361,19 @@ app.UseSession();
 
 app.UseCors(CorsPolicies.Clients);
 
+// Must come after UseCors — a static file response bypasses everything after
+// it in the pipeline, so an uploaded image never got a CORS header when this
+// ran first, and Flutter web's cross-origin dev server could not load one.
+app.UseStaticFiles();
+
+app.UseRateLimiter();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 app.MapControllerRoute(name: "default", pattern: "{controller=Home}/{action=Index}/{id?}");
+app.MapHub<AppHub>("/hubs/app");
 
 app.Run();
 
@@ -323,9 +390,16 @@ public static class CorsPolicies
     public const string Clients = "GigAppClients";
 }
 
+public static class RateLimiterPolicies
+{
+    public const string Auth = "auth";
+    public const string OtpRequest = "otpRequest";
+}
+
 public static class AuthCookie
 {
     public const string Name = "gigapp_token";
+    public const string RefreshName = "gigapp_refresh";
 }
 
 public static class PortalRedirects

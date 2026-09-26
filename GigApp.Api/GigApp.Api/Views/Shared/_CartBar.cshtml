@@ -1,13 +1,13 @@
 @model CartViewDto
 
-<div class="cart-bar">
+<div class="cart-bar" data-cart-bar hidden="@Model.IsEmpty">
     <div class="container d-flex align-items-center gap-3">
         <div>
-            <div class="fw-semibold">₹@Model.Total.ToString("N0")</div>
-            <div class="small text-secondary">
+            <div class="fw-semibold" data-cart-bar-total>₹@Model.Total.ToString("N0")</div>
+            <div class="small text-secondary" data-cart-bar-count>
                 @Model.ItemCount item@(Model.ItemCount == 1 ? "" : "s") in your cart
             </div>
         </div>
-        <a class="btn btn-primary ms-auto" href="/cart">View cart</a>
+        <a class="btn btn-uc-primary ms-auto" href="/cart">View cart</a>
     </div>
 </div>

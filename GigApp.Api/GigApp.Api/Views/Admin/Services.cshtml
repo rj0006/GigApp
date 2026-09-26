@@ -1,7 +1,5 @@
-@model AdminServiceItemsViewModel
 @{
     Layout = "_AdminLayout";
-    var list = Model.Items;
 }
 
 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
@@ -16,117 +14,52 @@
 
 <div class="card">
     <div class="card-body">
-        <form method="get" class="row g-2 align-items-end mb-3">
+        <div class="row g-2 align-items-end mb-3">
             <div class="col-sm-4 col-md-3">
-                <label class="form-label" for="search">Search</label>
-                <input class="form-control form-control-sm" id="search" name="search"
-                       value="@list.Search" placeholder="Service name" />
+                <label class="form-label" for="service-search">Search</label>
+                <input class="form-control form-control-sm" id="service-search" placeholder="Service name" />
             </div>
             <div class="col-sm-4 col-md-3">
-                <label class="form-label" for="categoryId">Category</label>
-                <select class="form-select form-select-sm" id="categoryId" name="categoryId">
-                    <option value="" selected="@(Model.CategoryFilter is null)">All</option>
-                    @foreach (var option in Model.Categories)
-                    {
-                        <option value="@option.Id" selected="@(Model.CategoryFilter == option.Id)">@option.Name</option>
-                    }
+                <label class="form-label" for="service-category">Category</label>
+                <select class="form-select form-select-sm" id="service-category">
+                    <option value="">All</option>
                 </select>
             </div>
             <div class="col-auto">
-                <input type="hidden" name="showInactive" value="@(Model.ShowInactive ? "true" : "false")" />
-                <button type="submit" class="btn btn-sm btn-primary">Filter</button>
-                <a class="btn btn-sm btn-outline-secondary" href="/admin/masters/services">Reset</a>
+                <button type="button" id="service-filter-btn" class="btn btn-sm btn-primary">Filter</button>
+                <button type="button" id="service-filter-reset" class="btn btn-sm btn-outline-secondary">Reset</button>
             </div>
             <div class="col-auto ms-sm-auto">
                 <div class="btn-group btn-group-sm" role="group">
-                    <a class="btn @(Model.ShowInactive ? "btn-outline-secondary" : "btn-secondary")"
-                       href="/admin/masters/services">Active only</a>
-                    <a class="btn @(Model.ShowInactive ? "btn-secondary" : "btn-outline-secondary")"
-                       href="/admin/masters/services?showInactive=true">Show all</a>
+                    <button type="button" id="service-filter-active" class="btn btn-secondary">Active only</button>
+                    <button type="button" id="service-filter-all" class="btn btn-outline-secondary">Show all</button>
                 </div>
             </div>
-        </form>
+        </div>
 
-        @if (list.TotalCount == 0)
-        {
-            <p class="text-center text-secondary py-4 mb-0">
-                No services found. <a href="/admin/masters/services/new">Add the first one</a>.
-            </p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>Image</th><th>Category</th><th>Service</th><th>Payout</th>
-                            <th>Instant</th><th>Tasks</th><th>Status</th><th class="text-end">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var item in list.Items)
-                    {
-                        <tr>
-                            <td><partial name="_MasterThumb" model="item.ImageUrl" /></td>
-                            <td><span class="badge text-bg-light border">@item.CategoryName</span></td>
-                            <td>
-                                <div class="fw-semibold">@item.Name</div>
-                                @if (!string.IsNullOrWhiteSpace(item.Description))
-                                {
-                                    <div class="small text-secondary">@item.Description</div>
-                                }
-                            </td>
-                            <td>
-                                @if (item.BasePayout is not null)
-                                {
-                                    <span class="fw-semibold">₹@item.BasePayout.Value.ToString("N0")</span>
-                                }
-                                else
-                                {
-                                    <span class="text-secondary small">Not set</span>
-                                }
-                            </td>
-                            <td>
-                                <span class="badge @(item.AllowsInstantBooking ? "text-bg-success" : "text-bg-light border text-body")">
-                                    @(item.AllowsInstantBooking ? "Yes" : "No")
-                                </span>
-                            </td>
-                            <td class="small text-secondary">@item.TaskCount</td>
-                            <td>
-                                <span class="badge @(item.IsActive ? "text-bg-success" : "text-bg-warning")">
-                                    @(item.IsActive ? "Active" : "Inactive")
-                                </span>
-                            </td>
-                            <td>
-                                <div class="row-actions justify-end">
-                                    <a class="btn btn-sm btn-outline-secondary"
-                                       href="/admin/masters/services/@item.Id/edit">Edit</a>
+        <div id="service-empty" class="text-center text-secondary py-4 mb-0" hidden>
+            No services found. <a href="/admin/masters/services/new">Add the first one</a>.
+        </div>
 
-                                    <form method="post" asp-action="ToggleService" asp-route-id="@item.Id">
-                                        <input type="hidden" name="isActive"
-                                               value="@(item.IsActive ? "false" : "true")" />
-                                        <button type="submit" class="btn btn-sm btn-outline-secondary">
-                                            @(item.IsActive ? "Deactivate" : "Activate")
-                                        </button>
-                                    </form>
+        <div id="service-table-wrap" class="table-responsive" hidden>
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Image</th><th>Category</th><th>Service</th><th>Payout</th>
+                        <th>Instant</th><th>Tasks</th><th>Status</th><th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="service-rows"></tbody>
+            </table>
+        </div>
 
-                                    @if (!item.IsInUse)
-                                    {
-                                        <form method="post" asp-action="DeleteService" asp-route-id="@item.Id"
-                                              data-confirm="Delete '@item.Name'? This cannot be undone.">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-                                        </form>
-                                    }
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
+        <div id="service-pager" class="d-flex align-items-center gap-2 mt-3" hidden>
+            <span id="service-pager-summary" class="small text-secondary"></span>
+            <div class="btn-group btn-group-sm ms-auto">
+                <button type="button" id="service-prev" class="btn btn-outline-secondary">Previous</button>
+                <button type="button" id="service-next" class="btn btn-outline-secondary">Next</button>
             </div>
-
-            <partial name="_Pagination" model="PagerModel.From(list, Context)" />
-        }
+        </div>
     </div>
 </div>
 
@@ -135,3 +68,167 @@
     the customer price is this plus commission. Keeping them apart means changing commission
     later does not mean repricing every service.
 </p>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            var state = { page: 1, search: '', categoryId: '', showInactive: false };
+
+            function statusBadge(item) {
+                var cls = item.isActive ? 'text-bg-success' : 'text-bg-warning';
+                var text = item.isActive ? 'Active' : 'Inactive';
+                return '<span class="badge ' + cls + '">' + text + '</span>';
+            }
+
+            function payoutCell(item) {
+                return item.basePayout != null
+                    ? '<span class="fw-semibold">₹' + Math.round(item.basePayout).toLocaleString('en-IN') + '</span>'
+                    : '<span class="text-secondary small">Not set</span>';
+            }
+
+            function instantBadge(item) {
+                var cls = item.allowsInstantBooking ? 'text-bg-success' : 'text-bg-light border text-body';
+                return '<span class="badge ' + cls + '">' + (item.allowsInstantBooking ? 'Yes' : 'No') + '</span>';
+            }
+
+            function row(item) {
+                var toggleLabel = item.isActive ? 'Deactivate' : 'Activate';
+
+                var actions = ''
+                    + '<a class="btn btn-sm btn-outline-secondary" href="/admin/masters/services/' + item.id + '/edit">Edit</a> '
+                    + '<button type="button" class="btn btn-sm btn-outline-secondary" data-toggle="' + item.id
+                    + '" data-active="' + item.isActive + '">' + toggleLabel + '</button>';
+
+                if (!item.isInUse) {
+                    actions += ' <button type="button" class="btn btn-sm btn-outline-danger" data-delete="' + item.id
+                        + '" data-name="' + Admin.escapeHtml(item.name) + '">Delete</button>';
+                }
+
+                var description = item.description
+                    ? '<div class="small text-secondary">' + Admin.escapeHtml(item.description) + '</div>'
+                    : '';
+
+                return '<tr>'
+                    + '<td>' + Admin.thumb(item.imageUrl) + '</td>'
+                    + '<td><span class="badge text-bg-light border">' + Admin.escapeHtml(item.categoryName) + '</span></td>'
+                    + '<td><div class="fw-semibold">' + Admin.escapeHtml(item.name) + '</div>' + description + '</td>'
+                    + '<td>' + payoutCell(item) + '</td>'
+                    + '<td>' + instantBadge(item) + '</td>'
+                    + '<td class="small text-secondary">' + item.taskCount + '</td>'
+                    + '<td>' + statusBadge(item) + '</td>'
+                    + '<td><div class="row-actions justify-end">' + actions + '</div></td>'
+                    + '</tr>';
+            }
+
+            function loadCategoryOptions() {
+                App.api.get('/api/skillcategories').then(function (options) {
+                    var $select = $('#service-category');
+                    options.forEach(function (option) {
+                        $select.append($('<option>').val(option.id).text(option.name));
+                    });
+                });
+            }
+
+            function load() {
+                var url = '/api/serviceitems?page=' + state.page + '&pageSize=10'
+                    + '&showInactive=' + state.showInactive
+                    + (state.search ? '&search=' + encodeURIComponent(state.search) : '')
+                    + (state.categoryId ? '&categoryId=' + state.categoryId : '');
+
+                App.api.get(url).then(function (result) {
+                    $('#service-empty').prop('hidden', result.totalCount > 0);
+                    $('#service-table-wrap').prop('hidden', result.totalCount === 0);
+                    $('#service-pager').prop('hidden', result.totalCount === 0);
+
+                    $('#service-rows').html(result.items.map(row).join(''));
+
+                    $('#service-pager-summary').text(result.totalCount === 0
+                        ? ''
+                        : 'Showing ' + result.firstRow + '–' + result.lastRow + ' of ' + result.totalCount);
+
+                    $('#service-prev').prop('disabled', !result.hasPrevious);
+                    $('#service-next').prop('disabled', !result.hasNext);
+                });
+            }
+
+            $(function () {
+                loadCategoryOptions();
+                load();
+
+                $('#service-filter-btn').on('click', function () {
+                    state.search = $('#service-search').val().trim();
+                    state.categoryId = $('#service-category').val();
+                    state.page = 1;
+                    load();
+                });
+
+                $('#service-search').on('keydown', function (event) {
+                    if (event.which === 13) {
+                        event.preventDefault();
+                        $('#service-filter-btn').click();
+                    }
+                });
+
+                $('#service-filter-reset').on('click', function () {
+                    $('#service-search').val('');
+                    $('#service-category').val('');
+                    state.search = '';
+                    state.categoryId = '';
+                    state.page = 1;
+                    load();
+                });
+
+                $('#service-filter-active').on('click', function () {
+                    state.showInactive = false;
+                    state.page = 1;
+                    $(this).removeClass('btn-outline-secondary').addClass('btn-secondary');
+                    $('#service-filter-all').removeClass('btn-secondary').addClass('btn-outline-secondary');
+                    load();
+                });
+
+                $('#service-filter-all').on('click', function () {
+                    state.showInactive = true;
+                    state.page = 1;
+                    $(this).removeClass('btn-outline-secondary').addClass('btn-secondary');
+                    $('#service-filter-active').removeClass('btn-secondary').addClass('btn-outline-secondary');
+                    load();
+                });
+
+                $('#service-prev').on('click', function () { state.page -= 1; load(); });
+                $('#service-next').on('click', function () { state.page += 1; load(); });
+
+                $('#service-rows').on('click', '[data-toggle]', function () {
+                    var id = $(this).data('toggle');
+                    var isActive = String($(this).data('active')) === 'true';
+
+                    App.api.post('/api/serviceitems/' + id + '/toggle', { isActive: !isActive }).then(function (updated) {
+                        showToast('Success', updated.isActive
+                            ? "'" + updated.name + "' is selectable again."
+                            : "'" + updated.name + "' deactivated. Existing tasks keep it.", 'success');
+                        load();
+                    });
+                });
+
+                $('#service-rows').on('click', '[data-delete]', function () {
+                    var id = $(this).data('delete');
+                    var name = $(this).data('name');
+
+                    App.confirmAction({
+                        title: 'Delete this service?',
+                        text: "Delete '" + name + "'? This cannot be undone.",
+                        icon: 'warning',
+                    }).then(function (ok) {
+                        if (!ok) return;
+
+                        App.api.del('/api/serviceitems/' + id).then(function () {
+                            showToast('Success', "Service '" + name + "' deleted.", 'success');
+                            load();
+                        });
+                    });
+                });
+            });
+        })();
+    </script>
+}

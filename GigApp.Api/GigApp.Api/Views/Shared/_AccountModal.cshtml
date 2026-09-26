@@ -1,0 +1,71 @@
+<div class="modal fade" id="account-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <span id="account-modal-name"></span>
+                    <span id="account-modal-status" class="badge"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body">
+                <dl class="row small mb-3">
+                    <dt class="col-5">Mobile</dt>
+                    <dd class="col-7 mono" id="account-modal-phone"></dd>
+                    <dt class="col-5">Email</dt>
+                    <dd class="col-7" id="account-modal-email"></dd>
+                    <dt class="col-5">Role</dt>
+                    <dd class="col-7" id="account-modal-role"></dd>
+                </dl>
+
+                <div id="account-modal-deactivation" class="alert alert-warning small" hidden></div>
+
+                <hr />
+
+                <h6 class="small fw-semibold">Reset password</h6>
+                <p class="text-secondary small">
+                    Passwords cannot be read — they are stored as one-way hashes. Set a new one
+                    and pass it to the user. It is shown once and never stored.
+                </p>
+
+                <form id="account-password-form" class="gig-form">
+                    <div class="mb-2">
+                        <label for="account-new-password" class="form-label small">New password</label>
+                        <input id="account-new-password" name="NewPassword" type="text"
+                               class="form-control form-control-sm"
+                               placeholder="Leave blank to generate a strong one" autocomplete="off" />
+                        <div class="form-text">
+                            Type a password to set exactly that one. Leave it empty and a strong
+                            password is generated instead. @ValidationPatterns.PasswordMessage
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label for="account-password-reason" class="form-label small required">Reason</label>
+                        <input id="account-password-reason" name="Reason" class="form-control form-control-sm"
+                               maxlength="300" required placeholder="e.g. User locked out, verified by phone" />
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-warning">Reset password</button>
+                </form>
+
+                <hr />
+
+                <h6 class="small fw-semibold" id="account-active-heading"></h6>
+                <p class="text-secondary small" id="account-active-hint"></p>
+
+                <form id="account-active-form" class="gig-form">
+                    <div class="mb-2" id="account-active-reason-wrap">
+                        <label for="account-active-reason" class="form-label small required">Reason</label>
+                        <input id="account-active-reason" name="Reason" class="form-control form-control-sm"
+                               maxlength="300" placeholder="e.g. Repeated no-shows" />
+                    </div>
+                    <button type="submit" id="account-active-submit" class="btn btn-sm"></button>
+                </form>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>

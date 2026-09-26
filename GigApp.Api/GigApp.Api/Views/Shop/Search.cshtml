@@ -21,7 +21,7 @@
             <p class="text-secondary mb-3">
                 Nothing matched that. Try a shorter word, or pick a category below.
             </p>
-            <a class="btn btn-primary" href="/services">Browse all services</a>
+            <a class="btn btn-uc-primary" href="/services">Browse all services</a>
         </div>
     </div>
 
@@ -59,9 +59,6 @@ else
     </div>
 }
 
-@if (!Model.Cart.IsEmpty)
-{
-    @section Sticky {
-        <partial name="_CartBar" model="Model.Cart" />
-    }
+@section Sticky {
+    <partial name="_CartBar" model="Model.Cart" />
 }

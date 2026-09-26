@@ -1,4 +1,3 @@
-@model AdminMenusViewModel
 @{
     Layout = "_AdminLayout";
 }
@@ -14,58 +13,79 @@
 
 <div class="card">
     <div class="card-body">
-        @if (Model.Items.Count == 0)
-        {
-            <p class="text-center text-secondary py-4 mb-0">The menu is empty.</p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>#</th><th>Label</th><th>Target</th><th>Icon</th>
-                            <th>Order</th><th>Visible to</th><th>Status</th><th class="text-end">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var item in Model.Items)
-                    {
-                        <tr class="@(item.IsGroup ? "table-light" : "")">
-                            <td class="text-secondary">@item.Id</td>
-                            <td>
-                                @if (item.ParentId is not null)
-                                {
-                                    <span class="text-secondary">&mdash;&nbsp;</span>
-                                }
-                                <span class="@(item.IsGroup ? "fw-semibold text-uppercase small" : "")">@item.Label</span>
-                            </td>
-                            <td class="small mono">@item.Target</td>
-                            <td>@item.Icon</td>
-                            <td class="small text-secondary">@item.SortOrder</td>
-                            <td class="small text-secondary">@item.VisibilityLabel</td>
-                            <td>
-                                <span class="badge @(item.IsActive ? "text-bg-success" : "text-bg-secondary")">
-                                    @(item.IsActive ? "Active" : "Hidden")
-                                </span>
-                            </td>
-                            <td class="text-end">
-                                <div class="row-actions justify-end">
-                                    <a class="btn btn-sm btn-outline-primary" href="/admin/masters/menu/@item.Id">Edit</a>
-                                    <form method="post" action="/admin/masters/menu/@item.Id/delete"
-                                          data-confirm-title="Remove this menu item?"
-                                          data-confirm="@($"{item.Label} will disappear from the sidebar. Hiding it instead keeps the row for later.")"
-                                          data-confirm-ok="Yes, remove it">
-                                        @Html.AntiForgeryToken()
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
-            </div>
-        }
+        <div id="menu-empty" class="text-center text-secondary py-4 mb-0" hidden>The menu is empty.</div>
+
+        <div id="menu-table-wrap" class="table-responsive" hidden>
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th><th>Label</th><th>Target</th><th>Icon</th>
+                        <th>Order</th><th>Visible to</th><th>Status</th><th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="menu-rows"></tbody>
+            </table>
+        </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            function row(item) {
+                var indent = item.parentId ? '<span class="text-secondary">—&nbsp;</span>' : '';
+                var labelCls = item.isGroup ? 'fw-semibold text-uppercase small' : '';
+                var statusCls = item.isActive ? 'text-bg-success' : 'text-bg-secondary';
+                var statusText = item.isActive ? 'Active' : 'Hidden';
+
+                return '<tr class="' + (item.isGroup ? 'table-light' : '') + '">'
+                    + '<td class="text-secondary">' + item.id + '</td>'
+                    + '<td>' + indent + '<span class="' + labelCls + '">' + Admin.escapeHtml(item.label) + '</span></td>'
+                    + '<td class="small mono">' + Admin.escapeHtml(item.target || '') + '</td>'
+                    + '<td>' + Admin.escapeHtml(item.icon || '') + '</td>'
+                    + '<td class="small text-secondary">' + item.sortOrder + '</td>'
+                    + '<td class="small text-secondary">' + Admin.escapeHtml(item.visibilityLabel) + '</td>'
+                    + '<td><span class="badge ' + statusCls + '">' + statusText + '</span></td>'
+                    + '<td class="text-end"><div class="row-actions justify-end">'
+                    + '<a class="btn btn-sm btn-outline-primary" href="/admin/masters/menu/' + item.id + '">Edit</a> '
+                    + '<button type="button" class="btn btn-sm btn-outline-danger" data-delete="' + item.id
+                    + '" data-label="' + Admin.escapeHtml(item.label) + '">Remove</button>'
+                    + '</div></td>'
+                    + '</tr>';
+            }
+
+            function load() {
+                App.api.get('/api/menuitems').then(function (items) {
+                    $('#menu-empty').prop('hidden', items.length > 0);
+                    $('#menu-table-wrap').prop('hidden', items.length === 0);
+                    $('#menu-rows').html(items.map(row).join(''));
+                });
+            }
+
+            $(function () {
+                load();
+
+                $('#menu-rows').on('click', '[data-delete]', function () {
+                    var id = $(this).data('delete');
+                    var label = $(this).data('label');
+
+                    App.confirmAction({
+                        title: 'Remove this menu item?',
+                        text: label + ' will disappear from the sidebar. Hiding it instead keeps the row for later.',
+                        icon: 'warning',
+                        confirmText: 'Yes, remove it',
+                    }).then(function (ok) {
+                        if (!ok) return;
+
+                        App.api.del('/api/menuitems/' + id).then(function () {
+                            showToast('Success', "'" + label + "' removed from the menu.", 'success');
+                            load();
+                        });
+                    });
+                });
+            });
+        })();
+    </script>
+}

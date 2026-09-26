@@ -6,7 +6,10 @@ using GigApp.Api.Services.Earnings;
 using GigApp.Api.Services.Addresses;
 using GigApp.Api.Services.Geo;
 using GigApp.Api.Services.Booking;
+using GigApp.Api.Services.Notifications;
 using GigApp.Api.Services.Ratings;
+using GigApp.Api.Services.Realtime;
+using GigApp.Api.Services.Tracking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +28,9 @@ namespace GigApp.Api.Controllers
         private readonly ITaskClaimService _claims;
         private readonly IOfferService _offers;
         private readonly IRatingService _ratings;
+        private readonly IMatchService _match;
+        private readonly INotificationService _notifier;
+        private readonly IRealtimeNotifier _realtime;
         private readonly ILogger<GigTasksController> _logger;
 
         public GigTasksController(
@@ -35,6 +41,9 @@ namespace GigApp.Api.Controllers
             ITaskClaimService claims,
             IOfferService offers,
             IRatingService ratings,
+            IMatchService match,
+            INotificationService notifier,
+            IRealtimeNotifier realtime,
             ILogger<GigTasksController> logger)
         {
             _context = context;
@@ -44,6 +53,9 @@ namespace GigApp.Api.Controllers
             _claims = claims;
             _offers = offers;
             _ratings = ratings;
+            _match = match;
+            _notifier = notifier;
+            _realtime = realtime;
             _logger = logger;
         }
 
@@ -107,6 +119,13 @@ namespace GigApp.Api.Controllers
             await _context.SaveChangesAsync(ct);
 
             if (service.IsInstant) await _offers.StartAsync(task.Id, ct);
+
+            // A bidding task appears on every matching partner's board the
+            // moment it exists; an instant one already went into the offer
+            // chain above, but the admin task list still wants to know either way.
+            if (!service.IsInstant)
+                await _realtime.NotifyCategoryPartnersAsync(task.CategoryId, "tasks", ct);
+            await _realtime.NotifyAdminsAsync("tasks", ct);
 
             // Reload so the response carries the category and customer names,
             // matching what every other endpoint returns.
@@ -197,6 +216,58 @@ namespace GigApp.Api.Controllers
             return Ok(tasks.Select(GigTaskDto.From));
         }
 
+        // GET: api/gigtasks/all?page=1&pageSize=10&search=&status=&categoryId=  -> Admin list page
+        [HttpGet("all")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        public async Task<ActionResult<PagedResult<GigTaskDto>>> GetAllPaged(
+            [FromQuery] PageRequest paging, string? status, int? categoryId, CancellationToken ct)
+        {
+            var query = DetailedTasks.Include(t => t.AssignedBy).AsQueryable();
+
+            if (GigTaskStatus.IsValid(status)) query = query.Where(t => t.Status == status);
+            if (categoryId is not null) query = query.Where(t => t.CategoryId == categoryId);
+
+            if (!string.IsNullOrWhiteSpace(paging.Search))
+            {
+                var term = paging.Search.Trim().ToLower();
+                query = query.Where(t =>
+                    t.Description.ToLower().Contains(term) || t.Address.ToLower().Contains(term));
+            }
+
+            var page = await query
+                .OrderByDescending(t => t.CreatedAt)
+                .ToPagedResultAsync(paging, ct);
+
+            return Ok(page.Map(GigTaskDto.From));
+        }
+
+        // GET: api/gigtasks/5/matches  -> Ranked partners for the admin assign dialog
+        [HttpGet("{id:int}/matches")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        public async Task<ActionResult<IReadOnlyList<PartnerMatchDto>>> GetMatches(
+            int id, CancellationToken ct) =>
+            Ok(await _match.RankPartnersAsync(id, 8, ct));
+
+        // POST: api/gigtasks/5/assign  -> Support assigns or reassigns a partner by hand
+        [HttpPost("{id:int}/assign")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        [TrackForm("TaskAssignment")]
+        public async Task<ActionResult<GigTaskDto>> AssignTask(
+            int id, AssignTaskRequest request, CancellationToken ct)
+        {
+            var result = await _claims.AssignAsync(
+                User.GetRequiredUserId(), id, request.PartnerId, request.Note, ct);
+
+            return result.Outcome switch
+            {
+                TaskClaimOutcome.Claimed => Ok(GigTaskDto.From(await LoadDetailedAsync(id, ct))),
+                TaskClaimOutcome.NotFound => NotFound(),
+                TaskClaimOutcome.Taken => Conflict(
+                    new ProblemDetails { Title = result.Error, Status = 409 }),
+                _ => BadRequest(new ProblemDetails { Title = result.Error, Status = 400 }),
+            };
+        }
+
         // PUT: api/gigtasks/5/accept  -> Partner claims a fixed-price task
         [HttpPut("{id:int}/accept")]
         [Authorize(Policy = Policies.PartnerOnly)]
@@ -238,8 +309,15 @@ namespace GigApp.Api.Controllers
                     Status = 409,
                 });
 
-            var isCompleting = newStatus == GigTaskStatus.Completed;
             var isPartner = User.IsInRole(UserRoles.Partner);
+
+            if (newStatus == GigTaskStatus.Cancelled && isPartner && task.PartnerId is not null)
+            {
+                await ReopenAfterCancellationAsync(task, task.PartnerId.Value, request.CancelReason, ct);
+                return Ok(GigTaskDto.From(await LoadDetailedAsync(id, ct)));
+            }
+
+            var isCompleting = newStatus == GigTaskStatus.Completed;
 
             if (isCompleting && isPartner)
             {
@@ -272,7 +350,67 @@ namespace GigApp.Api.Controllers
 
             _logger.LogInformation("Task {TaskId} moved to {Status}", id, newStatus);
 
+            await _realtime.NotifyUserAsync(task.CustomerId, "tasks", ct);
+            if (task.PartnerId is not null)
+                await _realtime.NotifyUserAsync(await PartnerUserIdAsync(task.PartnerId.Value, ct), "tasks", ct);
+            await _realtime.NotifyAdminsAsync("tasks", ct);
+
             return Ok(GigTaskDto.From(await LoadDetailedAsync(id, ct)));
+        }
+
+        private Task<int> PartnerUserIdAsync(int partnerId, CancellationToken ct) =>
+            _context.Partners.Where(p => p.Id == partnerId).Select(p => p.UserId).FirstAsync(ct);
+
+        private async Task ReopenAfterCancellationAsync(
+            GigTask task, int partnerId, string? reason, CancellationToken ct)
+        {
+            _context.TaskCancellations.Add(new TaskCancellation
+            {
+                GigTaskId = task.Id,
+                PartnerId = partnerId,
+                Reason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim(),
+                CancelledAt = DateTime.UtcNow,
+            });
+
+            var bookingMode = task.BookingMode;
+
+            task.PartnerId = null;
+            task.Status = GigTaskStatus.Pending;
+            task.AssignedByUserId = null;
+            task.AssignedAt = null;
+            task.AssignmentNote = null;
+            await _context.SaveChangesAsync(ct);
+
+            var partnerName = await _context.Partners
+                .Where(p => p.Id == partnerId)
+                .Select(p => p.User!.Name)
+                .FirstOrDefaultAsync(ct) ?? "The partner";
+
+            await _notifier.PushAsync(new NotificationRequest(
+                task.CustomerId,
+                NotificationTypes.PartnerCancelled,
+                "Your partner cancelled",
+                $"{partnerName} cancelled job #{task.Id}. We are finding you another partner now.",
+                "/customer/profile/tasks"), ct);
+
+            var admins = await _context.Users
+                .Where(u => UserRoles.AdminRoles.Contains(u.Role) && u.IsActive)
+                .Select(u => u.Id)
+                .ToListAsync(ct);
+
+            await _notifier.PushManyAsync(admins.Select(adminId => new NotificationRequest(
+                adminId,
+                NotificationTypes.PartnerCancelled,
+                $"Partner cancelled job #{task.Id}",
+                $"{partnerName} cancelled after accepting"
+                    + (string.IsNullOrWhiteSpace(reason) ? "." : $": {reason.Trim()}")
+                    + " Task reopened and excluded from their board.",
+                "/admin/tasks?status=pending")), ct);
+
+            if (bookingMode == TaskBookingMode.Instant) await _offers.StartAsync(task.Id, ct);
+
+            await _realtime.NotifyCategoryPartnersAsync(task.CategoryId, "tasks", ct);
+            await _realtime.NotifyAdminsAsync("tasks", ct);
         }
 
         // POST: api/gigtasks/5/rate  -> Either side rates a finished job

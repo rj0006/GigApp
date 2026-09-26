@@ -1,4 +1,3 @@
-@model AdminPlansViewModel
 @{
     Layout = "_AdminLayout";
     var isSuperAdmin = ViewData["IsSuperAdmin"] is true;
@@ -19,71 +18,76 @@
 
 <div class="card">
     <div class="card-body">
-        <form method="get" class="mb-3" data-auto-submit>
-            <select name="showInactive" class="form-select form-select-sm" style="max-width:16rem">
-                <option value="false" selected="@(!Model.ShowInactive)">Active plans</option>
-                <option value="true" selected="@Model.ShowInactive">Include retired plans</option>
+        <div class="mb-3">
+            <select id="plan-filter" class="form-select form-select-sm" style="max-width:16rem">
+                <option value="false">Active plans</option>
+                <option value="true">Include retired plans</option>
             </select>
-        </form>
+        </div>
 
-        @if (Model.Plans.Count == 0)
-        {
-            <p class="text-center text-secondary py-4 mb-0">No plans yet.</p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>#</th><th>Plan</th><th class="text-end">Commission</th>
-                            <th class="text-end">Fee</th><th>Charged</th>
-                            <th class="text-end">Partners</th><th>Status</th><th class="text-end">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var plan in Model.Plans)
-                    {
-                        <tr>
-                            <td class="text-secondary">@plan.Id</td>
-                            <td>
-                                <div class="fw-semibold">
-                                    @plan.Name
-                                    @if (plan.IsDefault)
-                                    {
-                                        <span class="badge text-bg-primary ms-1">Default</span>
-                                    }
-                                </div>
-                                <div class="small text-secondary mono">@plan.Code</div>
-                                @if (!string.IsNullOrWhiteSpace(plan.Description))
-                                {
-                                    <div class="small text-secondary">@plan.Description</div>
-                                }
-                            </td>
-                            <td class="text-end fw-semibold @(plan.IsZeroCommission ? "text-success" : "")">
-                                @plan.CommissionPercent.ToString("0.##")%
-                            </td>
-                            <td class="text-end">
-                                @(plan.SubscriptionFee > 0 ? $"₹{plan.SubscriptionFee:N2}" : "—")
-                            </td>
-                            <td class="small text-secondary">@plan.BillingLabel</td>
-                            <td class="text-end">@plan.PartnersOnPlan</td>
-                            <td>
-                                <span class="badge @(plan.IsActive ? "text-bg-success" : "text-bg-secondary")">
-                                    @(plan.IsActive ? "Active" : "Retired")
-                                </span>
-                            </td>
-                            <td class="text-end">
-                                @if (isSuperAdmin)
-                                {
-                                    <a class="btn btn-sm btn-outline-primary" href="/admin/masters/plans/@plan.Id">Edit</a>
-                                }
-                            </td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
-            </div>
-        }
+        <div id="plan-empty" class="text-center text-secondary py-4 mb-0" hidden>No plans yet.</div>
+
+        <div id="plan-table-wrap" class="table-responsive" hidden>
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th><th>Plan</th><th class="text-end">Commission</th>
+                        <th class="text-end">Fee</th><th>Charged</th>
+                        <th class="text-end">Partners</th><th>Status</th><th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="plan-rows" data-is-super-admin="@(isSuperAdmin ? "true" : "false")"></tbody>
+            </table>
+        </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            function row(plan, isSuperAdmin) {
+                var defaultBadge = plan.isDefault ? '<span class="badge text-bg-primary ms-1">Default</span>' : '';
+                var description = plan.description
+                    ? '<div class="small text-secondary">' + Admin.escapeHtml(plan.description) + '</div>'
+                    : '';
+                var fee = plan.subscriptionFee > 0 ? '₹' + plan.subscriptionFee.toFixed(2) : '—';
+                var statusCls = plan.isActive ? 'text-bg-success' : 'text-bg-secondary';
+                var statusText = plan.isActive ? 'Active' : 'Retired';
+                var editLink = isSuperAdmin
+                    ? '<a class="btn btn-sm btn-outline-primary" href="/admin/masters/plans/' + plan.id + '">Edit</a>'
+                    : '';
+
+                return '<tr>'
+                    + '<td class="text-secondary">' + plan.id + '</td>'
+                    + '<td><div class="fw-semibold">' + Admin.escapeHtml(plan.name) + defaultBadge + '</div>'
+                    + '<div class="small text-secondary mono">' + Admin.escapeHtml(plan.code) + '</div>' + description + '</td>'
+                    + '<td class="text-end fw-semibold ' + (plan.isZeroCommission ? 'text-success' : '') + '">'
+                    + plan.commissionPercent.toFixed(2).replace(/\.?0+$/, '') + '%</td>'
+                    + '<td class="text-end">' + fee + '</td>'
+                    + '<td class="small text-secondary">' + Admin.escapeHtml(plan.billingLabel) + '</td>'
+                    + '<td class="text-end">' + plan.partnersOnPlan + '</td>'
+                    + '<td><span class="badge ' + statusCls + '">' + statusText + '</span></td>'
+                    + '<td class="text-end">' + editLink + '</td>'
+                    + '</tr>';
+            }
+
+            function load() {
+                var showInactive = $('#plan-filter').val() === 'true';
+                var isSuperAdmin = $('#plan-rows').data('is-super-admin') === true || $('#plan-rows').data('is-super-admin') === 'true';
+
+                App.api.get('/api/commissionplans?showInactive=' + showInactive).then(function (plans) {
+                    $('#plan-empty').prop('hidden', plans.length > 0);
+                    $('#plan-table-wrap').prop('hidden', plans.length === 0);
+                    $('#plan-rows').html(plans.map(function (p) { return row(p, isSuperAdmin); }).join(''));
+                });
+            }
+
+            $(function () {
+                load();
+                $('#plan-filter').on('change', load);
+            });
+        })();
+    </script>
+}

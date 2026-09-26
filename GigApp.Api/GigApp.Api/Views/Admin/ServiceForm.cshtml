@@ -1,8 +1,6 @@
-@model ServiceItemFormViewModel
+@model ServiceFormShellViewModel
 @{
     Layout = "_AdminLayout";
-    var postAction = Model.IsEdit ? "EditService" : "NewService";
-    var selectedCategory = Model.Categories.FirstOrDefault(c => c.Id == Model.Form.SkillCategoryId)?.Name;
 }
 
 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
@@ -12,51 +10,42 @@
 
 <div class="card form-card">
     <div class="card-body">
-        <partial name="_ValidationSummary" />
+        <div id="service-form-usage-note" class="alert alert-info small" hidden></div>
+        <div id="service-form-errors"></div>
 
-        @if (Model.IsEdit && Model.TaskCount > 0)
-        {
-            <div class="alert alert-info small">
-                <strong>@Model.TaskCount</strong> task(s) use this service. Renaming is safe because
-                they link by id; deactivating only stops new bookings.
-            </div>
-        }
+        <form id="service-form" class="gig-form row g-3">
+            <input type="hidden" name="Id" value="@Model.Id" />
 
-        <form method="post" asp-action="@postAction" asp-route-id="@Model.Id"
-              enctype="multipart/form-data" class="gig-form row g-3">
             <div class="col-md-6">
                 <label for="CategoryPicker" class="form-label required">Category</label>
                 <input id="CategoryPicker" class="form-control" placeholder="Start typing to choose"
-                       data-master="skill-category" data-target="SkillCategoryId"
-                       data-alert="category" value="@selectedCategory" />
-                <input type="hidden" asp-for="Form.SkillCategoryId" id="SkillCategoryId" />
+                       data-master="skill-category" data-target="SkillCategoryId" data-alert="category" />
+                <input type="hidden" name="SkillCategoryId" id="SkillCategoryId" />
             </div>
 
             <div class="col-md-6">
-                <label asp-for="Form.Name" class="form-label required"></label>
-                <input asp-for="Form.Name" class="form-control" autofocus placeholder="Tap repair" />
+                <label for="service-name" class="form-label required">Service name</label>
+                <input id="service-name" name="Name" class="form-control" autofocus placeholder="Tap repair" />
             </div>
 
             <div class="col-md-8">
-                <label asp-for="Form.Description" class="form-label"></label>
-                <textarea asp-for="Form.Description" class="form-control" rows="2"
+                <label for="service-description" class="form-label">Description</label>
+                <textarea id="service-description" name="Description" class="form-control" rows="2"
                           placeholder="What this job covers"></textarea>
             </div>
 
             <div class="col-md-4">
                 <partial name="_ImageUpload" model="@(new ImageUploadModel {
-                    Name = "Form.Image",
+                    Name = "Image",
                     Label = "Service image",
                     Hint = "Shown on the storefront next to the price.",
-                    CurrentUrl = Model.ImageUrl,
                     Shape = ImageUploadShape.Wide,
                 })" />
-                <span asp-validation-for="Form.Image" class="text-danger small"></span>
             </div>
 
             <div class="col-md-4">
-                <label asp-for="Form.BasePayout" class="form-label"></label>
-                <input asp-for="Form.BasePayout" type="number" min="0" step="10" class="form-control" />
+                <label for="service-payout" class="form-label">Partner payout (₹)</label>
+                <input id="service-payout" name="BasePayout" type="number" min="0" step="10" class="form-control" />
                 <div class="form-text">
                     What the partner is paid. Leave blank until completed work shows a real rate —
                     see <a href="/admin/masters/pricing">price insights</a>.
@@ -64,25 +53,28 @@
             </div>
 
             <div class="col-md-4">
-                <label asp-for="Form.DisplayOrder" class="form-label"></label>
-                <input asp-for="Form.DisplayOrder" type="number" min="0" max="9999" class="form-control" />
+                <label for="service-order" class="form-label">Display order</label>
+                <input id="service-order" name="DisplayOrder" type="number" min="0" max="9999"
+                       class="form-control" value="0" />
                 <div class="form-text">Lower numbers appear first.</div>
             </div>
 
             <div class="col-md-4 d-flex flex-column justify-content-end">
                 <div class="form-check">
-                    <input asp-for="Form.AllowsInstantBooking" class="form-check-input" type="checkbox" />
-                    <label asp-for="Form.AllowsInstantBooking" class="form-check-label"></label>
+                    <input id="service-instant" name="AllowsInstantBooking" class="form-check-input"
+                           type="checkbox" value="true" />
+                    <label for="service-instant" class="form-check-label">Allow instant booking</label>
                 </div>
                 <div class="form-check">
-                    <input asp-for="Form.IsActive" class="form-check-input" type="checkbox" />
-                    <label asp-for="Form.IsActive" class="form-check-label"></label>
+                    <input id="service-active" name="IsActive" class="form-check-input"
+                           type="checkbox" value="true" checked />
+                    <label for="service-active" class="form-check-label">Active</label>
                 </div>
                 <div class="form-text">Instant booking needs a payout set.</div>
             </div>
 
             <div class="col-12 d-flex gap-2 pt-2">
-                <button type="submit" class="btn btn-primary">
+                <button type="submit" id="service-save" class="btn btn-primary">
                     @(Model.IsEdit ? "Save changes" : "Create service")
                 </button>
                 <a class="btn btn-outline-secondary" href="/admin/masters/services">Cancel</a>
@@ -90,3 +82,50 @@
         </form>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            function fillForm(item) {
+                $('#CategoryPicker').val(item.categoryName);
+                $('#SkillCategoryId').val(item.skillCategoryId);
+                $('#service-name').val(item.name);
+                $('#service-description').val(item.description || '');
+                $('#service-payout').val(item.basePayout != null ? item.basePayout : '');
+                $('#service-order').val(item.displayOrder);
+                $('#service-instant').prop('checked', item.allowsInstantBooking);
+                $('#service-active').prop('checked', item.isActive);
+                Admin.showImagePreview(item.imageUrl);
+
+                if (item.taskCount > 0) {
+                    $('#service-form-usage-note').prop('hidden', false).html(
+                        '<strong>' + item.taskCount + '</strong> task(s) use this service. Renaming is safe because '
+                        + 'they link by id; deactivating only stops new bookings.');
+                }
+            }
+
+            $(function () {
+                var form = document.getElementById('service-form');
+                var id = $(form).find('input[name="Id"]').val();
+
+                if (id) {
+                    App.api.get('/api/serviceitems/' + id).then(fillForm);
+                }
+
+                $(form).on('submit', function (event) {
+                    event.preventDefault();
+                    $('#service-form-errors').empty();
+
+                    App.api.post('/api/serviceitems', new FormData(form), { silent: true })
+                        .then(function () {
+                            showToast('Success', id ? 'Service updated.' : 'Service created.', 'success');
+                            window.location.href = '/admin/masters/services';
+                        })
+                        .catch(function (error) { Admin.showFormErrors('#service-form-errors', error.message); });
+                });
+            });
+        })();
+    </script>
+}

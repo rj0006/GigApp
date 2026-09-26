@@ -44,6 +44,8 @@ namespace GigApp.Api.Dtos
 
     public class SaveSkillCategoryRequest
     {
+        public int? Id { get; set; }
+
         [Required(ErrorMessage = "Enter a category name.")]
         [StringLength(60, MinimumLength = 2)]
         [Display(Name = "Category name")]
@@ -61,5 +63,10 @@ namespace GigApp.Api.Dtos
 
         [Display(Name = "Category image")]
         public IFormFile? Image { get; set; }
+    }
+
+    public class ToggleActiveRequest
+    {
+        public bool IsActive { get; set; }
     }
 }

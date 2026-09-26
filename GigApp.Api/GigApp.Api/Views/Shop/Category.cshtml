@@ -57,9 +57,6 @@
     </div>
 </div>
 
-@if (!Model.Cart.IsEmpty)
-{
-    @section Sticky {
-        <partial name="_CartBar" model="Model.Cart" />
-    }
+@section Sticky {
+    <partial name="_CartBar" model="Model.Cart" />
 }

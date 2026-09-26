@@ -66,6 +66,16 @@ namespace GigApp.Api.Dtos
         public IReadOnlyList<FieldChangeDto> Changes { get; set; } = Array.Empty<FieldChangeDto>();
     }
 
+    public class OrderHistoryPageDto
+    {
+        public PagedResult<GigTaskDto> Orders { get; set; } = new();
+        public bool IsPartner { get; set; }
+        public IReadOnlyDictionary<int, TaskRatingDto> Ratings { get; set; } =
+            new Dictionary<int, TaskRatingDto>();
+        public IReadOnlyDictionary<int, SupportEnquiryDto> Enquiries { get; set; } =
+            new Dictionary<int, SupportEnquiryDto>();
+    }
+
     public class ProfileResult
     {
         public bool Succeeded { get; init; }

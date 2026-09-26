@@ -1,7 +1,14 @@
+using System.ComponentModel.DataAnnotations;
 using GigApp.Api.Models;
 
 namespace GigApp.Api.Dtos
 {
+    public class RespondToOfferRequest
+    {
+        [Required]
+        public bool Accepted { get; set; }
+    }
+
     public class TaskOfferDto
     {
         public int Id { get; set; }

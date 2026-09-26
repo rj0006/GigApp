@@ -4,6 +4,26 @@ using GigApp.Api.Models;
 
 namespace GigApp.Api.ViewModels
 {
+    public class OtpAuthViewModel
+    {
+        public string PortalSlug { get; set; } = string.Empty;
+        public string PortalLabel { get; set; } = string.Empty;
+        public string? ReturnUrl { get; set; }
+
+        public string RequestPath => $"/{PortalSlug}/otp/request";
+        public string VerifyPath => $"/{PortalSlug}/otp/verify";
+        public string PasswordFallbackPath => $"/{PortalSlug}/login?mode={LoginMode.Password}";
+    }
+
+    public class AuthSettingsViewModel
+    {
+        [Required]
+        public string CustomerLoginMode { get; set; } = LoginMode.Password;
+
+        [Required]
+        public string PartnerLoginMode { get; set; } = LoginMode.Password;
+    }
+
     public class LoginViewModel
     {
         [Required(ErrorMessage = "Enter your mobile number or email.")]
@@ -44,117 +64,18 @@ namespace GigApp.Api.ViewModels
         public string ConfirmPassword { get; set; } = string.Empty;
     }
 
-    public class RegisterPartnerViewModel : RegisterCustomerViewModel
+    public class RegisterPartnerShellViewModel
     {
-        [Required(ErrorMessage = "Choose a skill category.")]
-        [Range(1, int.MaxValue, ErrorMessage = "Choose a skill category.")]
-        [Display(Name = "Skill category")]
-        public int SkillCategoryId { get; set; }
-
-        // KYC is collected during sign-up — the form must be multipart.
-
-        [Required(ErrorMessage = "Upload a selfie.")]
-        [Display(Name = "Selfie")]
-        public IFormFile? Selfie { get; set; }
-
-        [Required(ErrorMessage = "Upload the front of your Aadhaar card.")]
-        [Display(Name = "Aadhaar card — front")]
-        public IFormFile? AadhaarFront { get; set; }
-
-        [Required(ErrorMessage = "Upload the back of your Aadhaar card.")]
-        [Display(Name = "Aadhaar card — back")]
-        public IFormFile? AadhaarBack { get; set; }
-
-        [Required(ErrorMessage = "Enter your Aadhaar number.")]
-        [RegularExpression(ValidationPatterns.Aadhaar, ErrorMessage = ValidationPatterns.AadhaarMessage)]
-        [Display(Name = "Aadhaar number")]
-        public string AadhaarNumber { get; set; } = string.Empty;
-
-        /// <summary>Populated by the controller for the picker.</summary>
         public IReadOnlyList<SkillCategoryOptionDto> Categories { get; set; } =
             Array.Empty<SkillCategoryOptionDto>();
     }
 
-    public class CustomerDashboardViewModel
-    {
-        public string Name { get; set; } = string.Empty;
-        public IReadOnlyList<GigTaskDto> Tasks { get; set; } = Array.Empty<GigTaskDto>();
-        public CreateGigTaskRequest NewTask { get; set; } = new();
-        public IReadOnlyList<SkillCategoryOptionDto> Categories { get; set; } =
-            Array.Empty<SkillCategoryOptionDto>();
-
-        /// <summary>
-        /// Distinct partners across this customer's tasks — one modal each,
-        /// rather than one per task row.
-        /// </summary>
-        public IReadOnlyList<PartnerPublicDto> Partners { get; set; } =
-            Array.Empty<PartnerPublicDto>();
-
-        /// <summary>Open bids per task id, for the bids modal.</summary>
-        public IReadOnlyDictionary<int, IReadOnlyList<BidDto>> BidsByTask { get; set; } =
-            new Dictionary<int, IReadOnlyList<BidDto>>();
-
-        /// <summary>Saved addresses for the booking picker.</summary>
-        public IReadOnlyList<AddressDto> Addresses { get; set; } = Array.Empty<AddressDto>();
-
-        /// <summary>What this customer has already rated, by task id.</summary>
-        public IReadOnlyDictionary<int, TaskRatingDto> MyRatings { get; set; } =
-            new Dictionary<int, TaskRatingDto>();
-
-        /// <summary>Set when the customer arrived from a catalogue tile.</summary>
-        public int? PresetCategoryId { get; set; }
-
-        public string? PresetCategoryName =>
-            Categories.FirstOrDefault(c => c.Id == PresetCategoryId)?.Name;
-
-        public TaskRatingDto? RatingFor(int taskId) =>
-            MyRatings.TryGetValue(taskId, out var rating) ? rating : null;
-
-        public IReadOnlyList<BidDto> BidsFor(int taskId) =>
-            BidsByTask.TryGetValue(taskId, out var bids) ? bids : Array.Empty<BidDto>();
-    }
 
     public class CatalogCategoryViewModel
     {
         public SkillCategoryDto Category { get; set; } = new();
         public int ServiceCount { get; set; }
         public decimal? StartingFrom { get; set; }
-    }
-
-    public class CustomerCatalogViewModel
-    {
-        public string Name { get; set; } = string.Empty;
-        public IReadOnlyList<CatalogCategoryViewModel> Categories { get; set; } =
-            Array.Empty<CatalogCategoryViewModel>();
-        public int OpenTaskCount { get; set; }
-    }
-
-    public class ProviderDashboardViewModel
-    {
-        public string Name { get; set; } = string.Empty;
-        public PartnerDto? Profile { get; set; }
-
-        /// <summary>Open tasks in this partner's category that they have not bid on yet.</summary>
-        public IReadOnlyList<GigTaskDto> AvailableTasks { get; set; } = Array.Empty<GigTaskDto>();
-
-        /// <summary>Bids placed. Countered ones need an answer from the partner.</summary>
-        public IReadOnlyList<BidDto> MyBids { get; set; } = Array.Empty<BidDto>();
-
-        /// <summary>Only tasks actually assigned — a bid alone does not appear here.</summary>
-        public IReadOnlyList<GigTaskDto> MyJobs { get; set; } = Array.Empty<GigTaskDto>();
-
-        public bool HasOpenJobs => MyJobs.Any(j => GigTaskStatus.IsOpen(j.Status));
-
-        public IReadOnlyList<SkillCategoryOptionDto> Categories { get; set; } =
-            Array.Empty<SkillCategoryOptionDto>();
-
-        public int CountersAwaitingReply => MyBids.Count(b => b.AwaitingPartner);
-
-        public bool HasServiceArea { get; set; }
-        public int ServiceRadiusKm { get; set; }
-
-        /// <summary>A fixed-price job held for this partner right now, if any.</summary>
-        public TaskOfferDto? Offer { get; set; }
     }
 
     public class AdminDashboardViewModel
@@ -169,87 +90,21 @@ namespace GigApp.Api.ViewModels
         public IReadOnlyList<GigTaskDto> RecentTasks { get; set; } = Array.Empty<GigTaskDto>();
     }
 
-    // Every admin list page is server-side paged — see PagingExtensions.
-    public class AdminPartnersViewModel
+    public class PartnerLedgerShellViewModel
     {
-        public PagedResult<PartnerDto> Partners { get; set; } = new();
-        public IReadOnlyList<SkillCategoryOptionDto> Categories { get; set; } =
-            Array.Empty<SkillCategoryOptionDto>();
-        public bool? VerifiedFilter { get; set; }
-        public int? CategoryFilter { get; set; }
-
-        /// <summary>
-        /// The account behind each partner, keyed by partner id. Filled only on
-        /// the user-management list, where a super admin may reset a password or
-        /// deactivate the account; empty everywhere else.
-        /// </summary>
-        public IReadOnlyDictionary<int, UserDto> Accounts { get; set; } =
-            new Dictionary<int, UserDto>();
-
-        public IReadOnlyDictionary<int, IReadOnlyList<KycHistoryEntryDto>> KycHistory { get; set; } =
-            new Dictionary<int, IReadOnlyList<KycHistoryEntryDto>>();
+        public int PartnerId { get; set; }
     }
 
-    public class PartnerEarningsViewModel
-    {
-        public EarningsSummaryDto Summary { get; set; } = new();
-        public PagedResult<LedgerEntryDto> Entries { get; set; } = new();
-        public string? EntryTypeFilter { get; set; }
-        public BankAccountDto? BankAccount { get; set; }
-    }
-
-    public class AdminPayoutsViewModel
-    {
-        public IReadOnlyList<PartnerBalanceDto> Balances { get; set; } = Array.Empty<PartnerBalanceDto>();
-
-        public decimal TotalOwed => Balances.Sum(b => b.Balance);
-    }
-
-    public class AdminPartnerLedgerViewModel
-    {
-        public PartnerDto Partner { get; set; } = new();
-        public EarningsSummaryDto Summary { get; set; } = new();
-        public PagedResult<LedgerEntryDto> Entries { get; set; } = new();
-        public BankAccountDto? BankAccount { get; set; }
-        public RecordPayoutRequest PayoutForm { get; set; } = new();
-        public PartnerPlanDto? CurrentPlan { get; set; }
-        public IReadOnlyList<CommissionPlanDto> AvailablePlans { get; set; } =
-            Array.Empty<CommissionPlanDto>();
-        public IReadOnlyList<PartnerPlanDto> PlanHistory { get; set; } =
-            Array.Empty<PartnerPlanDto>();
-    }
-
-    public class AdminPlansViewModel
-    {
-        public IReadOnlyList<CommissionPlanDto> Plans { get; set; } = Array.Empty<CommissionPlanDto>();
-        public bool ShowInactive { get; set; }
-    }
-
-    public class PlanFormViewModel
+    public class PlanFormShellViewModel
     {
         public int? Id { get; set; }
-        public SaveCommissionPlanRequest Form { get; set; } = new();
         public bool IsNew => Id is null;
     }
 
-    public class AdminTaxesViewModel
-    {
-        public IReadOnlyList<TaxRuleDto> Rules { get; set; } = Array.Empty<TaxRuleDto>();
-        public string? CountryFilter { get; set; }
-        public bool ShowInactive { get; set; }
-    }
-
-    public class TaxFormViewModel
+    public class TaxFormShellViewModel
     {
         public int? Id { get; set; }
-        public SaveTaxRuleRequest Form { get; set; } = new();
         public bool IsNew => Id is null;
-    }
-
-    public class AdminErrorLogsViewModel
-    {
-        public PagedResult<ErrorLogDto> Logs { get; set; } = new();
-        public bool ShowResolved { get; set; }
     }
 
     public class NotificationsViewModel
@@ -277,102 +132,31 @@ namespace GigApp.Api.ViewModels
             : DisplayName.Trim()[..1].ToUpperInvariant();
     }
 
-    public class AdminMenusViewModel
-    {
-        public IReadOnlyList<MenuItemDto> Items { get; set; } = Array.Empty<MenuItemDto>();
-    }
-
-    public class MenuFormViewModel
+    public class MenuFormShellViewModel
     {
         public int? Id { get; set; }
-        public SaveMenuItemRequest Form { get; set; } = new();
-        public IReadOnlyList<MenuOptionDto> Parents { get; set; } = Array.Empty<MenuOptionDto>();
         public bool IsNew => Id is null;
     }
 
-    public class KycModalViewModel
-    {
-        public PartnerDto Partner { get; set; } = new();
-        public IReadOnlyList<KycHistoryEntryDto> History { get; set; } =
-            Array.Empty<KycHistoryEntryDto>();
-    }
-
-    public class AdminUsersViewModel
+    public class UsersShellViewModel
     {
         public string Role { get; set; } = string.Empty;
         public string Heading { get; set; } = string.Empty;
-        public PagedResult<UserDto> Users { get; set; } = new();
-        public string? Search { get; set; }
+        public bool IncludeSuperAdmins { get; set; }
     }
 
-    public class AdminBannersViewModel
-    {
-        public PagedResult<BannerDto> Banners { get; set; } = new();
-    }
-
-    public class BannerFormViewModel
+    public class BannerFormShellViewModel
     {
         public int? Id { get; set; }
-        public SaveBannerRequest Form { get; set; } = new();
-        public string? ImageUrl { get; set; }
-
         public bool IsEdit => Id is not null;
         public string Heading => IsEdit ? "Edit banner" : "New banner";
     }
 
-    public class AdminEnquiriesViewModel
-    {
-        public PagedResult<SupportEnquiryDto> Enquiries { get; set; } = new();
-        public string? StatusFilter { get; set; }
-    }
-
-    public class AdminTasksViewModel
-    {
-        public PagedResult<GigTaskDto> Tasks { get; set; } = new();
-
-        /// <summary>Ranked partners per pending task, best first.</summary>
-        public IReadOnlyDictionary<int, IReadOnlyList<PartnerMatchDto>> Suggestions { get; set; } =
-            new Dictionary<int, IReadOnlyList<PartnerMatchDto>>();
-
-        public IReadOnlyList<PartnerMatchDto> SuggestionsFor(int taskId) =>
-            Suggestions.TryGetValue(taskId, out var list) ? list : Array.Empty<PartnerMatchDto>();
-        public IReadOnlyList<SkillCategoryOptionDto> Categories { get; set; } =
-            Array.Empty<SkillCategoryOptionDto>();
-        public string? StatusFilter { get; set; }
-        public int? CategoryFilter { get; set; }
-    }
-
-    public class AdminCategoriesViewModel
-    {
-        public PagedResult<SkillCategoryDto> Categories { get; set; } = new();
-        public bool ShowInactive { get; set; }
-        public string? Search { get; set; }
-    }
-
-    public class AdminServiceItemsViewModel
-    {
-        public PagedResult<ServiceItemDto> Items { get; set; } = new();
-        public IReadOnlyList<SkillCategoryOptionDto> Categories { get; set; } =
-            Array.Empty<SkillCategoryOptionDto>();
-        public int? CategoryFilter { get; set; }
-        public bool ShowInactive { get; set; }
-    }
-
-    public class ServiceItemFormViewModel
+    public class ServiceFormShellViewModel
     {
         public int? Id { get; set; }
-        public SaveServiceItemRequest Form { get; set; } = new();
-
-        public IReadOnlyList<SkillCategoryOptionDto> Categories { get; set; } =
-            Array.Empty<SkillCategoryOptionDto>();
-
         public bool IsEdit => Id is not null;
         public string Heading => IsEdit ? "Edit service" : "New service";
-
-        public string? ImageUrl { get; set; }
-
-        /// <summary>Set on edit so the form can warn before deactivating something in use.</summary>
-        public int TaskCount { get; set; }
     }
 
     public class AdminPriceInsightsViewModel
@@ -384,18 +168,10 @@ namespace GigApp.Api.ViewModels
         public int TotalCompleted => Insights.Sum(i => i.CompletedCount);
     }
 
-    public class SkillCategoryFormViewModel
+    public class CategoryFormShellViewModel
     {
         public int? Id { get; set; }
-        public SaveSkillCategoryRequest Form { get; set; } = new();
-
         public bool IsEdit => Id is not null;
         public string Heading => IsEdit ? "Edit category" : "New category";
-
-        public string? ImageUrl { get; set; }
-
-        /// <summary>Set on edit so the form can warn before deactivating something in use.</summary>
-        public int PartnerCount { get; set; }
-        public int TaskCount { get; set; }
     }
 }

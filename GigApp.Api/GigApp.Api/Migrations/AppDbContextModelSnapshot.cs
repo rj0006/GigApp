@@ -99,6 +99,32 @@ namespace GigApp.Api.Migrations
                         });
                 });
 
+            modelBuilder.Entity("GigApp.Api.Models.AuthSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CustomerLoginMode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("PartnerLoginMode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AuthSettings");
+                });
+
             modelBuilder.Entity("GigApp.Api.Models.BankAccount", b =>
                 {
                     b.Property<int>("Id")
@@ -211,6 +237,36 @@ namespace GigApp.Api.Migrations
                         {
                             t.HasCheckConstraint("CK_Banners_Placement", "\"Placement\" IN ('spotlight','wide')");
                         });
+                });
+
+            modelBuilder.Entity("GigApp.Api.Models.CartItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CustomerId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ServiceItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceItemId");
+
+                    b.HasIndex("CustomerId", "ServiceItemId")
+                        .IsUnique();
+
+                    b.ToTable("CartItems");
                 });
 
             modelBuilder.Entity("GigApp.Api.Models.CommissionPlan", b =>
@@ -684,6 +740,48 @@ namespace GigApp.Api.Migrations
                     b.ToTable("Notifications");
                 });
 
+            modelBuilder.Entity("GigApp.Api.Models.OtpChallenge", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Phone", "Role", "CreatedAt");
+
+                    b.ToTable("OtpChallenges");
+                });
+
             modelBuilder.Entity("GigApp.Api.Models.Partner", b =>
                 {
                     b.Property<int>("Id")
@@ -872,6 +970,52 @@ namespace GigApp.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("PartnerWallets");
+                });
+
+            modelBuilder.Entity("GigApp.Api.Models.RefreshToken", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeviceLabel")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(88)
+                        .HasColumnType("character varying(88)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "RevokedAt", "ExpiresAt");
+
+                    b.ToTable("RefreshTokens");
                 });
 
             modelBuilder.Entity("GigApp.Api.Models.ServiceItem", b =>
@@ -1086,6 +1230,36 @@ namespace GigApp.Api.Migrations
                         {
                             t.HasCheckConstraint("CK_TaskBids_Status", "\"Status\" IN ('pending','countered','accepted','rejected','withdrawn')");
                         });
+                });
+
+            modelBuilder.Entity("GigApp.Api.Models.TaskCancellation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CancelledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("GigTaskId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PartnerId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("GigTaskId", "PartnerId");
+
+                    b.ToTable("TaskCancellations");
                 });
 
             modelBuilder.Entity("GigApp.Api.Models.TaskOffer", b =>
@@ -1416,6 +1590,25 @@ namespace GigApp.Api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("GigApp.Api.Models.CartItem", b =>
+                {
+                    b.HasOne("GigApp.Api.Models.User", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GigApp.Api.Models.ServiceItem", "ServiceItem")
+                        .WithMany()
+                        .HasForeignKey("ServiceItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("ServiceItem");
+                });
+
             modelBuilder.Entity("GigApp.Api.Models.GigTask", b =>
                 {
                     b.HasOne("GigApp.Api.Models.Address", "BookingAddress")
@@ -1565,6 +1758,17 @@ namespace GigApp.Api.Migrations
                     b.Navigation("Partner");
                 });
 
+            modelBuilder.Entity("GigApp.Api.Models.RefreshToken", b =>
+                {
+                    b.HasOne("GigApp.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("GigApp.Api.Models.ServiceItem", b =>
                 {
                     b.HasOne("GigApp.Api.Models.SkillCategory", "SkillCategory")
@@ -1614,6 +1818,25 @@ namespace GigApp.Api.Migrations
                         .WithMany()
                         .HasForeignKey("PartnerId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("GigTask");
+
+                    b.Navigation("Partner");
+                });
+
+            modelBuilder.Entity("GigApp.Api.Models.TaskCancellation", b =>
+                {
+                    b.HasOne("GigApp.Api.Models.GigTask", "GigTask")
+                        .WithMany()
+                        .HasForeignKey("GigTaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GigApp.Api.Models.Partner", "Partner")
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("GigTask");

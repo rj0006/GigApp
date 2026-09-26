@@ -1,12 +1,8 @@
 using GigApp.Api.Dtos;
 using GigApp.Api.Models;
 using GigApp.Api.Services;
-using GigApp.Api.Services.Addresses;
-using GigApp.Api.Services.Banking;
 using GigApp.Api.Services.Notifications;
-using GigApp.Api.Services.Orders;
 using GigApp.Api.Services.Profile;
-using GigApp.Api.Services.Ratings;
 using GigApp.Api.Services.Support;
 using GigApp.Api.Services.Tracking;
 using GigApp.Api.ViewModels;
@@ -25,31 +21,22 @@ namespace GigApp.Api.Controllers
     public abstract class PortalControllerBase : Controller
     {
         protected readonly IAuthService AuthService;
+        protected readonly IRefreshTokenService RefreshTokens;
         protected readonly IProfileService ProfileService;
-        protected readonly IAddressService AddressService;
-        protected readonly IBankAccountService BankAccounts;
-        protected readonly IOrderHistoryService OrderHistory;
         protected readonly ISupportService Support;
-        protected readonly IRatingService Ratings;
         protected readonly INotificationService Notifier;
 
         protected PortalControllerBase(
             IAuthService authService,
+            IRefreshTokenService refreshTokens,
             IProfileService profileService,
-            IAddressService addressService,
-            IBankAccountService bankAccounts,
-            IOrderHistoryService orderHistory,
             ISupportService support,
-            IRatingService ratings,
             INotificationService notifier)
         {
             AuthService = authService;
+            RefreshTokens = refreshTokens;
             ProfileService = profileService;
-            AddressService = addressService;
-            BankAccounts = bankAccounts;
-            OrderHistory = orderHistory;
             Support = support;
-            Ratings = ratings;
             Notifier = notifier;
         }
 
@@ -105,7 +92,7 @@ namespace GigApp.Api.Controllers
         protected virtual bool PrincipalAccepted => User.IsInRole(RequiredRole);
 
         protected string LoginPath => $"/{PortalSlug}/login";
-        protected string DashboardPath => $"/{PortalSlug}";
+        protected virtual string DashboardPath => $"/{PortalSlug}";
 
         // Declared once here so /admin/profile, /provider/profile and
         // /customer/profile all work from a single implementation — attribute
@@ -164,69 +151,15 @@ namespace GigApp.Api.Controllers
         public Task<IActionResult> ProfileTasks(CancellationToken ct) =>
             ProfileSectionAsync(ProfileSections.Tasks, ct);
 
-        [HttpPost("orders/{id:int}/help")]
-        [Authorize]
-        [ValidateAntiForgeryToken]
-        [TrackForm("SupportEnquiry")]
-        public async Task<IActionResult> RaiseEnquiry(
-            int id, RaiseEnquiryRequest form, CancellationToken ct)
-        {
-            var ordersPath = $"{ProfilePath}/{ProfileSections.Orders}";
-
-            if (!ModelState.IsValid)
-            {
-                TempData["Error"] = FirstError();
-                return Redirect(ordersPath);
-            }
-
-            var result = await Support.RaiseAsync(
-                User.GetRequiredUserId(), RequiredRole, id, form, ct);
-
-            if (result.Succeeded)
-            {
-                TrackDoc(result.Enquiry!.Id, result.Enquiry);
-                TempData["Success"] = $"{ISupportService.RaisedMessage} Your reference is {result.Enquiry.Reference}.";
-            }
-            else
-            {
-                TempData["Error"] = result.Error;
-            }
-
-            return Redirect(ordersPath);
-        }
-
         [HttpGet("profile/settings")]
         [Authorize]
         public Task<IActionResult> ProfileSettings(CancellationToken ct) =>
             ProfileSectionAsync(ProfileSections.Settings, ct);
 
-        [HttpPost("profile/bank")]
+        [HttpGet("profile/devices")]
         [Authorize]
-        [ValidateAntiForgeryToken]
-        [TrackForm("BankAccount")]
-        public async Task<IActionResult> SaveBankAccount(
-            SaveBankAccountRequest bankForm, CancellationToken ct)
-        {
-            var bankPath = $"{ProfilePath}/{ProfileSections.Bank}";
-
-            if (!ModelState.IsValid)
-            {
-                TempData["Error"] = FirstError() ?? "Could not save the bank account.";
-                return Redirect(bankPath);
-            }
-
-            var result = await BankAccounts.SaveAsync(User.GetRequiredUserId(), bankForm, ct);
-
-            if (!result.Succeeded)
-            {
-                TempData["Error"] = result.Error;
-                return Redirect(bankPath);
-            }
-
-            TrackDoc(result.Account!.Id, result.Account);
-            TempData["Success"] = "Bank account saved.";
-            return Redirect(bankPath);
-        }
+        public Task<IActionResult> ProfileDevices(CancellationToken ct) =>
+            ProfileSectionAsync(ProfileSections.Devices, ct);
 
         protected virtual Task<ProfileExtras> LoadProfileExtrasAsync(
             string section, CancellationToken ct) => Task.FromResult(new ProfileExtras());
@@ -247,28 +180,6 @@ namespace GigApp.Api.Controllers
             && (role == UserRoles.Customer || !CustomerOnlySections.Contains(section))
             && (role == UserRoles.Partner || !PartnerOnlySections.Contains(section));
 
-        private async Task<OrderHistoryViewModel> LoadOrdersAsync(int userId, CancellationToken ct)
-        {
-            var paging = new PageRequest
-            {
-                Page = int.TryParse(Request.Query["page"], out var page) ? page : 1,
-                Search = Request.Query["search"].ToString(),
-            };
-
-            var status = Request.Query["status"].ToString();
-            var orders = await OrderHistory.ForUserAsync(userId, RequiredRole, paging, status, ct);
-            var ids = orders.Items.Select(o => o.Id).ToList();
-
-            return new OrderHistoryViewModel
-            {
-                Orders = orders,
-                StatusFilter = status,
-                PortalSlug = PortalSlug,
-                MyRatings = await Ratings.ForTasksAsync(ids, RequiredRole, ct),
-                Enquiries = await Support.LatestForTasksAsync(userId, ids, ct),
-            };
-        }
-
         protected async Task<IActionResult> ProfileSectionAsync(string section, CancellationToken ct)
         {
             ViewData["Title"] = "My profile";
@@ -281,96 +192,14 @@ namespace GigApp.Api.Controllers
             if (!SectionApplies(section, user.Role)) return Redirect(ProfilePath);
 
             var extras = await LoadProfileExtrasAsync(section, ct);
-            var bank = await BankAccounts.GetAsync(userId, ct);
 
             return View("Profile", new ProfilePageViewModel
             {
                 User = user,
                 Section = section,
                 PortalSlug = PortalSlug,
-                Form = new UpdateProfileRequest
-                {
-                    Name = user.Name,
-                    Phone = user.Phone,
-                    Email = user.Email,
-                },
-                History = section == ProfileSections.Details
-                    ? await ProfileService.GetHistoryAsync(userId, 20, ct)
-                    : Array.Empty<ProfileChangeDto>(),
-                BankAccount = bank,
-                BankForm = bank is null
-                    ? new SaveBankAccountRequest { AccountHolderName = user.Name }
-                    : new SaveBankAccountRequest
-                    {
-                        AccountHolderName = bank.AccountHolderName,
-                        IfscCode = bank.IfscCode,
-                        BankName = bank.BankName,
-                        BranchName = bank.BranchName,
-                        UpiId = bank.UpiId,
-                    },
                 Partner = extras.Partner,
-                KycHistory = extras.KycHistory,
-                Earnings = extras.Earnings,
-                Orders = section == ProfileSections.Orders
-                    ? await LoadOrdersAsync(userId, ct)
-                    : null,
-                Work = extras.Work,
-                ServiceArea = extras.ServiceArea,
-                Addresses = section == ProfileSections.Addresses
-                    ? new AddressBookViewModel
-                      {
-                          Addresses = await AddressService.ListAsync(userId, ct),
-                      }
-                    : new AddressBookViewModel(),
             });
-        }
-
-        [HttpPost("profile")]
-        [Authorize]
-        [ValidateAntiForgeryToken]
-        [TrackForm("Profile")]
-        public async Task<IActionResult> UpdateProfile(UpdateProfileRequest form, CancellationToken ct)
-        {
-            if (!ModelState.IsValid) return ProfileError(FirstError());
-
-            var result = await ProfileService.UpdateAsync(User.GetRequiredUserId(), form, ct);
-            if (!result.Succeeded) return ProfileError(result.Error);
-
-            TrackDoc(result.User!.Id, result.User);
-            TempData["Success"] = "Profile updated.";
-            return Redirect(ProfilePath);
-        }
-
-        [HttpPost("profile/photo")]
-        [Authorize]
-        [ValidateAntiForgeryToken]
-        [TrackForm("Profile")]
-        [TrackEntry(TrackingEntryType.Update)]
-        public async Task<IActionResult> UpdateProfilePhoto(IFormFile? photo, CancellationToken ct)
-        {
-            var result = await ProfileService.UpdatePhotoAsync(User.GetRequiredUserId(), photo, ct);
-            if (!result.Succeeded) return ProfileError(result.Error);
-
-            TrackDoc(result.User!.Id, result.User);
-            TempData["Success"] = "Profile photo updated.";
-            return Redirect(ProfilePath);
-        }
-
-        [HttpPost("profile/password")]
-        [Authorize]
-        [ValidateAntiForgeryToken]
-        [TrackForm("Profile")]
-        [TrackEntry(TrackingEntryType.Update)]
-        public async Task<IActionResult> ChangePassword(ChangePasswordRequest form, CancellationToken ct)
-        {
-            if (!ModelState.IsValid) return ProfileError(FirstError());
-
-            var result = await ProfileService.ChangePasswordAsync(User.GetRequiredUserId(), form, ct);
-            if (!result.Succeeded) return ProfileError(result.Error);
-
-            TrackDoc(result.User!.Id, result.User);
-            TempData["Success"] = "Password changed. Use the new one next time you sign in.";
-            return Redirect(ProfilePath);
         }
 
         // Declared here for the same reason as profile: one implementation,
@@ -379,97 +208,6 @@ namespace GigApp.Api.Controllers
         [HttpGet("addresses")]
         [Authorize]
         public IActionResult Addresses() => Redirect(AddressesPath);
-
-        [HttpPost("addresses")]
-        [Authorize]
-        [ValidateAntiForgeryToken]
-        [TrackForm("Address")]
-        public async Task<IActionResult> CreateAddress(
-            SaveAddressRequest form, string? returnTo, CancellationToken ct)
-        {
-            // The add-address modal can be opened from anywhere, so it says where
-            // to come back to rather than always landing on the address book.
-            var target = !string.IsNullOrEmpty(returnTo) && Url.IsLocalUrl(returnTo)
-                ? returnTo
-                : AddressesPath;
-
-            if (!ModelState.IsValid)
-            {
-                TempData["Error"] = FirstError() ?? "Could not save that address.";
-                return Redirect(target);
-            }
-
-            var result = await AddressService.CreateAsync(User.GetRequiredUserId(), form, ct);
-
-            if (!result.Succeeded)
-            {
-                TempData["Error"] = result.Error;
-                return Redirect(target);
-            }
-
-            TrackDoc(result.Address!.Id, result.Address);
-            TempData["Success"] = $"'{result.Address.Label}' address saved.";
-            return Redirect(target);
-        }
-
-        [HttpPost("addresses/{id:int}/edit")]
-        [Authorize]
-        [ValidateAntiForgeryToken]
-        [TrackForm("Address")]
-        [TrackEntry(TrackingEntryType.Update)]
-        public async Task<IActionResult> UpdateAddress(int id, SaveAddressRequest form, CancellationToken ct)
-        {
-            if (!ModelState.IsValid) return AddressError(FirstError());
-
-            var result = await AddressService.UpdateAsync(User.GetRequiredUserId(), id, form, ct);
-            if (!result.Succeeded) return AddressError(result.Error);
-
-            TrackDoc(id, result.Address);
-            TempData["Success"] = "Address updated.";
-            return Redirect(AddressesPath);
-        }
-
-        [HttpPost("addresses/{id:int}/default")]
-        [Authorize]
-        [ValidateAntiForgeryToken]
-        [TrackForm("Address")]
-        [TrackEntry(TrackingEntryType.Update)]
-        public async Task<IActionResult> SetDefaultAddress(int id, CancellationToken ct)
-        {
-            var result = await AddressService.SetDefaultAsync(User.GetRequiredUserId(), id, ct);
-            if (!result.Succeeded) return AddressError(result.Error);
-
-            TrackDoc(id, result.Address);
-            TempData["Success"] = $"'{result.Address!.Label}' is now your default address.";
-            return Redirect(AddressesPath);
-        }
-
-        [HttpPost("addresses/{id:int}/delete")]
-        [Authorize]
-        [ValidateAntiForgeryToken]
-        [TrackForm("Address")]
-        [TrackEntry(TrackingEntryType.Delete)]
-        public async Task<IActionResult> DeleteAddress(int id, CancellationToken ct)
-        {
-            var result = await AddressService.DeleteAsync(User.GetRequiredUserId(), id, ct);
-            if (!result.Succeeded) return AddressError(result.Error);
-
-            TrackDoc(id, result.Address);
-            TempData["Success"] = "Address removed.";
-            return Redirect(AddressesPath);
-        }
-
-        private IActionResult AddressError(string? message)
-        {
-            TempData["Error"] = message ?? "Could not save that address.";
-            return Redirect(AddressesPath);
-        }
-
-        private IActionResult ProfileError(string? message)
-        {
-            TempData["Error"] = message ?? "Could not save your changes.";
-            return Redirect(ProfilePath);
-        }
 
         protected string? FirstError() => ModelState
             .SelectMany(e => e.Value!.Errors)
@@ -481,7 +219,8 @@ namespace GigApp.Api.Controllers
         /// Returns null when it worked; otherwise the view to re-render.
         /// </summary>
         protected async Task<IActionResult?> SignInAsync(
-            Func<Task<AuthResult>> attempt, string viewName, object model)
+            Func<Task<AuthResult>> attempt, string viewName, object model,
+            Func<AuthResponse, Task>? onSuccess = null)
         {
             var result = await attempt();
 
@@ -500,6 +239,28 @@ namespace GigApp.Api.Controllers
             }
 
             IssueAuthCookie(result.Response);
+            if (onSuccess is not null) await onSuccess(result.Response);
+            return null;
+        }
+
+        // Same contract as SignInAsync, for a page that submits over fetch: null means the cookie is issued.
+        protected async Task<IActionResult?> SignInJsonAsync(
+            Func<Task<AuthResult>> attempt, Func<AuthResponse, Task>? onSuccess = null)
+        {
+            var result = await attempt();
+
+            if (!result.Succeeded || result.Response is null)
+                return BadRequest(new ProblemDetails { Title = result.Error ?? "Something went wrong.", Status = 400 });
+
+            if (!AcceptsRole(result.Response.User.Role))
+                return BadRequest(new ProblemDetails
+                {
+                    Title = $"This is the {PortalSlug} portal. Your account is registered as a {result.Response.User.Role}.",
+                    Status = 400,
+                });
+
+            IssueAuthCookie(result.Response);
+            if (onSuccess is not null) await onSuccess(result.Response);
             return null;
         }
 
@@ -513,9 +274,57 @@ namespace GigApp.Api.Controllers
                 Expires = auth.ExpiresAtUtc,
                 Path = "/",
             });
+
+            Response.Cookies.Append(AuthCookie.RefreshName, auth.RefreshToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = Request.IsHttps,
+                SameSite = SameSiteMode.Lax,
+                Expires = auth.RefreshExpiresAtUtc,
+                Path = "/",
+            });
         }
 
-        protected void ClearAuthCookie() => Response.Cookies.Delete(AuthCookie.Name);
+        // Revokes the refresh token server-side, not just the cookies — a copy
+        // an attacker captured earlier must stop working the moment the real
+        // owner signs out, not linger until it happens to expire.
+        protected async Task ClearAuthCookieAsync(CancellationToken ct)
+        {
+            Request.Cookies.TryGetValue(AuthCookie.RefreshName, out var refreshToken);
+            await RefreshTokens.RevokeByRawTokenAsync(refreshToken, ct);
+
+            Response.Cookies.Delete(AuthCookie.Name);
+            Response.Cookies.Delete(AuthCookie.RefreshName);
+        }
+
+        // Silent re-auth for the browser: called periodically by global.js so a
+        // portal session outlives the short-lived access token without ever
+        // showing the user a login screen, as long as the refresh token (30
+        // days of activity) is still good.
+        [HttpPost("refresh-session")]
+        [AllowAnonymous]
+        [SkipTracking]
+        public async Task<IActionResult> RefreshSession(CancellationToken ct)
+        {
+            if (!Request.Cookies.TryGetValue(AuthCookie.RefreshName, out var refreshToken)
+                || string.IsNullOrEmpty(refreshToken))
+                return Unauthorized();
+
+            var deviceLabel = DeviceLabel.FromUserAgent(Request.Headers.UserAgent.ToString());
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+
+            var result = await RefreshTokens.RedeemAsync(refreshToken, deviceLabel, ipAddress, ct);
+
+            if (!result.Succeeded || result.Response is null)
+            {
+                Response.Cookies.Delete(AuthCookie.Name);
+                Response.Cookies.Delete(AuthCookie.RefreshName);
+                return Unauthorized();
+            }
+
+            IssueAuthCookie(result.Response);
+            return Ok();
+        }
 
         /// <summary>
         /// Hands the saved record to the audit filter. Portal actions redirect,
@@ -530,13 +339,15 @@ namespace GigApp.Api.Controllers
         /// points back at the login page — that would loop forever once the
         /// caller is already signed in.
         /// </summary>
-        protected IActionResult RedirectToLocalOr(string? returnUrl)
+        protected IActionResult RedirectToLocalOr(string? returnUrl) => Redirect(LocalRedirectTarget(returnUrl));
+
+        protected string LocalRedirectTarget(string? returnUrl)
         {
             var isUsable = !string.IsNullOrEmpty(returnUrl)
                 && Url.IsLocalUrl(returnUrl)
                 && !returnUrl.StartsWith(LoginPath, StringComparison.OrdinalIgnoreCase);
 
-            return Redirect(isUsable ? returnUrl! : DashboardPath);
+            return isUsable ? returnUrl! : DashboardPath;
         }
 
         /// <summary>
@@ -551,8 +362,8 @@ namespace GigApp.Api.Controllers
         {
             if (denied)
             {
-                ModelState.AddModelError(string.Empty,
-                    $"You are signed in, but not as a {RequiredRole}. Sign in with a {RequiredRole} account.");
+                ViewData["LoginWarning"] =
+                    $"You are signed in, but not as a {RequiredRole}. Sign in with a {RequiredRole} account.";
             }
 
             return new LoginViewModel { ReturnUrl = returnUrl };

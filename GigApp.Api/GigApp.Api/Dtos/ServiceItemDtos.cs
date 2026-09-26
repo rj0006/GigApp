@@ -49,6 +49,8 @@ namespace GigApp.Api.Dtos
 
     public class SaveServiceItemRequest
     {
+        public int? Id { get; set; }
+
         [Required(ErrorMessage = "Choose a category.")]
         [Range(1, int.MaxValue, ErrorMessage = "Choose a category.")]
         [Display(Name = "Category")]

@@ -1,7 +1,6 @@
-@model BannerFormViewModel
+@model BannerFormShellViewModel
 @{
     Layout = "_AdminLayout";
-    var postAction = Model.IsEdit ? "EditBanner" : "NewBanner";
 }
 
 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
@@ -11,86 +10,79 @@
 
 <div class="card form-card">
     <div class="card-body">
-        <partial name="_ValidationSummary" />
+        <div id="banner-form-errors"></div>
 
-        <form method="post" asp-action="@postAction" asp-route-id="@Model.Id"
-              enctype="multipart/form-data" class="gig-form row g-3">
+        <form id="banner-form" class="gig-form row g-3">
+            <input type="hidden" name="Id" value="@Model.Id" />
+
             <div class="col-md-8">
-                <label asp-for="Form.Title" class="form-label required"></label>
-                <input asp-for="Form.Title" class="form-control" autofocus
+                <label for="banner-title" class="form-label required">Headline</label>
+                <input id="banner-title" name="Title" class="form-control" autofocus
                        placeholder="Deep clean with foam-jet AC service" />
-                <span asp-validation-for="Form.Title" class="text-danger small"></span>
             </div>
 
             <div class="col-md-4">
-                <label asp-for="Form.Placement" class="form-label required"></label>
-                <select asp-for="Form.Placement" class="form-select">
-                    @foreach (var placement in BannerPlacements.All)
-                    {
-                        <option value="@placement" selected="@(Model.Form.Placement == placement)">
-                            @BannerPlacements.Label(placement)
-                        </option>
-                    }
+                <label for="banner-placement" class="form-label required">Placement</label>
+                <select id="banner-placement" name="Placement" class="form-select">
+                    <option value="spotlight">In the spotlight</option>
+                    <option value="wide">Full-width strip</option>
                 </select>
             </div>
 
             <div class="col-md-8">
-                <label asp-for="Form.Subtitle" class="form-label"></label>
-                <input asp-for="Form.Subtitle" class="form-control" placeholder="AC service and repair" />
+                <label for="banner-subtitle" class="form-label">Supporting line</label>
+                <input id="banner-subtitle" name="Subtitle" class="form-control" placeholder="AC service and repair" />
             </div>
 
             <div class="col-md-4">
-                <label asp-for="Form.CallToAction" class="form-label"></label>
-                <input asp-for="Form.CallToAction" class="form-control" placeholder="Book now" />
+                <label for="banner-cta" class="form-label">Button text</label>
+                <input id="banner-cta" name="CallToAction" class="form-control" placeholder="Book now" />
                 <div class="form-text">Leave blank for no button.</div>
             </div>
 
             <div class="col-md-8">
-                <label asp-for="Form.LinkUrl" class="form-label"></label>
-                <input asp-for="Form.LinkUrl" class="form-control" placeholder="/services/6" />
+                <label for="banner-link" class="form-label">Links to</label>
+                <input id="banner-link" name="LinkUrl" class="form-control" placeholder="/services/6" />
                 <div class="form-text">A page on this site, starting with a slash.</div>
-                <span asp-validation-for="Form.LinkUrl" class="text-danger small"></span>
             </div>
 
             <div class="col-md-4">
-                <label asp-for="Form.SortOrder" class="form-label"></label>
-                <input asp-for="Form.SortOrder" type="number" min="0" max="9999" class="form-control" />
+                <label for="banner-order" class="form-label">Display order</label>
+                <input id="banner-order" name="SortOrder" type="number" min="0" max="9999"
+                       class="form-control" value="0" />
             </div>
 
             <div class="col-md-4">
-                <label asp-for="Form.StartsAt" class="form-label"></label>
-                <input asp-for="Form.StartsAt" type="datetime-local" class="form-control" />
+                <label for="banner-starts" class="form-label">Runs from</label>
+                <input id="banner-starts" name="StartsAt" type="datetime-local" class="form-control" />
                 <div class="form-text">Blank means it is live straight away.</div>
             </div>
 
             <div class="col-md-4">
-                <label asp-for="Form.EndsAt" class="form-label"></label>
-                <input asp-for="Form.EndsAt" type="datetime-local" class="form-control" />
+                <label for="banner-ends" class="form-label">Runs until</label>
+                <input id="banner-ends" name="EndsAt" type="datetime-local" class="form-control" />
                 <div class="form-text">Blank means it never expires.</div>
-                <span asp-validation-for="Form.EndsAt" class="text-danger small"></span>
             </div>
 
             <div class="col-md-4">
                 <partial name="_ImageUpload" model="@(new ImageUploadModel {
-                    Name = "Form.Image",
+                    Name = "Image",
                     Label = "Banner image",
                     Hint = "A wide image reads best. Required.",
-                    CurrentUrl = Model.ImageUrl,
                     Shape = ImageUploadShape.Wide,
-                    Required = !Model.IsEdit,
                 })" />
-                <span asp-validation-for="Form.Image" class="text-danger small"></span>
             </div>
 
             <div class="col-12">
                 <div class="form-check">
-                    <input asp-for="Form.IsActive" class="form-check-input" type="checkbox" />
-                    <label asp-for="Form.IsActive" class="form-check-label"></label>
+                    <input id="banner-active" name="IsActive" class="form-check-input"
+                           type="checkbox" value="true" checked />
+                    <label for="banner-active" class="form-check-label">Active</label>
                 </div>
             </div>
 
             <div class="col-12 d-flex gap-2 pt-2">
-                <button type="submit" class="btn btn-primary">
+                <button type="submit" id="banner-save" class="btn btn-primary">
                     @(Model.IsEdit ? "Save changes" : "Create banner")
                 </button>
                 <a class="btn btn-outline-secondary" href="/admin/masters/banners">Cancel</a>
@@ -98,3 +90,49 @@
         </form>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            function toLocalInput(isoValue) {
+                return isoValue ? isoValue.slice(0, 16) : '';
+            }
+
+            function fillForm(banner) {
+                $('#banner-title').val(banner.title);
+                $('#banner-placement').val(banner.placement);
+                $('#banner-subtitle').val(banner.subtitle || '');
+                $('#banner-cta').val(banner.callToAction || '');
+                $('#banner-link').val(banner.linkUrl || '');
+                $('#banner-order').val(banner.sortOrder);
+                $('#banner-starts').val(toLocalInput(banner.startsAt));
+                $('#banner-ends').val(toLocalInput(banner.endsAt));
+                $('#banner-active').prop('checked', banner.isActive);
+                Admin.showImagePreview(banner.imageUrl);
+            }
+
+            $(function () {
+                var form = document.getElementById('banner-form');
+                var id = $(form).find('input[name="Id"]').val();
+
+                if (id) {
+                    App.api.get('/api/banners/' + id).then(fillForm);
+                }
+
+                $(form).on('submit', function (event) {
+                    event.preventDefault();
+                    $('#banner-form-errors').empty();
+
+                    App.api.post('/api/banners', new FormData(form), { silent: true })
+                        .then(function () {
+                            showToast('Success', id ? 'Banner updated.' : 'Banner created.', 'success');
+                            window.location.href = '/admin/masters/banners';
+                        })
+                        .catch(function (error) { Admin.showFormErrors('#banner-form-errors', error.message); });
+                });
+            });
+        })();
+    </script>
+}

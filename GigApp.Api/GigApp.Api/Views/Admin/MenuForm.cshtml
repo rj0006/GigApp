@@ -1,7 +1,6 @@
-@model MenuFormViewModel
+@model MenuFormShellViewModel
 @{
     Layout = "_AdminLayout";
-    var postTo = Model.IsNew ? "/admin/masters/menu/new" : $"/admin/masters/menu/{Model.Id}";
 }
 
 <h1 class="h4">@(Model.IsNew ? "New menu item" : "Edit menu item")</h1>
@@ -13,81 +12,75 @@
 
 <div class="card">
     <div class="card-body">
-        <partial name="_ValidationSummary" />
+        <div id="menu-form-errors"></div>
 
-        <form method="post" action="@postTo" class="gig-form row g-3">
-            @Html.AntiForgeryToken()
+        <form id="menu-form" class="gig-form row g-3">
+            <input type="hidden" name="Id" value="@Model.Id" />
 
             <div class="col-md-6">
-                <label asp-for="Form.Label" class="form-label required"></label>
-                <input asp-for="Form.Label" class="form-control" />
-                <span asp-validation-for="Form.Label" class="text-danger small"></span>
+                <label for="menu-label" class="form-label required">Label</label>
+                <input id="menu-label" name="Label" class="form-control" />
             </div>
 
             <div class="col-md-6">
-                <label asp-for="Form.ParentId" class="form-label"></label>
-                <select asp-for="Form.ParentId" class="form-select">
+                <label for="menu-parent" class="form-label">Group</label>
+                <select id="menu-parent" name="ParentId" class="form-select">
                     <option value="">Top level</option>
-                    @foreach (var parent in Model.Parents)
-                    {
-                        <option value="@parent.Id">@parent.Name</option>
-                    }
                 </select>
                 <div class="form-text">The sidebar is two levels deep, no more.</div>
             </div>
 
             <div class="col-md-4">
-                <label asp-for="Form.ControllerName" class="form-label"></label>
-                <input asp-for="Form.ControllerName" class="form-control" placeholder="Admin" />
+                <label for="menu-controller" class="form-label">Controller</label>
+                <input id="menu-controller" name="ControllerName" class="form-control" placeholder="Admin" />
             </div>
 
             <div class="col-md-4">
-                <label asp-for="Form.ActionName" class="form-label"></label>
-                <input asp-for="Form.ActionName" class="form-control" placeholder="Categories" />
+                <label for="menu-action" class="form-label">Action</label>
+                <input id="menu-action" name="ActionName" class="form-control" placeholder="Categories" />
             </div>
 
             <div class="col-md-4">
-                <label asp-for="Form.Url" class="form-label"></label>
-                <input asp-for="Form.Url" class="form-control" placeholder="/swagger" />
+                <label for="menu-url" class="form-label">URL</label>
+                <input id="menu-url" name="Url" class="form-control" placeholder="/swagger" />
                 <div class="form-text">Only for links outside the admin controller.</div>
             </div>
 
             <div class="col-md-3">
-                <label asp-for="Form.Icon" class="form-label"></label>
-                <input asp-for="Form.Icon" class="form-control" />
+                <label for="menu-icon" class="form-label">Icon</label>
+                <input id="menu-icon" name="Icon" class="form-control" />
             </div>
 
             <div class="col-md-3">
-                <label asp-for="Form.SortOrder" class="form-label"></label>
-                <input asp-for="Form.SortOrder" type="number" min="0" max="999" class="form-control" />
+                <label for="menu-order" class="form-label">Sort order</label>
+                <input id="menu-order" name="SortOrder" type="number" min="0" max="999" class="form-control" value="1" />
             </div>
 
             <div class="col-md-3">
-                <label asp-for="Form.Visibility" class="form-label required"></label>
-                <select asp-for="Form.Visibility" class="form-select">
-                    @foreach (var option in MenuVisibility.Options)
-                    {
-                        <option value="@option">@MenuVisibility.Label(option)</option>
-                    }
+                <label for="menu-visibility" class="form-label required">Visible to</label>
+                <select id="menu-visibility" name="Visibility" class="form-select">
+                    <option value="all">Every administrator</option>
+                    <option value="super_admin">Super admin only</option>
                 </select>
             </div>
 
             <div class="col-md-3">
-                <label asp-for="Form.BadgeKey" class="form-label"></label>
-                <select asp-for="Form.BadgeKey" class="form-select">
+                <label for="menu-badge" class="form-label">Badge</label>
+                <select id="menu-badge" name="BadgeKey" class="form-select">
                     <option value="">No badge</option>
-                    <option value="@MenuBadgeKeys.PendingKyc">Partners waiting for KYC review</option>
+                    <option value="pending_kyc">Partners waiting for KYC review</option>
+                    <option value="open_enquiries">Open support enquiries</option>
                 </select>
             </div>
 
             <div class="col-md-6">
                 <div class="form-check">
-                    <input asp-for="Form.IsActive" class="form-check-input" />
-                    <label asp-for="Form.IsActive" class="form-check-label"></label>
+                    <input id="menu-active" name="IsActive" class="form-check-input" type="checkbox" value="true" checked />
+                    <label for="menu-active" class="form-check-label">Active</label>
                 </div>
                 <div class="form-check">
-                    <input asp-for="Form.OpensInNewTab" class="form-check-input" />
-                    <label asp-for="Form.OpensInNewTab" class="form-check-label"></label>
+                    <input id="menu-new-tab" name="OpensInNewTab" class="form-check-input" type="checkbox" value="true" />
+                    <label for="menu-new-tab" class="form-check-label">Open in a new tab</label>
                 </div>
             </div>
 
@@ -98,3 +91,55 @@
         </form>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            function fillForm(item) {
+                $('#menu-label').val(item.label);
+                $('#menu-parent').val(item.parentId || '');
+                $('#menu-controller').val(item.controllerName || '');
+                $('#menu-action').val(item.actionName || '');
+                $('#menu-url').val(item.url || '');
+                $('#menu-icon').val(item.icon || '');
+                $('#menu-order').val(item.sortOrder);
+                $('#menu-visibility').val(item.visibility);
+                $('#menu-badge').val(item.badgeKey || '');
+                $('#menu-active').prop('checked', item.isActive);
+                $('#menu-new-tab').prop('checked', item.opensInNewTab);
+            }
+
+            $(function () {
+                var form = document.getElementById('menu-form');
+                var id = $(form).find('input[name="Id"]').val();
+
+                var parentsLoaded = App.api.get('/api/menuitems/parent-options' + (id ? '?excludingId=' + id : ''))
+                    .then(function (options) {
+                        options.forEach(function (option) {
+                            $('#menu-parent').append($('<option>').val(option.id).text(option.name));
+                        });
+                    });
+
+                if (id) {
+                    Promise.all([parentsLoaded, App.api.get('/api/menuitems/' + id)]).then(function (results) {
+                        fillForm(results[1]);
+                    });
+                }
+
+                $(form).on('submit', function (event) {
+                    event.preventDefault();
+                    $('#menu-form-errors').empty();
+
+                    App.api.post('/api/menuitems', Admin.formToJson(form), { silent: true })
+                        .then(function () {
+                            showToast('Success', 'Menu item saved.', 'success');
+                            window.location.href = '/admin/masters/menu';
+                        })
+                        .catch(function (error) { Admin.showFormErrors('#menu-form-errors', error.message); });
+                });
+            });
+        })();
+    </script>
+}

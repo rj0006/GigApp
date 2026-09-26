@@ -1,12 +1,5 @@
-@model AdminPartnersViewModel
 @{
     Layout = "_AdminLayout";
-    var list = Model.Partners;
-
-    IReadOnlyList<KycHistoryEntryDto> History(int partnerId) =>
-        Model.KycHistory.TryGetValue(partnerId, out var entries)
-            ? entries
-            : Array.Empty<KycHistoryEntryDto>();
 }
 
 <h1 class="h4">Partner approvals</h1>
@@ -18,79 +11,115 @@
 
 <div class="card">
     <div class="card-body">
-        @if (list.TotalCount == 0)
-        {
-            <p class="text-center text-secondary py-4 mb-0">Nothing waiting. Every partner is verified.</p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>#</th><th>Name</th><th>Mobile</th><th>Skill</th>
-                            <th>Aadhaar</th><th>Documents</th><th>Status</th><th>Registered</th>
-                            <th class="text-end">Review</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var partner in list.Items)
-                    {
-                        <tr>
-                            <td class="text-secondary">@partner.Id</td>
-                            <td>
-                                <div class="fw-semibold">@partner.Name</div>
-                                @if (!string.IsNullOrEmpty(partner.Email))
-                                {
-                                    <div class="small text-secondary">@partner.Email</div>
-                                }
-                            </td>
-                            <td class="mono">@partner.Phone</td>
-                            <td><span class="badge text-bg-light border">@partner.SkillCategoryName</span></td>
-                            <td class="mono small">@(partner.MaskedAadhaar ?? "—")</td>
-                            <td>
-                                <span class="badge @(partner.HasCompleteKyc ? "text-bg-info" : "text-bg-warning")">
-                                    @(partner.HasCompleteKyc ? "Complete" : "Incomplete")
-                                </span>
-                            </td>
-                            <td>
-                                <span class="badge @partner.KycBadgeClass">@partner.KycLabel</span>
-                                @if (!string.IsNullOrWhiteSpace(partner.KycReviewNote))
-                                {
-                                    <div class="small text-primary mt-1" style="max-width:16rem">
-                                        @partner.KycReviewNote
-                                    </div>
-                                }
-                                @if (partner.IsRejected)
-                                {
-                                    <div class="small text-danger mt-1" style="max-width:16rem">
-                                        @partner.KycRejectionReason
-                                    </div>
-                                    <div class="small text-secondary">Waiting for them to resubmit.</div>
-                                }
-                            </td>
-                            <td class="small text-secondary">@partner.CreatedAt.ToString("dd MMM yyyy")</td>
-                            <td class="text-end">
-                                @* Opens the per-row modal below. *@
-                                <button type="button" class="btn btn-sm btn-outline-primary"
-                                        data-bs-toggle="modal" data-bs-target="#kyc-modal-@partner.Id"
-                                        title="View details">
-                                    &#128065; View
-                                </button>
-                            </td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
-            </div>
+        <div id="approval-empty" class="text-center text-secondary py-4 mb-0" hidden>Nothing waiting. Every partner is verified.</div>
 
-            <partial name="_Pagination" model="PagerModel.From(list, Context)" />
-        }
+        <div id="approval-table-wrap" class="table-responsive" hidden>
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th><th>Name</th><th>Mobile</th><th>Skill</th>
+                        <th>Aadhaar</th><th>Documents</th><th>Status</th><th>Registered</th>
+                        <th class="text-end">Review</th>
+                    </tr>
+                </thead>
+                <tbody id="approval-rows"></tbody>
+            </table>
+        </div>
+
+        <div id="approval-pager" class="d-flex align-items-center gap-2 mt-3" hidden>
+            <span id="approval-pager-summary" class="small text-secondary"></span>
+            <div class="btn-group btn-group-sm ms-auto">
+                <button type="button" id="approval-prev" class="btn btn-outline-secondary">Previous</button>
+                <button type="button" id="approval-next" class="btn btn-outline-secondary">Next</button>
+            </div>
+        </div>
     </div>
 </div>
 
-@* One modal per row on this page — the page is paged, so the count stays small. *@
-@foreach (var partner in list.Items)
-{
-    <partial name="_KycModal" model="@(new KycModalViewModel { Partner = partner, History = History(partner.Id) })" />
+<partial name="_KycModal" />
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            var state = { page: 1 };
+
+            function row(partner) {
+                var statusCell = '<span class="badge ' + partner.kycBadgeClass + '">' + partner.kycLabel + '</span>';
+
+                if (partner.kycReviewNote) {
+                    statusCell += '<div class="small text-primary mt-1" style="max-width:16rem">' + Admin.escapeHtml(partner.kycReviewNote) + '</div>';
+                }
+
+                if (partner.isRejected) {
+                    statusCell += '<div class="small text-danger mt-1" style="max-width:16rem">' + Admin.escapeHtml(partner.kycRejectionReason || '') + '</div>'
+                        + '<div class="small text-secondary">Waiting for them to resubmit.</div>';
+                }
+
+                var registered = new Date(partner.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+                return '<tr>'
+                    + '<td class="text-secondary">' + partner.id + '</td>'
+                    + '<td><div class="fw-semibold">' + Admin.escapeHtml(partner.name) + '</div>'
+                    + (partner.email ? '<div class="small text-secondary">' + Admin.escapeHtml(partner.email) + '</div>' : '') + '</td>'
+                    + '<td class="mono">' + Admin.escapeHtml(partner.phone) + '</td>'
+                    + '<td><span class="badge text-bg-light border">' + Admin.escapeHtml(partner.skillCategoryName) + '</span></td>'
+                    + '<td class="mono small">' + (partner.maskedAadhaar || '—') + '</td>'
+                    + '<td><span class="badge ' + (partner.hasCompleteKyc ? 'text-bg-info' : 'text-bg-warning') + '">'
+                      + (partner.hasCompleteKyc ? 'Complete' : 'Incomplete') + '</span></td>'
+                    + '<td>' + statusCell + '</td>'
+                    + '<td class="small text-secondary">' + registered + '</td>'
+                    + '<td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" data-review="' + partner.id + '">&#128065; View</button></td>'
+                    + '</tr>';
+            }
+
+            function load() {
+                var url = '/api/partners/all?verified=false&page=' + state.page + '&pageSize=10';
+
+                App.api.get(url).then(function (result) {
+                    $('#approval-empty').prop('hidden', result.totalCount > 0);
+                    $('#approval-table-wrap').prop('hidden', result.totalCount === 0);
+                    $('#approval-pager').prop('hidden', result.totalCount === 0);
+
+                    $('#approval-rows').html(result.items.map(row).join(''));
+
+                    $('#approval-pager-summary').text(result.totalCount === 0
+                        ? ''
+                        : 'Showing ' + result.firstRow + '–' + result.lastRow + ' of ' + result.totalCount);
+
+                    $('#approval-prev').prop('disabled', !result.hasPrevious);
+                    $('#approval-next').prop('disabled', !result.hasNext);
+                });
+            }
+
+            function openReview(id) {
+                Promise.all([
+                    App.api.get('/api/partners/' + id),
+                    App.api.get('/api/partners/' + id + '/kyc-history'),
+                ]).then(function (results) {
+                    var partner = results[0], history = results[1];
+
+                    Admin.openKycModal(partner, history, function (approved, reason) {
+                        App.api.put('/api/partners/' + id + '/verify', { isVerified: approved, reason: reason }).then(function () {
+                            bootstrap.Modal.getInstance(document.getElementById('kyc-modal')).hide();
+                            showToast('Success', approved ? partner.name + ' is now verified.' : partner.name + ' was rejected.', 'success');
+                            load();
+                        });
+                    });
+                });
+            }
+
+            $(function () {
+                load();
+
+                $('#approval-prev').on('click', function () { state.page -= 1; load(); });
+                $('#approval-next').on('click', function () { state.page += 1; load(); });
+
+                $('#approval-rows').on('click', '[data-review]', function () {
+                    openReview($(this).data('review'));
+                });
+            });
+        })();
+    </script>
 }

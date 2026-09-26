@@ -4,23 +4,21 @@
     <div class="card-body">
         <h2 class="h6 mb-3">Personal details</h2>
 
-        <form method="post" action="/@Model.PortalSlug/profile" class="gig-form row g-3">
-            @Html.AntiForgeryToken()
-
+        <form id="details-form" class="gig-form row g-3">
             <div class="col-md-6">
-                <label asp-for="Form.Name" class="form-label required"></label>
-                <input asp-for="Form.Name" class="form-control" autocomplete="name" />
+                <label for="details-name" class="form-label required">Full name</label>
+                <input id="details-name" name="Name" class="form-control" autocomplete="name" />
             </div>
 
             <div class="col-md-6">
-                <label asp-for="Form.Phone" class="form-label required"></label>
-                <input asp-for="Form.Phone" type="tel" class="form-control" autocomplete="tel" />
+                <label for="details-phone" class="form-label required">Mobile number</label>
+                <input id="details-phone" name="Phone" type="tel" class="form-control" autocomplete="tel" />
                 <div class="form-text">Changing this marks your mobile as unverified again.</div>
             </div>
 
             <div class="col-12">
-                <label asp-for="Form.Email" class="form-label"></label>
-                <input asp-for="Form.Email" type="email" class="form-control" autocomplete="email" />
+                <label for="details-email" class="form-label">Email (optional)</label>
+                <input id="details-email" name="Email" type="email" class="form-control" autocomplete="email" />
             </div>
 
             <div class="col-12">
@@ -34,16 +32,12 @@
     <div class="card-body">
         <h2 class="h6 mb-3">Profile photo</h2>
 
-        <form method="post" action="/@Model.PortalSlug/profile/photo"
-              enctype="multipart/form-data" class="gig-form row g-3">
-            @Html.AntiForgeryToken()
-
+        <form id="photo-form" class="gig-form row g-3">
             <div class="col-md-8">
                 <partial name="_ImageUpload" model="@(new ImageUploadModel {
-                    Name = "photo",
+                    Name = "Photo",
                     Label = "Choose a new photo",
                     Hint = "Pick an image to replace the one shown.",
-                    CurrentUrl = Model.User.ProfileImageUrl,
                     Shape = ImageUploadShape.Circle,
                     AllowCamera = true,
                     Required = true,
@@ -64,46 +58,69 @@
             Rebuilt from the audit trail — each entry compares that change against the one before it.
         </p>
 
-        @if (Model.History.Count == 0)
-        {
-            <p class="text-center text-secondary py-3 mb-0">No profile changes recorded yet.</p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-sm align-middle mb-0">
-                    <thead>
-                        <tr><th>When</th><th>Action</th><th>What changed</th></tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var entry in Model.History)
-                    {
-                        <tr>
-                            <td class="small text-secondary text-nowrap">
-                                @entry.ChangedAt.ToString("dd MMM yyyy, HH:mm")
-                            </td>
-                            <td class="small">@entry.Action</td>
-                            <td class="small">
-                                @if (entry.Changes.Count == 0)
-                                {
-                                    <span class="text-secondary">—</span>
-                                }
-                                else
-                                {
-                                    @foreach (var change in entry.Changes)
-                                    {
-                                        <div>
-                                            <span class="fw-semibold">@change.Field</span>:
-                                            <span class="text-secondary">@change.From</span> &rarr; @change.To
-                                        </div>
-                                    }
-                                }
-                            </td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
-            </div>
-        }
+        <div id="details-history"></div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        'use strict';
+
+        function historyTable(history) {
+            if (history.length === 0) return '<p class="text-center text-secondary py-3 mb-0">No profile changes recorded yet.</p>';
+
+            var rows = history.map(function (entry) {
+                var changes = entry.changes.length === 0
+                    ? '<span class="text-secondary">—</span>'
+                    : entry.changes.map(function (c) {
+                        return '<div><span class="fw-semibold">' + Admin.escapeHtml(c.field) + '</span>: '
+                            + '<span class="text-secondary">' + Admin.escapeHtml(c.from || '') + '</span> &rarr; ' + Admin.escapeHtml(c.to || '') + '</div>';
+                    }).join('');
+
+                return '<tr><td class="small text-secondary text-nowrap">'
+                    + new Date(entry.changedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
+                    + '</td><td class="small">' + Admin.escapeHtml(entry.action) + '</td><td class="small">' + changes + '</td></tr>';
+            }).join('');
+
+            return '<div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr>'
+                + '<th>When</th><th>Action</th><th>What changed</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+        }
+
+        function load() {
+            App.api.get('/api/profile').then(function (user) {
+                $('#details-name').val(user.name);
+                $('#details-phone').val(user.phone);
+                $('#details-email').val(user.email || '');
+                Admin.showImagePreview(user.profileImageUrl, 'Photo');
+            });
+
+            App.api.get('/api/profile/history').then(function (history) {
+                $('#details-history').html(historyTable(history));
+            });
+        }
+
+        $(function () {
+            load();
+
+            $('#details-form').on('submit', function (event) {
+                event.preventDefault();
+
+                App.api.put('/api/profile', Admin.formToJson(this)).then(function () {
+                    showToast('Success', 'Profile updated.', 'success');
+                    load();
+                });
+            });
+
+            $('#photo-form').on('submit', function (event) {
+                event.preventDefault();
+
+                App.api.post('/api/profile/photo', new FormData(this), { silent: true })
+                    .then(function () {
+                        showToast('Success', 'Profile photo updated.', 'success');
+                        load();
+                    })
+                    .catch(function (error) { showToast('Error', error.message, 'error'); });
+            });
+        });
+    });
+</script>

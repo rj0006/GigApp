@@ -2,7 +2,10 @@ using GigApp.Api.Dtos;
 using GigApp.Api.Models;
 using GigApp.Api.Services;
 using GigApp.Api.Services.Banking;
+using GigApp.Api.Services.Orders;
 using GigApp.Api.Services.Profile;
+using GigApp.Api.Services.Ratings;
+using GigApp.Api.Services.Support;
 using GigApp.Api.Services.Tracking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -22,11 +25,22 @@ namespace GigApp.Api.Controllers
     {
         private readonly IProfileService _profile;
         private readonly IBankAccountService _bankAccounts;
+        private readonly IOrderHistoryService _orderHistory;
+        private readonly IRatingService _ratings;
+        private readonly ISupportService _support;
 
-        public ProfileController(IProfileService profile, IBankAccountService bankAccounts)
+        public ProfileController(
+            IProfileService profile,
+            IBankAccountService bankAccounts,
+            IOrderHistoryService orderHistory,
+            IRatingService ratings,
+            ISupportService support)
         {
             _profile = profile;
             _bankAccounts = bankAccounts;
+            _orderHistory = orderHistory;
+            _ratings = ratings;
+            _support = support;
         }
 
         // GET: api/profile/bank
@@ -97,6 +111,40 @@ namespace GigApp.Api.Controllers
                 User.GetRequiredUserId(), take < 1 ? 20 : Math.Min(take, 100), ct);
 
             return Ok(history);
+        }
+
+        // GET: api/profile/orders?page=&pageSize=&search=&status=
+        [HttpGet("orders")]
+        public async Task<ActionResult<OrderHistoryPageDto>> GetOrders(
+            [FromQuery] PageRequest paging, string? status, CancellationToken ct)
+        {
+            var userId = User.GetRequiredUserId();
+            var role = User.IsInRole(UserRoles.Partner) ? UserRoles.Partner : UserRoles.Customer;
+
+            var orders = await _orderHistory.ForUserAsync(userId, role, paging, status, ct);
+            var ids = orders.Items.Select(o => o.Id).ToList();
+
+            return Ok(new OrderHistoryPageDto
+            {
+                Orders = orders,
+                IsPartner = role == UserRoles.Partner,
+                Ratings = await _ratings.ForTasksAsync(ids, role, ct),
+                Enquiries = await _support.LatestForTasksAsync(userId, ids, ct),
+            });
+        }
+
+        // POST: api/profile/orders/5/help
+        [HttpPost("orders/{id:int}/help")]
+        [TrackForm("SupportEnquiry")]
+        public async Task<ActionResult<SupportEnquiryDto>> RaiseEnquiry(
+            int id, RaiseEnquiryRequest request, CancellationToken ct)
+        {
+            var role = User.IsInRole(UserRoles.Partner) ? UserRoles.Partner : UserRoles.Customer;
+            var result = await _support.RaiseAsync(User.GetRequiredUserId(), role, id, request, ct);
+
+            return result.Succeeded
+                ? Ok(result.Enquiry)
+                : BadRequest(new ProblemDetails { Title = result.Error, Status = 400 });
         }
 
         private ActionResult<UserDto> FromResult(ProfileResult result) =>

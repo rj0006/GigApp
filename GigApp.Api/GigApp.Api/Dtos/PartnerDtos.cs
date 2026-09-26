@@ -84,6 +84,31 @@ namespace GigApp.Api.Dtos
         };
     }
 
+    public class ServiceAreaDto
+    {
+        public UpdateServiceAreaRequest Form { get; set; } = new();
+        public IReadOnlyList<AddressDto> Addresses { get; set; } = Array.Empty<AddressDto>();
+        public bool HasPin => Form.BaseLatitude is not null && Form.BaseLongitude is not null;
+        public int OpenTasksInRange { get; set; }
+    }
+
+    public class ProviderEarningsDto
+    {
+        public EarningsSummaryDto Summary { get; set; } = new();
+        public BankAccountDto? BankAccount { get; set; }
+    }
+
+    public class ProviderDashboardDto
+    {
+        public PartnerDto? Profile { get; set; }
+        public IReadOnlyList<GigTaskDto> AvailableTasks { get; set; } = Array.Empty<GigTaskDto>();
+        public IReadOnlyList<BidDto> MyBids { get; set; } = Array.Empty<BidDto>();
+        public IReadOnlyList<GigTaskDto> MyJobs { get; set; } = Array.Empty<GigTaskDto>();
+        public bool HasServiceArea { get; set; }
+        public int ServiceRadiusKm { get; set; }
+        public TaskOfferDto? Offer { get; set; }
+    }
+
     public class KycHistoryEntryDto
     {
         public DateTime At { get; set; }

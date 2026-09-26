@@ -1,7 +1,6 @@
-@model TaxFormViewModel
+@model TaxFormShellViewModel
 @{
     Layout = "_AdminLayout";
-    var postTo = Model.IsNew ? "/admin/masters/taxes/new" : $"/admin/masters/taxes/{Model.Id}";
 }
 
 <h1 class="h4">@(Model.IsNew ? "New tax rule" : "Edit tax rule")</h1>
@@ -13,25 +12,24 @@
 
 <div class="card">
     <div class="card-body">
-        <partial name="_ValidationSummary" />
+        <div id="tax-form-errors"></div>
 
-        <form method="post" action="@postTo" class="gig-form row g-3">
-            @Html.AntiForgeryToken()
+        <form id="tax-form" class="gig-form row g-3">
+            <input type="hidden" name="Id" value="@Model.Id" />
 
             <div class="col-md-5">
-                <label asp-for="Form.Name" class="form-label required"></label>
-                <input asp-for="Form.Name" class="form-control" placeholder="GST on commission" />
-                <span asp-validation-for="Form.Name" class="text-danger small"></span>
+                <label for="tax-name" class="form-label required">Tax name</label>
+                <input id="tax-name" name="Name" class="form-control" placeholder="GST on commission" />
             </div>
 
             <div class="col-md-4">
-                <label asp-for="Form.Code" class="form-label required"></label>
-                <input asp-for="Form.Code" class="form-control mono text-uppercase" placeholder="GST_COMM" />
+                <label for="tax-code" class="form-label required">Code</label>
+                <input id="tax-code" name="Code" class="form-control mono text-uppercase" placeholder="GST_COMM" />
             </div>
 
             <div class="col-md-3">
-                <label asp-for="Form.CountryCode" class="form-label required"></label>
-                <select asp-for="Form.CountryCode" class="form-select">
+                <label for="tax-country-code" class="form-label required">Country</label>
+                <select id="tax-country-code" name="CountryCode" class="form-select">
                     @foreach (var code in TaxCountries.All)
                     {
                         <option value="@code">@code</option>
@@ -41,18 +39,17 @@
             </div>
 
             <div class="col-md-3">
-                <label asp-for="Form.Percent" class="form-label required"></label>
-                <input asp-for="Form.Percent" type="number" step="0.01" min="0" max="100"
-                       class="form-control" />
+                <label for="tax-percent" class="form-label required">Rate (%)</label>
+                <input id="tax-percent" name="Percent" type="number" step="0.01" min="0" max="100"
+                       class="form-control" value="0" />
             </div>
 
             <div class="col-md-5">
-                <label asp-for="Form.AppliesTo" class="form-label required"></label>
-                <select asp-for="Form.AppliesTo" class="form-select">
-                    @foreach (var option in TaxBase.All)
-                    {
-                        <option value="@option">@TaxBase.Label(option)</option>
-                    }
+                <label for="tax-applies-to" class="form-label required">Calculated on</label>
+                <select id="tax-applies-to" name="AppliesTo" class="form-select">
+                    <option value="commission">Platform commission</option>
+                    <option value="gross_earning">Full job amount</option>
+                    <option value="subscription_fee">Subscription fee</option>
                 </select>
                 <div class="form-text">
                     GST on the platform fee is calculated on the commission. Income tax withheld from
@@ -61,38 +58,38 @@
             </div>
 
             <div class="col-md-4">
-                <label asp-for="Form.ThresholdAmount" class="form-label"></label>
-                <input asp-for="Form.ThresholdAmount" type="number" step="0.01" min="0"
-                       class="form-control" />
+                <label for="tax-threshold" class="form-label">Apply only above</label>
+                <input id="tax-threshold" name="ThresholdAmount" type="number" step="0.01" min="0"
+                       class="form-control" value="0" />
                 <div class="form-text">Zero applies it to every amount.</div>
             </div>
 
             <div class="col-md-4">
-                <label asp-for="Form.EffectiveFrom" class="form-label required"></label>
-                <input asp-for="Form.EffectiveFrom" type="date" class="form-control" />
+                <label for="tax-from" class="form-label required">In force from</label>
+                <input id="tax-from" name="EffectiveFrom" type="date" class="form-control" />
             </div>
 
             <div class="col-md-4">
-                <label asp-for="Form.EffectiveTo" class="form-label"></label>
-                <input asp-for="Form.EffectiveTo" type="date" class="form-control" />
+                <label for="tax-to" class="form-label">In force until</label>
+                <input id="tax-to" name="EffectiveTo" type="date" class="form-control" />
                 <div class="form-text">Leave empty while the rule is current.</div>
             </div>
 
             <div class="col-md-4">
-                <label asp-for="Form.SortOrder" class="form-label"></label>
-                <input asp-for="Form.SortOrder" type="number" min="0" max="999" class="form-control" />
+                <label for="tax-order" class="form-label">Sort order</label>
+                <input id="tax-order" name="SortOrder" type="number" min="0" max="999" class="form-control" value="0" />
             </div>
 
             <div class="col-12">
-                <label asp-for="Form.Note" class="form-label"></label>
-                <input asp-for="Form.Note" class="form-control"
+                <label for="tax-note" class="form-label">Note</label>
+                <input id="tax-note" name="Note" class="form-control"
                        placeholder="Section under which this is deducted, and anything a future administrator needs" />
             </div>
 
             <div class="col-12">
                 <div class="form-check">
-                    <input asp-for="Form.IsActive" class="form-check-input" />
-                    <label asp-for="Form.IsActive" class="form-check-label"></label>
+                    <input id="tax-active" name="IsActive" class="form-check-input" type="checkbox" value="true" checked />
+                    <label for="tax-active" class="form-check-label">Active</label>
                 </div>
             </div>
 
@@ -103,3 +100,52 @@
         </form>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            function toDateInput(isoValue) {
+                return isoValue ? isoValue.slice(0, 10) : '';
+            }
+
+            function fillForm(rule) {
+                $('#tax-name').val(rule.name);
+                $('#tax-code').val(rule.code);
+                $('#tax-country-code').val(rule.countryCode);
+                $('#tax-percent').val(rule.percent);
+                $('#tax-applies-to').val(rule.appliesTo);
+                $('#tax-threshold').val(rule.thresholdAmount);
+                $('#tax-from').val(toDateInput(rule.effectiveFrom));
+                $('#tax-to').val(toDateInput(rule.effectiveTo));
+                $('#tax-order').val(rule.sortOrder);
+                $('#tax-note').val(rule.note || '');
+                $('#tax-active').prop('checked', rule.isActive);
+            }
+
+            $(function () {
+                var form = document.getElementById('tax-form');
+                var id = $(form).find('input[name="Id"]').val();
+
+                if (id) {
+                    App.api.get('/api/taxrules/' + id).then(fillForm);
+                } else if (!$('#tax-from').val()) {
+                    $('#tax-from').val(new Date().toISOString().slice(0, 10));
+                }
+
+                $(form).on('submit', function (event) {
+                    event.preventDefault();
+                    $('#tax-form-errors').empty();
+
+                    App.api.post('/api/taxrules', Admin.formToJson(form), { silent: true })
+                        .then(function () {
+                            showToast('Success', 'Tax rule saved.', 'success');
+                            window.location.href = '/admin/masters/taxes';
+                        })
+                        .catch(function (error) { Admin.showFormErrors('#tax-form-errors', error.message); });
+                });
+            });
+        })();
+    </script>
+}

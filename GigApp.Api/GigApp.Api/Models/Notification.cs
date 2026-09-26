@@ -27,14 +27,18 @@ namespace GigApp.Api.Models
         public const string JobStarted = "job_started";
         public const string JobCompleted = "job_completed";
         public const string BidReceived = "bid_received";
+        public const string BidCountered = "bid_countered";
+        public const string BidRejected = "bid_rejected";
         public const string KycReviewed = "kyc_reviewed";
         public const string EnquiryAnswered = "enquiry_answered";
         public const string NobodyAvailable = "nobody_available";
+        public const string PartnerCancelled = "partner_cancelled";
 
         public static readonly string[] All =
         {
             General, JobOffered, JobAssigned, JobStarted, JobCompleted,
-            BidReceived, KycReviewed, EnquiryAnswered, NobodyAvailable,
+            BidReceived, BidCountered, BidRejected,
+            KycReviewed, EnquiryAnswered, NobodyAvailable, PartnerCancelled,
         };
 
         public static bool IsValid(string? type) => type is not null && All.Contains(type);
@@ -46,9 +50,12 @@ namespace GigApp.Api.Models
             JobStarted => "\u25B6",
             JobCompleted => "\u2605",
             BidReceived => "\u20B9",
+            BidCountered => "\u21C4",
+            BidRejected => "\u2715",
             KycReviewed => "\U0001F4C4",
             EnquiryAnswered => "\u260E",
             NobodyAvailable => "\u26A0",
+            PartnerCancelled => "\u21A9",
             _ => "\U0001F514",
         };
     }

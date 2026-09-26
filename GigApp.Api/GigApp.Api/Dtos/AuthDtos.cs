@@ -66,6 +66,24 @@ namespace GigApp.Api.Dtos
     {
         public string Token { get; set; } = string.Empty;
         public DateTime ExpiresAtUtc { get; set; }
+        public string RefreshToken { get; set; } = string.Empty;
+        public DateTime RefreshExpiresAtUtc { get; set; }
         public UserDto User { get; set; } = new();
+    }
+
+    public class RefreshRequest
+    {
+        [Required]
+        public string RefreshToken { get; set; } = string.Empty;
+    }
+
+    public class DeviceSessionDto
+    {
+        public int Id { get; set; }
+        public string DeviceLabel { get; set; } = string.Empty;
+        public string? IpAddress { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime? LastUsedAt { get; set; }
+        public bool IsCurrent { get; set; }
     }
 }

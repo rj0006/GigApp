@@ -94,7 +94,7 @@ namespace GigApp.Api.Services.Storefront
             _context.GigTasks.AddRange(tasks);
             await _context.SaveChangesAsync(ct);
 
-            _cart.Clear();
+            await _cart.ClearAsync(ct);
 
             // Each line looks for its own partner — they are different trades.
             foreach (var task in tasks) await _offers.StartAsync(task.Id, ct);

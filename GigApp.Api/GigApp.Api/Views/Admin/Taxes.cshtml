@@ -1,4 +1,3 @@
-@model AdminTaxesViewModel
 @{
     Layout = "_AdminLayout";
     var isSuperAdmin = ViewData["IsSuperAdmin"] is true;
@@ -19,91 +18,100 @@
 
 <div class="card">
     <div class="card-body">
-        <form method="get" class="row g-2 align-items-end mb-3" data-auto-submit>
+        <div class="row g-2 align-items-end mb-3">
             <div class="col-auto">
-                <label class="form-label" for="country">Country</label>
-                <select id="country" name="country" class="form-select form-select-sm">
+                <label class="form-label" for="tax-country">Country</label>
+                <select id="tax-country" class="form-select form-select-sm">
                     <option value="">All countries</option>
                     @foreach (var code in TaxCountries.All)
                     {
-                        <option value="@code" selected="@(Model.CountryFilter == code)">@code</option>
+                        <option value="@code">@code</option>
                     }
                 </select>
             </div>
             <div class="col-auto">
-                <label class="form-label" for="showInactive">Show</label>
-                <select id="showInactive" name="showInactive" class="form-select form-select-sm">
-                    <option value="false" selected="@(!Model.ShowInactive)">Active rules</option>
-                    <option value="true" selected="@Model.ShowInactive">Include retired</option>
+                <label class="form-label" for="tax-show">Show</label>
+                <select id="tax-show" class="form-select form-select-sm">
+                    <option value="false">Active rules</option>
+                    <option value="true">Include retired</option>
                 </select>
             </div>
-        </form>
+        </div>
 
-        @if (Model.Rules.Count == 0)
-        {
-            <p class="text-center text-secondary py-4 mb-0">No tax rules for this filter.</p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>#</th><th>Country</th><th>Rule</th><th class="text-end">Rate</th>
-                            <th>Calculated on</th><th>In force</th><th>Status</th><th class="text-end">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var rule in Model.Rules)
-                    {
-                        <tr>
-                            <td class="text-secondary">@rule.Id</td>
-                            <td><span class="badge text-bg-light border">@rule.CountryCode</span></td>
-                            <td>
-                                <div class="fw-semibold">@rule.Name</div>
-                                <div class="small text-secondary mono">@rule.Code</div>
-                                @if (!string.IsNullOrWhiteSpace(rule.Note))
-                                {
-                                    <div class="small text-secondary">@rule.Note</div>
-                                }
-                            </td>
-                            <td class="text-end fw-semibold">@rule.Percent.ToString("0.##")%</td>
-                            <td class="small">
-                                @rule.AppliesToLabel
-                                @if (rule.ThresholdAmount > 0)
-                                {
-                                    <div class="text-secondary">
-                                        Only above @rule.ThresholdAmount.ToString("N0")
-                                    </div>
-                                }
-                            </td>
-                            <td class="small text-secondary">
-                                @rule.EffectiveFrom.ToString("dd MMM yyyy")
-                                @if (rule.EffectiveTo is not null)
-                                {
-                                    <text>&mdash; @rule.EffectiveTo.Value.ToString("dd MMM yyyy")</text>
-                                }
-                                else
-                                {
-                                    <text>onwards</text>
-                                }
-                            </td>
-                            <td>
-                                <span class="badge @(rule.IsInForce ? "text-bg-success" : "text-bg-secondary")">
-                                    @(rule.IsInForce ? "In force" : rule.IsActive ? "Not in force today" : "Retired")
-                                </span>
-                            </td>
-                            <td class="text-end">
-                                @if (isSuperAdmin)
-                                {
-                                    <a class="btn btn-sm btn-outline-primary" href="/admin/masters/taxes/@rule.Id">Edit</a>
-                                }
-                            </td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
-            </div>
-        }
+        <div id="tax-empty" class="text-center text-secondary py-4 mb-0" hidden>No tax rules for this filter.</div>
+
+        <div id="tax-table-wrap" class="table-responsive" hidden>
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th><th>Country</th><th>Rule</th><th class="text-end">Rate</th>
+                        <th>Calculated on</th><th>In force</th><th>Status</th><th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="tax-rows" data-is-super-admin="@(isSuperAdmin ? "true" : "false")"></tbody>
+            </table>
+        </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            function runsCell(rule) {
+                var from = new Date(rule.effectiveFrom).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                if (!rule.effectiveTo) return from + ' onwards';
+                var to = new Date(rule.effectiveTo).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                return from + ' — ' + to;
+            }
+
+            function statusCell(rule) {
+                var cls = rule.isInForce ? 'text-bg-success' : 'text-bg-secondary';
+                var text = rule.isInForce ? 'In force' : (rule.isActive ? 'Not in force today' : 'Retired');
+                return '<span class="badge ' + cls + '">' + text + '</span>';
+            }
+
+            function row(rule, isSuperAdmin) {
+                var note = rule.note ? '<div class="small text-secondary">' + Admin.escapeHtml(rule.note) + '</div>' : '';
+                var threshold = rule.thresholdAmount > 0
+                    ? '<div class="text-secondary">Only above ' + Math.round(rule.thresholdAmount).toLocaleString('en-IN') + '</div>'
+                    : '';
+                var editLink = isSuperAdmin
+                    ? '<a class="btn btn-sm btn-outline-primary" href="/admin/masters/taxes/' + rule.id + '">Edit</a>'
+                    : '';
+
+                return '<tr>'
+                    + '<td class="text-secondary">' + rule.id + '</td>'
+                    + '<td><span class="badge text-bg-light border">' + Admin.escapeHtml(rule.countryCode) + '</span></td>'
+                    + '<td><div class="fw-semibold">' + Admin.escapeHtml(rule.name) + '</div>'
+                    + '<div class="small text-secondary mono">' + Admin.escapeHtml(rule.code) + '</div>' + note + '</td>'
+                    + '<td class="text-end fw-semibold">' + rule.percent.toFixed(2).replace(/\.?0+$/, '') + '%</td>'
+                    + '<td class="small">' + Admin.escapeHtml(rule.appliesToLabel) + threshold + '</td>'
+                    + '<td class="small text-secondary">' + runsCell(rule) + '</td>'
+                    + '<td>' + statusCell(rule) + '</td>'
+                    + '<td class="text-end">' + editLink + '</td>'
+                    + '</tr>';
+            }
+
+            function load() {
+                var country = $('#tax-country').val();
+                var showInactive = $('#tax-show').val() === 'true';
+                var isSuperAdmin = $('#tax-rows').data('is-super-admin') === true || $('#tax-rows').data('is-super-admin') === 'true';
+
+                var url = '/api/taxrules?showInactive=' + showInactive + (country ? '&country=' + country : '');
+
+                App.api.get(url).then(function (rules) {
+                    $('#tax-empty').prop('hidden', rules.length > 0);
+                    $('#tax-table-wrap').prop('hidden', rules.length === 0);
+                    $('#tax-rows').html(rules.map(function (r) { return row(r, isSuperAdmin); }).join(''));
+                });
+            }
+
+            $(function () {
+                load();
+                $('#tax-country, #tax-show').on('change', load);
+            });
+        })();
+    </script>
+}

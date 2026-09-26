@@ -66,6 +66,8 @@ namespace GigApp.Api.Dtos
 
     public class SaveMenuItemRequest
     {
+        public int? Id { get; set; }
+
         [Required, StringLength(60, MinimumLength = 2)]
         [Display(Name = "Label")]
         public string Label { get; set; } = string.Empty;

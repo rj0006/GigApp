@@ -1,7 +1,5 @@
-@model AdminEnquiriesViewModel
 @{
     Layout = "_AdminLayout";
-    var list = Model.Enquiries;
 }
 
 <h1 class="h4">Support enquiries</h1>
@@ -12,161 +10,232 @@
 
 <div class="card">
     <div class="card-body">
-        <form method="get" class="row g-2 align-items-end mb-3" data-auto-submit>
+        <div class="row g-2 align-items-end mb-3">
             <div class="col-sm-5 col-md-4">
-                <label class="form-label" for="search">Search</label>
-                <input class="form-control form-control-sm" id="search" name="search"
-                       value="@list.Search" placeholder="Message, name or mobile" />
+                <label class="form-label" for="enquiry-search">Search</label>
+                <input class="form-control form-control-sm" id="enquiry-search" placeholder="Message, name or mobile" />
             </div>
             <div class="col-sm-4 col-md-3">
-                <label class="form-label" for="status">Status</label>
-                <select class="form-select form-select-sm" id="status" name="status">
-                    <option value="" selected="@string.IsNullOrEmpty(Model.StatusFilter)">All</option>
+                <label class="form-label" for="enquiry-status">Status</label>
+                <select class="form-select form-select-sm" id="enquiry-status">
+                    <option value="">All</option>
                     @foreach (var status in EnquiryStatus.All)
                     {
-                        <option value="@status" selected="@(Model.StatusFilter == status)">
-                            @EnquiryStatus.Label(status)
-                        </option>
+                        <option value="@status">@EnquiryStatus.Label(status)</option>
                     }
                 </select>
             </div>
             <div class="col-auto">
-                <button type="submit" class="btn btn-sm btn-primary">Filter</button>
-                <a class="btn btn-sm btn-outline-secondary" href="/admin/enquiries">Reset</a>
+                <button type="button" id="enquiry-filter-btn" class="btn btn-sm btn-primary">Filter</button>
+                <button type="button" id="enquiry-filter-reset" class="btn btn-sm btn-outline-secondary">Reset</button>
             </div>
-        </form>
+        </div>
 
-        @if (list.TotalCount == 0)
-        {
-            <p class="text-center text-secondary py-4 mb-0">No enquiries match this filter.</p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>Reference</th><th>Order</th><th>Raised by</th><th>About</th>
-                            <th>Problem</th><th>Status</th><th>Raised</th><th class="text-end"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var enquiry in list.Items)
-                    {
-                        <tr>
-                            <td class="mono small">@enquiry.Reference</td>
-                            <td class="text-secondary">#@enquiry.GigTaskId</td>
-                            <td>
-                                <div>@(enquiry.RaisedByName ?? "—")</div>
-                                <span class="badge text-bg-light border">@enquiry.RaisedByRole</span>
-                            </td>
-                            <td class="small">@enquiry.TopicLabel</td>
-                            <td class="small" style="max-width:22rem">@enquiry.Message</td>
-                            <td>
-                                <span class="badge @enquiry.StatusBadgeClass">@enquiry.StatusLabel</span>
-                                @if (enquiry.ResolvedAt is not null)
-                                {
-                                    <div class="small text-secondary">
-                                        by @enquiry.ResolvedByName
-                                    </div>
-                                }
-                            </td>
-                            <td class="small text-secondary">@enquiry.CreatedAt.ToString("dd MMM, HH:mm")</td>
-                            <td class="text-end">
-                                <button type="button" class="btn btn-sm btn-outline-primary"
-                                        data-bs-toggle="modal" data-bs-target="#enquiry-@enquiry.Id">
-                                    @(enquiry.IsLive ? "Handle" : "View")
-                                </button>
-                            </td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
+        <div id="enquiry-empty" class="text-center text-secondary py-4 mb-0" hidden>No enquiries match this filter.</div>
+
+        <div id="enquiry-table-wrap" class="table-responsive" hidden>
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Reference</th><th>Order</th><th>Raised by</th><th>About</th>
+                        <th>Problem</th><th>Status</th><th>Raised</th><th class="text-end"></th>
+                    </tr>
+                </thead>
+                <tbody id="enquiry-rows"></tbody>
+            </table>
+        </div>
+
+        <div id="enquiry-pager" class="d-flex align-items-center gap-2 mt-3" hidden>
+            <span id="enquiry-pager-summary" class="small text-secondary"></span>
+            <div class="btn-group btn-group-sm ms-auto">
+                <button type="button" id="enquiry-prev" class="btn btn-outline-secondary">Previous</button>
+                <button type="button" id="enquiry-next" class="btn btn-outline-secondary">Next</button>
             </div>
-
-            <partial name="_Pagination" model="PagerModel.From(list, Context)" />
-
-            @foreach (var enquiry in list.Items)
-            {
-                <div class="modal fade" id="enquiry-@enquiry.Id" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered modal-lg">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">
-                                    @enquiry.Reference
-                                    <span class="badge @enquiry.StatusBadgeClass">@enquiry.StatusLabel</span>
-                                </h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                <dl class="row small">
-                                    <dt class="col-3">Order</dt>
-                                    <dd class="col-9">
-                                        #@enquiry.GigTaskId · @enquiry.CategoryName
-                                        <div class="text-secondary">@enquiry.TaskDescription</div>
-                                    </dd>
-
-                                    <dt class="col-3">Raised by</dt>
-                                    <dd class="col-9">@enquiry.RaisedByName (@enquiry.RaisedByRole)</dd>
-
-                                    <dt class="col-3">About</dt>
-                                    <dd class="col-9">@enquiry.TopicLabel</dd>
-
-                                    <dt class="col-3">Problem</dt>
-                                    <dd class="col-9">@enquiry.Message</dd>
-
-                                    @if (enquiry.Resolution is not null)
-                                    {
-                                        <dt class="col-3">Reply sent</dt>
-                                        <dd class="col-9">
-                                            @enquiry.Resolution
-                                            <div class="text-secondary mt-1">
-                                                @enquiry.ResolvedByName · @enquiry.ResolvedAt!.Value.ToString("dd MMM yyyy, HH:mm")
-                                            </div>
-                                        </dd>
-                                    }
-                                </dl>
-
-                                @if (enquiry.IsLive)
-                                {
-                                    <hr />
-                                    <form method="post" asp-action="ReviewEnquiry" asp-route-id="@enquiry.Id"
-                                          class="gig-form">
-                                        <div class="mb-3">
-                                            <label for="resolution-@enquiry.Id" class="form-label required">
-                                                What was done
-                                            </label>
-                                            <textarea id="resolution-@enquiry.Id" name="Resolution"
-                                                      class="form-control" rows="3" maxlength="1000"
-                                                      placeholder="We called the partner and the refund of ₹450 has been approved."></textarea>
-                                            <div class="form-text">
-                                                Required to resolve. This is the only thing they see.
-                                            </div>
-                                        </div>
-
-                                        <div class="row-actions">
-                                            @if (enquiry.Status == EnquiryStatus.Open)
-                                            {
-                                                <button type="submit" name="Status" value="@EnquiryStatus.InProgress"
-                                                        class="btn btn-sm btn-outline-warning">
-                                                    Mark as being looked at
-                                                </button>
-                                            }
-                                            <button type="submit" name="Status" value="@EnquiryStatus.Resolved"
-                                                    class="btn btn-sm btn-success">
-                                                Resolve and reply
-                                            </button>
-                                        </div>
-                                    </form>
-                                }
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            }
-        }
+        </div>
     </div>
 </div>
+
+<div class="modal fade" id="enquiry-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <span id="enquiry-modal-reference"></span>
+                    <span id="enquiry-modal-status" class="badge"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <dl class="row small" id="enquiry-modal-details"></dl>
+
+                <div id="enquiry-modal-form-wrap" hidden>
+                    <hr />
+                    <form id="enquiry-modal-form" class="gig-form">
+                        <div class="mb-3">
+                            <label for="enquiry-modal-resolution" class="form-label required">What was done</label>
+                            <textarea id="enquiry-modal-resolution" class="form-control" rows="3" maxlength="1000"
+                                      placeholder="We called the partner and the refund of ₹450 has been approved."></textarea>
+                            <div class="form-text">Required to resolve. This is the only thing they see.</div>
+                        </div>
+                        <div class="row-actions">
+                            <button type="button" id="enquiry-modal-inprogress" class="btn btn-sm btn-outline-warning">
+                                Mark as being looked at
+                            </button>
+                            <button type="button" id="enquiry-modal-resolve" class="btn btn-sm btn-success">
+                                Resolve and reply
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            var state = { page: 1, search: '', status: '' };
+            var currentEnquiryId = null;
+            var lastItems = [];
+
+            function row(enquiry) {
+                var raisedBy = '<div>' + Admin.escapeHtml(enquiry.raisedByName || '—') + '</div>'
+                    + '<span class="badge text-bg-light border">' + Admin.escapeHtml(enquiry.raisedByRole) + '</span>';
+
+                var statusCell = '<span class="badge ' + enquiry.statusBadgeClass + '">' + enquiry.statusLabel + '</span>';
+                if (enquiry.resolvedAt) {
+                    statusCell += '<div class="small text-secondary">by ' + Admin.escapeHtml(enquiry.resolvedByName || '') + '</div>';
+                }
+
+                var raised = new Date(enquiry.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+
+                return '<tr>'
+                    + '<td class="mono small">' + enquiry.reference + '</td>'
+                    + '<td class="text-secondary">#' + enquiry.gigTaskId + '</td>'
+                    + '<td>' + raisedBy + '</td>'
+                    + '<td class="small">' + Admin.escapeHtml(enquiry.topicLabel) + '</td>'
+                    + '<td class="small" style="max-width:22rem">' + Admin.escapeHtml(enquiry.message) + '</td>'
+                    + '<td>' + statusCell + '</td>'
+                    + '<td class="small text-secondary">' + raised + '</td>'
+                    + '<td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" data-view="' + enquiry.id + '">'
+                    + (enquiry.isLive ? 'Handle' : 'View') + '</button></td>'
+                    + '</tr>';
+            }
+
+            function load() {
+                var url = '/api/enquiries?page=' + state.page + '&pageSize=10'
+                    + (state.search ? '&search=' + encodeURIComponent(state.search) : '')
+                    + (state.status ? '&status=' + state.status : '');
+
+                App.api.get(url).then(function (result) {
+                    lastItems = result.items;
+
+                    $('#enquiry-empty').prop('hidden', result.totalCount > 0);
+                    $('#enquiry-table-wrap').prop('hidden', result.totalCount === 0);
+                    $('#enquiry-pager').prop('hidden', result.totalCount === 0);
+
+                    $('#enquiry-rows').html(result.items.map(row).join(''));
+
+                    $('#enquiry-pager-summary').text(result.totalCount === 0
+                        ? ''
+                        : 'Showing ' + result.firstRow + '–' + result.lastRow + ' of ' + result.totalCount);
+
+                    $('#enquiry-prev').prop('disabled', !result.hasPrevious);
+                    $('#enquiry-next').prop('disabled', !result.hasNext);
+                });
+            }
+
+            function openEnquiry(enquiry) {
+                currentEnquiryId = enquiry.id;
+
+                $('#enquiry-modal-reference').text(enquiry.reference);
+                $('#enquiry-modal-status').attr('class', 'badge ' + enquiry.statusBadgeClass).text(enquiry.statusLabel);
+
+                var details = '<dt class="col-3">Order</dt><dd class="col-9">#' + enquiry.gigTaskId + ' · '
+                    + Admin.escapeHtml(enquiry.categoryName || '') + '<div class="text-secondary">'
+                    + Admin.escapeHtml(enquiry.taskDescription || '') + '</div></dd>'
+                    + '<dt class="col-3">Raised by</dt><dd class="col-9">' + Admin.escapeHtml(enquiry.raisedByName || '—')
+                    + ' (' + Admin.escapeHtml(enquiry.raisedByRole) + ')</dd>'
+                    + '<dt class="col-3">About</dt><dd class="col-9">' + Admin.escapeHtml(enquiry.topicLabel) + '</dd>'
+                    + '<dt class="col-3">Problem</dt><dd class="col-9">' + Admin.escapeHtml(enquiry.message) + '</dd>';
+
+                if (enquiry.resolution) {
+                    details += '<dt class="col-3">Reply sent</dt><dd class="col-9">' + Admin.escapeHtml(enquiry.resolution)
+                        + '<div class="text-secondary mt-1">' + Admin.escapeHtml(enquiry.resolvedByName || '') + ' · '
+                        + new Date(enquiry.resolvedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
+                        + '</div></dd>';
+                }
+
+                $('#enquiry-modal-details').html(details);
+                $('#enquiry-modal-resolution').val('');
+                $('#enquiry-modal-form-wrap').prop('hidden', !enquiry.isLive);
+                $('#enquiry-modal-inprogress').prop('hidden', enquiry.status !== 'open');
+
+                new bootstrap.Modal(document.getElementById('enquiry-modal')).show();
+            }
+
+            function review(status) {
+                App.api.post('/api/enquiries/' + currentEnquiryId + '/review', {
+                    status: status,
+                    resolution: $('#enquiry-modal-resolution').val(),
+                }).then(function (enquiry) {
+                    bootstrap.Modal.getInstance(document.getElementById('enquiry-modal')).hide();
+                    showToast('Success', status === 'resolved'
+                        ? enquiry.reference + ' resolved. The person who raised it can now see your reply.'
+                        : enquiry.reference + ' marked as being looked at.', 'success');
+                    load();
+                });
+            }
+
+            $(function () {
+                load();
+
+                $('#enquiry-filter-btn').on('click', function () {
+                    state.search = $('#enquiry-search').val().trim();
+                    state.status = $('#enquiry-status').val();
+                    state.page = 1;
+                    load();
+                });
+
+                $('#enquiry-search').on('keydown', function (event) {
+                    if (event.which === 13) {
+                        event.preventDefault();
+                        $('#enquiry-filter-btn').click();
+                    }
+                });
+
+                $('#enquiry-filter-reset').on('click', function () {
+                    $('#enquiry-search').val('');
+                    $('#enquiry-status').val('');
+                    state = { page: 1, search: '', status: '' };
+                    load();
+                });
+
+                $('#enquiry-prev').on('click', function () { state.page -= 1; load(); });
+                $('#enquiry-next').on('click', function () { state.page += 1; load(); });
+
+                $('#enquiry-rows').on('click', '[data-view]', function () {
+                    var id = $(this).data('view');
+                    var enquiry = lastItems.filter(function (e) { return e.id === id; })[0];
+                    if (enquiry) openEnquiry(enquiry);
+                });
+
+                $('#enquiry-modal-inprogress').on('click', function () { review('in_progress'); });
+
+                $('#enquiry-modal-resolve').on('click', function () {
+                    if (!$('#enquiry-modal-resolution').val().trim()) {
+                        showToast('Error', 'Write what was done. It is the only thing the person who raised this will see.', 'error');
+                        return;
+                    }
+                    review('resolved');
+                });
+            });
+        })();
+    </script>
+}

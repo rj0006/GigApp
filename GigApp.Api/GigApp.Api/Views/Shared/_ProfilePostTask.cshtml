@@ -1,7 +1,4 @@
 @model ProfilePageViewModel
-@{
-    var work = Model.Work ?? new CustomerDashboardViewModel();
-}
 
 <div class="card">
     <div class="card-body">
@@ -11,15 +8,12 @@
             everything else goes out for partner quotes.
         </p>
 
-        <form method="post" action="/customer/tasks" class="gig-form row g-3">
-            @Html.AntiForgeryToken()
-
+        <form id="post-task-form" class="gig-form row g-3">
             <div class="col-md-6">
                 <label for="CategoryPicker" class="form-label required">Category</label>
                 <input id="CategoryPicker" class="form-control" placeholder="Start typing to choose"
-                       value="@work.PresetCategoryName"
                        data-master="skill-category" data-target="CategoryId" data-alert="category" />
-                <input type="hidden" id="CategoryId" name="CategoryId" value="@work.PresetCategoryId" />
+                <input type="hidden" id="CategoryId" name="CategoryId" />
             </div>
 
             <div class="col-md-6">
@@ -57,35 +51,20 @@
 
             <div class="col-md-6">
                 <label for="AddressId" class="form-label required">Where is it needed?</label>
-                @if (work.Addresses.Count == 0)
-                {
-                    <div class="alert alert-warning small mb-0">
-                        You have no saved addresses yet.
-                        <button type="button" class="btn btn-sm btn-warning ms-1"
-                                data-bs-toggle="modal" data-bs-target="#address-modal-new">
-                            Add one now
-                        </button>
-                    </div>
-                }
-                else
-                {
-                    <select id="AddressId" name="AddressId" class="form-select" required>
-                        @foreach (var address in work.Addresses)
-                        {
-                            <option value="@address.Id" selected="@address.IsDefault">
-                                @address.Label — @address.SingleLine@(address.HasCoordinates ? "" : "  (no pin)")
-                            </option>
-                        }
-                    </select>
+                <div id="post-task-no-address" class="alert alert-warning small mb-0" hidden>
+                    You have no saved addresses yet.
+                    <button type="button" id="post-task-add-address" class="btn btn-sm btn-warning ms-1">Add one now</button>
+                </div>
+                <div id="post-task-address-wrap" hidden>
+                    <select id="AddressId" name="AddressId" class="form-select" required></select>
                     <div class="form-text">
-                        <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none"
-                                data-bs-toggle="modal" data-bs-target="#address-modal-new">
+                        <button type="button" id="post-task-add-another" class="btn btn-link btn-sm p-0 text-decoration-none">
                             + Add another address
                         </button>
                         ·
                         <a href="@Model.SectionPath(ProfileSections.Addresses)">Manage addresses</a>
                     </div>
-                }
+                </div>
             </div>
 
             <div class="col-md-6">
@@ -94,11 +73,65 @@
             </div>
 
             <div class="col-12">
-                <button type="submit" class="btn btn-primary">Post task</button>
-                <a class="btn btn-outline-secondary" href="/customer">Browse services</a>
+                <button type="submit" class="btn btn-uc-primary">Post task</button>
+                <a class="btn btn-uc-outline" href="/services">Browse services</a>
             </div>
         </form>
     </div>
 </div>
 
-<partial name="_AddAddressModal" model="@("customer")" />
+<partial name="_AddAddressModal" />
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        'use strict';
+
+        function loadAddresses(selectId) {
+            return App.api.get('/api/addresses').then(function (addresses) {
+                $('#post-task-no-address').prop('hidden', addresses.length > 0);
+                $('#post-task-address-wrap').prop('hidden', addresses.length === 0);
+
+                $('#AddressId').html(addresses.map(function (a) {
+                    return '<option value="' + a.id + '"' + (a.id === selectId || (!selectId && a.isDefault) ? ' selected' : '') + '>'
+                        + Admin.escapeHtml(a.label) + ' — ' + Admin.escapeHtml(a.singleLine) + (a.hasCoordinates ? '' : ' (no pin)') + '</option>';
+                }).join(''));
+            });
+        }
+
+        function presetCategory() {
+            var categoryId = new URLSearchParams(window.location.search).get('categoryId');
+            if (!categoryId) return;
+
+            App.api.get('/api/skillcategories').then(function (categories) {
+                var match = categories.filter(function (c) { return String(c.id) === categoryId; })[0];
+                if (!match) return;
+
+                $('#CategoryPicker').val(match.name);
+                $('#CategoryId').val(match.id);
+            });
+        }
+
+        $(function () {
+            loadAddresses();
+            presetCategory();
+
+            $('#post-task-add-address, #post-task-add-another').on('click', function () {
+                Admin.openAddressModal(null, function (saved) { loadAddresses(saved.id); });
+            });
+
+            $('#post-task-form').on('submit', function (event) {
+                event.preventDefault();
+
+                var data = Admin.formToJson(this);
+                if (!data.PreferredDateTime) data.PreferredDateTime = null;
+
+                App.api.post('/api/gigtasks', data).then(function (task) {
+                    showToast('Success', task.isInstant
+                        ? 'Booked at the fixed price of ' + '₹' + Math.round(task.effectiveAmount).toLocaleString('en-IN') + '. We are finding you the nearest partner now.'
+                        : 'Your task has been posted. Partners can now bid on it.', 'success');
+                    window.location.href = '@Model.SectionPath(ProfileSections.Tasks)';
+                });
+            });
+        });
+    });
+</script>

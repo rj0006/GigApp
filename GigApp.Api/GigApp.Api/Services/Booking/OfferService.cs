@@ -89,10 +89,17 @@ namespace GigApp.Api.Services.Booking
                 .Select(o => o.PartnerId)
                 .ToListAsync(ct);
 
+            var cancelledBy = await _context.TaskCancellations
+                .Where(c => c.GigTaskId == taskId)
+                .Select(c => c.PartnerId)
+                .ToListAsync(ct);
+
+            var excluded = alreadyOffered.Concat(cancelledBy).Distinct().ToList();
+
             var ranked = await _match.RankPartnersAsync(taskId, 30, ct);
 
             var next = ranked.FirstOrDefault(p =>
-                !alreadyOffered.Contains(p.PartnerId) && p.IsAvailable && !p.IsOutOfRange);
+                !excluded.Contains(p.PartnerId) && p.IsAvailable && !p.IsOutOfRange);
 
             if (next is null)
             {

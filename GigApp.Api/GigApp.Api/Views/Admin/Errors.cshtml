@@ -1,7 +1,5 @@
-@model AdminErrorLogsViewModel
 @{
     Layout = "_AdminLayout";
-    var list = Model.Logs;
 }
 
 <h1 class="h4">Error log</h1>
@@ -12,161 +10,217 @@
 
 <div class="card">
     <div class="card-body">
-        <form method="get" class="row g-2 align-items-end mb-3">
+        <div class="row g-2 align-items-end mb-3">
             <div class="col-sm-5 col-md-4">
-                <label class="form-label" for="search">Search</label>
-                <input class="form-control form-control-sm" id="search" name="search"
-                       placeholder="Reference, message or module" />
+                <label class="form-label" for="error-search">Search</label>
+                <input class="form-control form-control-sm" id="error-search" placeholder="Reference, message or module" />
             </div>
             <div class="col-auto">
                 <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="showResolved"
-                           name="showResolved" value="true" checked="@Model.ShowResolved" />
-                    <label class="form-check-label small" for="showResolved">Include resolved</label>
+                    <input class="form-check-input" type="checkbox" id="error-show-resolved" />
+                    <label class="form-check-label small" for="error-show-resolved">Include resolved</label>
                 </div>
             </div>
             <div class="col-auto">
-                <button type="submit" class="btn btn-sm btn-primary">Search</button>
+                <button type="button" id="error-search-btn" class="btn btn-sm btn-primary">Search</button>
             </div>
-        </form>
+        </div>
 
-        @if (list.TotalCount == 0)
-        {
-            <p class="text-center text-secondary py-4 mb-0">
-                Nothing logged. That is the result you want.
-            </p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>When</th><th>Reference</th><th>Where</th>
-                            <th>Message</th><th>Who</th><th class="text-end">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var log in list.Items)
-                    {
-                        <tr class="@(log.IsResolved ? "table-light" : "")">
-                            <td class="small text-secondary text-nowrap">
-                                @log.OccurredAt.ToString("dd MMM yyyy")<br />
-                                <span class="text-body-tertiary">@log.OccurredAt.ToString("HH:mm") UTC</span>
-                            </td>
-                            <td class="mono small">@log.Reference</td>
-                            <td class="small">
-                                <div>@log.Module</div>
-                                <div class="text-secondary mono">@log.RequestMethod @log.RequestPath</div>
-                            </td>
-                            <td class="small" style="max-width:26rem">
-                                <div class="fw-semibold">@log.ShortType</div>
-                                <div class="text-secondary">@log.Message</div>
-                                @if (log.IsResolved)
-                                {
-                                    <div class="mt-1">
-                                        <span class="badge text-bg-success">Resolved</span>
-                                        <span class="text-secondary">@log.ResolutionNote</span>
-                                    </div>
-                                }
-                            </td>
-                            <td class="small text-secondary">
-                                @(log.UserName ?? "anonymous")<br />
-                                <span class="mono text-body-tertiary">@log.IpAddress</span>
-                            </td>
-                            <td class="text-end">
-                                <div class="row-actions justify-end">
-                                    <button type="button" class="btn btn-sm btn-outline-primary"
-                                            data-bs-toggle="modal" data-bs-target="#error-modal-@log.Id">
-                                        Details
-                                    </button>
-                                    @if (!log.IsResolved)
-                                    {
-                                        <button type="button" class="btn btn-sm btn-outline-success"
-                                                data-bs-toggle="modal" data-bs-target="#resolve-modal-@log.Id">
-                                            Resolve
-                                        </button>
-                                    }
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
+        <div id="error-empty" class="text-center text-secondary py-4 mb-0" hidden>Nothing logged. That is the result you want.</div>
+
+        <div id="error-table-wrap" class="table-responsive" hidden>
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>When</th><th>Reference</th><th>Where</th>
+                        <th>Message</th><th>Who</th><th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="error-rows"></tbody>
+            </table>
+        </div>
+
+        <div id="error-pager" class="d-flex align-items-center gap-2 mt-3" hidden>
+            <span id="error-pager-summary" class="small text-secondary"></span>
+            <div class="btn-group btn-group-sm ms-auto">
+                <button type="button" id="error-prev" class="btn btn-outline-secondary">Previous</button>
+                <button type="button" id="error-next" class="btn btn-outline-secondary">Next</button>
             </div>
-
-            <partial name="_Pagination" model="PagerModel.From(list, Context)" />
-
-            @foreach (var log in list.Items)
-            {
-                <div class="modal fade" id="error-modal-@log.Id" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title mono">@log.Reference</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                <dl class="row small">
-                                    <dt class="col-sm-3">Type</dt>
-                                    <dd class="col-sm-9 mono">@log.ExceptionType</dd>
-                                    <dt class="col-sm-3">Module</dt>
-                                    <dd class="col-sm-9">@log.Module</dd>
-                                    <dt class="col-sm-3">Request</dt>
-                                    <dd class="col-sm-9 mono">@log.RequestMethod @log.RequestPath</dd>
-                                    <dt class="col-sm-3">User</dt>
-                                    <dd class="col-sm-9">@(log.UserName ?? "anonymous") · @log.IpAddress</dd>
-                                </dl>
-
-                                <h6 class="small fw-semibold">Message</h6>
-                                <pre class="small bg-body-tertiary p-2 rounded" style="white-space:pre-wrap">@log.Message</pre>
-
-                                @if (!string.IsNullOrWhiteSpace(log.InnerMessage))
-                                {
-                                    <h6 class="small fw-semibold">Inner exception</h6>
-                                    <pre class="small bg-body-tertiary p-2 rounded" style="white-space:pre-wrap">@log.InnerMessage</pre>
-                                }
-
-                                @if (!string.IsNullOrWhiteSpace(log.StackTrace))
-                                {
-                                    <h6 class="small fw-semibold">Stack trace</h6>
-                                    <pre class="small bg-body-tertiary p-2 rounded" style="white-space:pre-wrap">@log.StackTrace</pre>
-                                }
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                @if (!log.IsResolved)
-                {
-                    <div class="modal fade" id="resolve-modal-@log.Id" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered">
-                            <form method="post" action="/admin/errors/@log.Id/resolve" class="modal-content">
-                                @Html.AntiForgeryToken()
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Resolve @log.Reference</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body gig-form">
-                                    <label for="note-@log.Id" class="form-label">What was done</label>
-                                    <input id="note-@log.Id" name="note" class="form-control" maxlength="500"
-                                           placeholder="e.g. Fixed in the address validation" />
-                                    <div class="form-text">
-                                        The entry stays on the log; this only takes it off the open list.
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                                    <button type="submit" class="btn btn-sm btn-success">Mark resolved</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                }
-            }
-        }
+        </div>
     </div>
 </div>
+
+<div class="modal fade" id="error-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title mono" id="error-modal-reference"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="error-modal-body"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="resolve-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Resolve <span id="resolve-modal-reference"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body gig-form">
+                <label for="resolve-note" class="form-label">What was done</label>
+                <input id="resolve-note" class="form-control" maxlength="500"
+                       placeholder="e.g. Fixed in the address validation" />
+                <div class="form-text">The entry stays on the log; this only takes it off the open list.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="resolve-modal-submit" class="btn btn-sm btn-success">Mark resolved</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            var state = { page: 1, search: '', showResolved: false };
+            var lastItems = [];
+            var resolveLogId = null;
+
+            function row(log) {
+                var occurred = new Date(log.occurredAt);
+
+                var messageCell = '<div class="fw-semibold">' + Admin.escapeHtml(log.shortType) + '</div>'
+                    + '<div class="text-secondary">' + Admin.escapeHtml(log.message) + '</div>';
+
+                if (log.isResolved) {
+                    messageCell += '<div class="mt-1"><span class="badge text-bg-success">Resolved</span> '
+                        + '<span class="text-secondary">' + Admin.escapeHtml(log.resolutionNote || '') + '</span></div>';
+                }
+
+                var actions = '<button type="button" class="btn btn-sm btn-outline-primary" data-details="' + log.id + '">Details</button>';
+                if (!log.isResolved) {
+                    actions += ' <button type="button" class="btn btn-sm btn-outline-success" data-resolve="' + log.id + '">Resolve</button>';
+                }
+
+                return '<tr class="' + (log.isResolved ? 'table-light' : '') + '">'
+                    + '<td class="small text-secondary text-nowrap">'
+                    + occurred.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                    + '<br /><span class="text-body-tertiary">' + occurred.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) + ' UTC</span></td>'
+                    + '<td class="mono small">' + Admin.escapeHtml(log.reference) + '</td>'
+                    + '<td class="small"><div>' + Admin.escapeHtml(log.module || '') + '</div>'
+                    + '<div class="text-secondary mono">' + Admin.escapeHtml(log.requestMethod || '') + ' ' + Admin.escapeHtml(log.requestPath || '') + '</div></td>'
+                    + '<td class="small" style="max-width:26rem">' + messageCell + '</td>'
+                    + '<td class="small text-secondary">' + Admin.escapeHtml(log.userName || 'anonymous')
+                    + '<br /><span class="mono text-body-tertiary">' + Admin.escapeHtml(log.ipAddress || '') + '</span></td>'
+                    + '<td class="text-end"><div class="row-actions justify-end">' + actions + '</div></td>'
+                    + '</tr>';
+            }
+
+            function load() {
+                var url = '/api/errorlogs?page=' + state.page + '&pageSize=10&showResolved=' + state.showResolved
+                    + (state.search ? '&search=' + encodeURIComponent(state.search) : '');
+
+                App.api.get(url).then(function (result) {
+                    lastItems = result.items;
+
+                    $('#error-empty').prop('hidden', result.totalCount > 0);
+                    $('#error-table-wrap').prop('hidden', result.totalCount === 0);
+                    $('#error-pager').prop('hidden', result.totalCount === 0);
+
+                    $('#error-rows').html(result.items.map(row).join(''));
+
+                    $('#error-pager-summary').text(result.totalCount === 0
+                        ? ''
+                        : 'Showing ' + result.firstRow + '–' + result.lastRow + ' of ' + result.totalCount);
+
+                    $('#error-prev').prop('disabled', !result.hasPrevious);
+                    $('#error-next').prop('disabled', !result.hasNext);
+                });
+            }
+
+            function openDetails(log) {
+                $('#error-modal-reference').text(log.reference);
+
+                var html = '<dl class="row small">'
+                    + '<dt class="col-sm-3">Type</dt><dd class="col-sm-9 mono">' + Admin.escapeHtml(log.exceptionType) + '</dd>'
+                    + '<dt class="col-sm-3">Module</dt><dd class="col-sm-9">' + Admin.escapeHtml(log.module || '') + '</dd>'
+                    + '<dt class="col-sm-3">Request</dt><dd class="col-sm-9 mono">' + Admin.escapeHtml(log.requestMethod || '') + ' ' + Admin.escapeHtml(log.requestPath || '') + '</dd>'
+                    + '<dt class="col-sm-3">User</dt><dd class="col-sm-9">' + Admin.escapeHtml(log.userName || 'anonymous') + ' · ' + Admin.escapeHtml(log.ipAddress || '') + '</dd>'
+                    + '</dl>'
+                    + '<h6 class="small fw-semibold">Message</h6>'
+                    + '<pre class="small bg-body-tertiary p-2 rounded" style="white-space:pre-wrap">' + Admin.escapeHtml(log.message) + '</pre>';
+
+                if (log.innerMessage) {
+                    html += '<h6 class="small fw-semibold">Inner exception</h6>'
+                        + '<pre class="small bg-body-tertiary p-2 rounded" style="white-space:pre-wrap">' + Admin.escapeHtml(log.innerMessage) + '</pre>';
+                }
+
+                if (log.stackTrace) {
+                    html += '<h6 class="small fw-semibold">Stack trace</h6>'
+                        + '<pre class="small bg-body-tertiary p-2 rounded" style="white-space:pre-wrap">' + Admin.escapeHtml(log.stackTrace) + '</pre>';
+                }
+
+                $('#error-modal-body').html(html);
+                new bootstrap.Modal(document.getElementById('error-modal')).show();
+            }
+
+            function openResolve(log) {
+                resolveLogId = log.id;
+                $('#resolve-modal-reference').text(log.reference);
+                $('#resolve-note').val('');
+                new bootstrap.Modal(document.getElementById('resolve-modal')).show();
+            }
+
+            $(function () {
+                load();
+
+                $('#error-search-btn').on('click', function () {
+                    state.search = $('#error-search').val().trim();
+                    state.showResolved = $('#error-show-resolved').is(':checked');
+                    state.page = 1;
+                    load();
+                });
+
+                $('#error-search').on('keydown', function (event) {
+                    if (event.which === 13) {
+                        event.preventDefault();
+                        $('#error-search-btn').click();
+                    }
+                });
+
+                $('#error-prev').on('click', function () { state.page -= 1; load(); });
+                $('#error-next').on('click', function () { state.page += 1; load(); });
+
+                $('#error-rows').on('click', '[data-details]', function () {
+                    var id = $(this).data('details');
+                    var log = lastItems.filter(function (l) { return l.id === id; })[0];
+                    if (log) openDetails(log);
+                });
+
+                $('#error-rows').on('click', '[data-resolve]', function () {
+                    var id = $(this).data('resolve');
+                    var log = lastItems.filter(function (l) { return l.id === id; })[0];
+                    if (log) openResolve(log);
+                });
+
+                $('#resolve-modal-submit').on('click', function () {
+                    App.api.post('/api/errorlogs/' + resolveLogId + '/resolve', { note: $('#resolve-note').val() })
+                        .then(function (log) {
+                            bootstrap.Modal.getInstance(document.getElementById('resolve-modal')).hide();
+                            showToast('Success', log.reference + ' marked as resolved.', 'success');
+                            load();
+                        });
+                });
+            });
+        })();
+    </script>
+}

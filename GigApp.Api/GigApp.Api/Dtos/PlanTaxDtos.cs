@@ -76,6 +76,8 @@ namespace GigApp.Api.Dtos
 
     public class SaveCommissionPlanRequest
     {
+        public int? Id { get; set; }
+
         [Required, StringLength(80, MinimumLength = 2)]
         [Display(Name = "Plan name")]
         public string Name { get; set; } = string.Empty;
@@ -178,6 +180,8 @@ namespace GigApp.Api.Dtos
 
     public class SaveTaxRuleRequest
     {
+        public int? Id { get; set; }
+
         [Required, StringLength(80, MinimumLength = 2)]
         [Display(Name = "Tax name")]
         public string Name { get; set; } = string.Empty;

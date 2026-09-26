@@ -53,8 +53,8 @@ How the user wants help delivered on this project. These override default respon
 | Path | What | State |
 |---|---|---|
 | `GigApp.Api/` | ASP.NET Core 8 API + Razor portals + PostgreSQL | **Active — all real code lives here** |
-| `customer_app/` | Flutter | Untouched template |
-| `provider_app/` | Flutter | Untouched template |
+| `customer_app/` | Flutter | Sign-in and a read-only "My tasks" list — see "Not done yet" |
+| `provider_app/` | Flutter | Sectioned app (Home / Orders / Wallet / Profile) — see "Not done yet" |
 | `admin_panel/` | Flutter | Untouched template — **slated for deletion**, replaced by the Razor `/admin` portal |
 
 Not a git repository yet.
@@ -83,17 +83,90 @@ refused is a second account with the same role.
   before the password is right, so this does not leak which accounts exist.
 - `admin` and `superadmin` are separate role values, so in theory one phone could hold both. There is
   no public admin registration, and promotion mutates the existing row, so it cannot happen by accident.
+- Every phone/email uniqueness check anywhere in the app must filter by `Role` — `ProfileService.UpdateAsync`
+  didn't, and a person holding two roles on the same phone was refused when saving their own Details on
+  either one, since it matched the other role's row on plain phone equality. Fixed by adding `Role`
+  to the check; watch for the same gap before writing a new one.
 
 **Phone is the primary identifier, email is optional.** `User.Email` is nullable and uniquely indexed
 (Postgres allows many NULLs). Login accepts either — `LoginRequest.Identifier` is routed by whether it
-contains `@`. This shape exists because **phone/OTP verification is the planned direction**; `User` already
-carries `IsPhoneVerified` / `PhoneVerifiedAt`, currently set by the dev seeder and enforced nowhere.
-When OTP lands, gate login and task acceptance on `IsPhoneVerified` and make password optional.
+contains `@`. This shape exists because phone/OTP verification was always the planned direction, and
+it has now landed for the customer and partner portals — see below.
+
+**Mobile OTP is the default sign-in for Customer and Partner; password is a fallback, not a second
+front door.** `AuthSettings` (one row, edited by a super admin at `/admin/settings/auth`) holds
+`CustomerLoginMode`/`PartnerLoginMode`, each `password` or `otp`, defaulting to `otp`; admin always
+stays password-only. `AuthService`'s password path is completely untouched — OTP is an additive
+second way in, `AuthService.LoginWithOtpAsync`, that skips the password check entirely for a
+phone+role that already has an account. `IOtpService` (`OtpChallenge`: hashed 6-digit code,
+5-minute validity, 5 attempts) issues and checks the code; `IOtpSender` is the send channel,
+following the exact same pluggable-channel shape as `INotificationChannel` — today's
+`LoggingOtpSender` just logs it (and hands it back in the response when `IsDevelopment()`), and
+wiring a real SMS provider later means registering a different `IOtpSender`, nothing else. Each
+concrete SMS provider (Twilio, MSG91, TextLocal, ...) has its own credential shape, so making the
+provider and its credentials admin-configurable — rather than one fixed config block — is unbuilt,
+scoped work, not a small addition.
+
+- **There is exactly one entry point per portal, never a separate "register" link.** A known number
+  signs in; an unknown customer number is asked for a name on the same screen and goes through the
+  ordinary `AuthService.RegisterCustomerAsync` with a random password the user never sees; an
+  unknown partner number is sent into the existing `/provider/register` KYC form with phone
+  pre-filled and locked and the password fields hidden (still generated and posted, so that form's
+  validation is untouched) — OTP replaces the password there, never the KYC review. Nothing in the
+  UI should ever link to a classic Register page as an alternative to Login — `_ShopHeader`,
+  `_ShopLayout`'s footer and `Checkout.cshtml` each had two links/buttons for this and now have one.
+- **Password stays reachable, deliberately, through "More options" on the code step** — some users
+  will always prefer it, and admin needs a password-only mode it can switch either portal back to.
+  "More options" opens a small modal (`#otp-more-options` in `_OtpAuthForm.cshtml`, matching the
+  Uber/Microsoft "choose another way to sign in" pattern) rather than navigating away; picking
+  "Sign in with password" swaps in a third inline step of the same card, carrying the phone number
+  already entered, and posts through the same `data-login-form`/`wireLoginForm` every classic
+  login page uses. The modal lists exactly one entry today — real SMS/WhatsApp/email OTP delivery
+  is not built, so there is nothing else to offer yet; adding one later is a new modal row plus its
+  own step, not a redesign. Nothing links to the classic Login/Register pages except the modal
+  trigger's own `href` (a plain fallback if Bootstrap's JS has not loaded), and
+  `CustomerController.Register`'s GET redirects to `/customer/login` whenever
+  `CustomerLoginMode == otp`, so a stale bookmark cannot resurrect the two-page split.
+- A successful OTP sets `IsPhoneVerified`/`PhoneVerifiedAt` — this is the moment those columns
+  stopped being seeder-only and dead everywhere else.
+- **`api/auth/otp/request`/`otp/verify` are the mobile-facing counterpart of the portals' own OTP
+  actions.** The portal ones call `SignInJsonAsync`, which sets the HttpOnly cookie and returns
+  `{redirectTo}` — useless to a client with no cookie jar. These two on `AuthController` take an
+  explicit `Role` in the body (the portal knows its own `RequiredRole`; a generic API controller
+  does not) and return the same `AuthResponse` shape `api/auth/login` does, or
+  `{requiresPartnerRegistration:true}` for an unknown partner number, so a mobile client knows to
+  route into registration instead of treating it as a failure. Both call straight into the same
+  `IOtpService` the portals use — no OTP logic exists twice.
 
 **JWT is the single source of truth for auth.** One `AuthService` issues tokens for every client.
 Mobile apps send `Authorization: Bearer`; the Razor portals park the same JWT in an HttpOnly cookie
 (`gigapp_token`) that `JwtBearerEvents.OnMessageReceived` reads. There is deliberately **no separate
 cookie/session auth scheme** — do not add ASP.NET Identity or `AddCookie` alongside this.
+
+**The JWT is short-lived; a rotating refresh token is what keeps anyone signed in past that.**
+`Jwt:ExpiryMinutes` is 60. Every login, registration and OTP verify also issues a refresh token
+(`RefreshTokenService`, `RefreshTokens` table) good for `Jwt:RefreshTokenExpiryDays` (30) of activity
+— `AuthResponse.RefreshToken`/`RefreshExpiresAtUtc` carry it alongside the JWT. **Redeeming one is
+single-use**: `RedeemAsync` revokes the token it was given and issues a brand new one in the same
+call, so a captured-and-replayed old token stops working the instant the real device redeems its own
+copy — there is no window where both the original and a thief's copy are simultaneously valid.
+Mobile clients call `POST api/auth/refresh` themselves; the Razor portals never see either token
+value — `gigapp_token` and a second cookie, `gigapp_refresh`, are both HttpOnly, and `global.js`'s
+`wireSessionRefresh` silently calls the shared `POST /{portal}/refresh-session` every 20 minutes to
+renew both before the short-lived one expires. **Signing out revokes the refresh token itself**,
+not just the two cookies — `PortalControllerBase.ClearAuthCookieAsync` reads the raw refresh cookie
+and revokes that exact row before deleting anything, so a stolen copy cannot outlive a logout.
+**Manage devices** (a profile section, every role) is this same table read the other way — each row
+is one device, human-labelled from its User-Agent (`DeviceLabel.FromUserAgent`), revocable
+individually or all-at-once from `api/devices`.
+
+**Login, registration and OTP are rate-limited, not just correct.** Two named policies in
+`Program.cs` (`RateLimiterPolicies.Auth` — 10/minute, `.OtpRequest` — 3/5 minutes, both keyed by
+client IP): the tighter one exists because requesting an OTP is what will eventually cost a real SMS
+once a provider is wired in, so it is deliberately harder to hammer than a login attempt. A
+rate-limited request gets the same `{title, status}` JSON shape as every other error, via a shared
+`OnRejected` handler — no special-casing needed on the client. Add `[EnableRateLimiting(...)]` to
+any new endpoint that accepts unauthenticated, attacker-reachable input.
 
 **No public admin registration.** `AuthController` exposes `register/customer` and `register/partner`
 only. Admins are seeded or promoted by an existing admin. `/admin` is login-only by design.
@@ -111,11 +184,17 @@ A `ServiceItem` with `AllowsInstantBooking` and a `BasePayout` above zero books 
 everything else books as `bidding`. Nothing else sets the mode, and the customer cannot choose it.
 
 - **Instant** is a fixed price. Both `Budget` and `AgreedAmount` are set from `BasePayout` at
-  booking, the posted amount is ignored, bidding is refused, and the first approved partner in that
-  category claims it. `ITaskClaimService.ClaimAsync` is the only claim path — the same conditional
-  `ExecuteUpdateAsync` lock as before, extended with `BookingMode = instant` so a bidding task can
-  never be grabbed this way.
-- **Bidding** is unchanged: partners quote, the customer accepts one.
+  booking, the posted amount is ignored, bidding is refused, and the first approved, **on-duty**
+  partner in that category claims it. `ITaskClaimService.ClaimAsync` is the only claim path — the
+  same conditional `ExecuteUpdateAsync` lock as before, extended with `BookingMode = instant` so a
+  bidding task can never be grabbed this way. Only the partner's own direct claim checks
+  `IsAvailable` this way — the admin's manual `AssignAsync` override does not, on purpose.
+- **Bidding** is unchanged: partners quote, the customer accepts one. Placing a bid
+  (`BidService.PlaceAsync`) checks `IsAvailable` the same way `ClaimAsync` does — an off-duty partner
+  cannot start a new negotiation, though one already underway (`AcceptCounterAsync`) is not re-checked.
+  A customer may view any partner who has bid on one of their tasks, not only a partner already
+  assigned to one — `PartnersController.MayViewPartnerAsync` checks `TaskBids` for exactly this,
+  since deciding whom to accept means seeing the bidder's profile first.
 - **Assignment is automatic for a fixed price.** `IOfferService` offers the job to the best-ranked
   partner for `Platform:OfferWindowSeconds`, then the next, and opens it to everyone when the chain
   runs out. `IMatchService.RankPartnersAsync` does the scoring — distance 60%, rating 40%.
@@ -125,7 +204,16 @@ everything else books as `bidding`. Nothing else sets the mode, and the customer
   strand a customer. Passing carries no penalty, by design — punish declining and partners stop
   answering at all.
 - **Support can still assign by hand.** `ITaskClaimService.AssignAsync` records the choice with a
-  required note and closes any open bids. `/admin/tasks` shows the same ranked shortlist.
+  required note and closes any open bids. `/admin/tasks` shows the same ranked shortlist, and
+  `AssignAsync` accepts a `cancelled` task exactly like a `pending` one — the same "Assign" button
+  reads "Reassign" and notifies the newly assigned partner as well as the customer.
+- **A partner cancelling an accepted job reopens it, excluding only that partner.**
+  `ProviderController.UpdateStatus` special-cases `status == cancelled`: it clears `PartnerId`, puts
+  the task back to `pending`, restarts the offer chain for an instant job, and notifies the customer
+  and every admin. `TaskCancellations(GigTaskId, PartnerId, Reason, CancelledAt)` is the exclusion
+  list — `OfferService.StartAsync`, `TaskClaimService.ClaimAsync` and the partner's own
+  available-tasks query all check it, so the job never resurfaces for the partner who dropped it,
+  but an admin can still reassign it to them by hand.
 
 **A rating is one row per side per task, and the average is a cache on `User`.** `TaskRatings` is
 unique on `(GigTaskId, RaterRole)`, so neither side rates twice and neither can revise. The partner
@@ -157,17 +245,86 @@ carries a unique `IdempotencyKey`, which is what stops a repeated completion or 
 from paying twice. `Amount > 0` is a check constraint; the direction carries the sign.
 
 **A notification is a row plus zero or more channels.** `INotificationService.PushAsync` writes to
-`Notifications` and hands the same request to every registered `INotificationChannel`. In-app is the
-only one that exists — SMS needs DLT registration and push needs Firebase and the Flutter apps — so
-adding either means registering a channel and changing nothing that raises a notification. A channel
-that throws is logged and skipped: a provider being down must not roll back the thing it was
-announcing. The bell is filled once in `PortalControllerBase.OnActionExecutionAsync`, so a portal
-that overrides it **must** call the base or the bell goes dark.
+`Notifications` and hands the same request to every registered `INotificationChannel`. In-app
+(direct DB read) and `SignalRNotificationChannel` (live push, below) both exist — SMS still needs
+DLT registration and push needs Firebase and the Flutter apps — so adding either means registering
+a channel and changing nothing that raises a notification. A channel that throws is logged and
+skipped: a provider being down must not roll back the thing it was announcing. The bell is filled
+once in `PortalControllerBase.OnActionExecutionAsync` for first paint, and kept live afterwards by
+the SignalR layer below. `GET api/notifications/summary`, `GET api/notifications` (paged) and
+`POST api/notifications/read` exist purely for a client with no Razor first paint — the mobile app.
+
+**Real-time updates go over one SignalR hub, `/hubs/app`, never polling.** A page that needs to stay
+live re-runs its own already-written `load()` function when told to, rather than the server pushing
+data — `AppHub` only ever sends a **topic string** (e.g. `"tasks"`) over a `"refresh"` event, plus a
+`"notification"` event for the bell. This keeps the wire surface to two events total instead of a
+typed DTO per feature. `App.realtime.on('topic', handler)` in `global.js` is the client-side
+subscription point; a page wires it with one line — `App.realtime.on('tasks', load);` — right after
+its own initial `load()` call, so the exact same render path handles both first paint and every
+live refresh. Connections join groups in `AppHub.OnConnectedAsync`, looked up fresh from the DB
+every time (no caching): `user-{userId}` (personal), `category-{categoryId}-partners` (job-board
+liveness for a partner's own skill), and the constant `admins`. `IRealtimeNotifier` is the only way
+a service broadcasts — `NotifyUserAsync`/`NotifyCategoryPartnersAsync`/`NotifyAdminsAsync` for the
+"refresh" topic, `PushNotificationAsync` for the bell toast, called from `TaskClaimService`,
+`GigTasksController` and `BidService` at every point a task or bid changes.
+**The hub authenticates mobile exactly like it authenticates the browser.** `JwtBearerEvents.OnMessageReceived`
+reads `access_token` off the query string for any path under `/hubs`, because a WebSocket upgrade
+cannot carry a custom `Authorization` header — this is the same JWT the cookie carries for the web
+portals, so a future Flutter client points its own `AccessTokenProvider` at the same bearer token
+and the hub needs no separate mobile-facing work.
 
 **Unhandled errors get a reference, never a stack trace.** `GlobalExceptionFilter` writes one
 `ErrorLogs` row and hands the user a code such as `E260906-A3F91C`. `ErrorLogService` saves through
 **its own DbContext scope** — the request context is usually the thing that just failed, and a
 rolled-back transaction cannot save anything more.
+
+**Every portal has moved from server-rendered Razor to JSON API + page JS — Admin, Provider's
+dashboard and its own profile sections, the profile sections every portal shares, Customer's own
+sections, Provider's Register, every portal's Login/OTP screens, and the storefront's cart and
+checkout.** See
+[docs/REUSABLE.md](docs/REUSABLE.md) for the concrete
+shape: a thin `View()` action with no ViewModel, one API controller per feature whose `Save`/create
+endpoints branch on whether an id was posted, and the view's own data-fetch/render/submit logic
+written **inline** in that view's `@section Scripts` block — not a separate `.js` file per page.
+`App.api` (the fetch wrapper) and the `Admin` namespace (`escapeHtml`, `thumb`, `showImagePreview`,
+`showFormErrors`, `formToJson`, `openKycModal`, `openAccountModal`, `openAddressModal`) live in
+`wwwroot/js/global.js`, since they're shared by every page's inline script — despite the name, it is loaded by every
+portal's layout and is not admin-only. `_KycModal`/`_AccountModal` are static, id-based partials
+included once per page and populated by those two helpers — not one modal per table row;
+`Tasks.cshtml`'s assign dialog and Provider's `Index.cshtml` bid/complete/cancel dialogs follow the
+same one-shared-modal shape, fetching or ranking only when an admin or partner actually opens one
+rather than doing it for every row on every page load. `GET api/partners/me/dashboard` composes the
+whole Provider dashboard in one call, the same way `GET api/earnings/{partnerId}` composes the whole
+payout ledger page. **`PUT api/gigtasks/{id}/status` is the one place a task's status changes for
+every caller, web or mobile** — the partner-cancellation-reopens-job rule lived only in the old Razor
+action until this pass moved it into the shared API action itself, which is now non-negotiable: any
+new status-changing UI must go through this endpoint, never re-implement the transition rules
+locally. **A Razor partial nested inside another partial cannot use `@section Scripts`** — the
+layout only picks up sections declared by the top-level view, so a partial's own inline `<script>`
+must defer with `document.addEventListener('DOMContentLoaded', ...)` rather than an
+immediately-invoked function, or it runs before jQuery has loaded. A partial shared across
+**multiple top-level views** has the same problem even when each of those views is itself top-level
+— `_LoginCard`, `_OtpAuthForm`, `_ServiceCard` and `_QuantityStepper` are all reused by several
+different pages, so their wiring lives centrally in `global.js` (`wireLoginForm`, `wireOtpAuthForm`,
+`wireCartControls`), driven by `data-` attributes on otherwise-static markup, rather than as inline
+scripts that would have to be duplicated in every page that includes them. **Check `api/profile`,
+`api/auth` and the other cross-portal API controllers before writing anything new** — most of the
+shared profile sections, all of Customer's own sections, and Provider's Register converted with
+zero or near-zero new endpoints, because the mobile-facing API already had them; Order history and
+`api/cart` were the genuinely new pieces. `_AddressForm` and `_AddAddressModal` are now a static
+shell shared by My addresses and Post-a-task's inline "add another address", driven by one
+`Admin.openAddressModal(address, onSaved)` helper. **A login or registration POST that must issue
+the auth cookie stays on the portal MVC controller, never `api/auth` directly** — `IssueAuthCookie`
+needs `Response.Cookies`, which only the portal controller instance has; `SignInJsonAsync` on
+`PortalControllerBase` is the fetch-friendly counterpart to the older `SignInAsync`, returning a
+JSON error instead of re-rendering a view. **JSON model binding does not convert `""` to `null` the
+way form binding does** — an optional string field with `[StringLength(MinimumLength = ...)]` that
+moves from a classic form post to `[FromBody]` JSON must have its client send `null`, not an empty
+string, for a blank value, or validation fails where the old form post silently passed. **The public
+storefront is the one exception to the pattern**: `/services` and friends keep rendering full HTML
+on the first request — that page exists specifically so Google can index it (see above), so only
+what happens *after* that first paint (cart, checkout) moves to the API+JS pattern, via `api/cart`
+and `ShopController.PlaceOrder`, never the initial render.
 
 **The admin sidebar is a master, not markup.** `MenuItems` drives it, managed at
 `/admin/masters/menu` by a super admin only. A row with no controller, action or URL is a group
@@ -179,10 +336,10 @@ to compute — adding one means a `MenuBadgeKeys` constant and a line in `_Admin
 **Profile is a section shell, not one page.** `/{portal}/profile` renders `_ProfileBody`, which draws
 the left menu and switches on `ProfilePageViewModel.Section`. Sections: Profile, Post a task and My
 tasks (customers only), Order history, Account details (bank), My addresses, My earnings and KYC
-(both partners only), Manage devices (disabled — no session table to revoke against yet) and
-Settings, which is where password change lives. Adding one means a `ProfileSections` constant, a row
-in the menu list, a partial, and a `GET` on `PortalControllerBase`. A portal supplies extra data by
-overriding `LoadProfileExtrasAsync` — that is how the partner portal adds its KYC and the customer
+(both partners only), Manage devices — every role's own live sessions, backed by `RefreshTokens` —
+and Settings, which is where password change lives. Adding one means a `ProfileSections` constant, a
+row in the menu list, a partial, and a `GET` on `PortalControllerBase`. A portal supplies extra data
+by overriding `LoadProfileExtrasAsync` — that is how the partner portal adds its KYC and the customer
 portal adds its booking form. `SectionApplies` is the one place that decides which role sees what.
 
 **`/` is a public storefront with a guest cart.** `ShopController` is `[AllowAnonymous]` — browsing,
@@ -190,9 +347,14 @@ adding to the cart and changing quantity all work signed out, and only placing t
 account. A service item appears there only when it is active, its category is active,
 `AllowsInstantBooking` is set **and** `BasePayout` is above zero; anything else has no price to show.
 
-- **The cart holds ids and quantities, never prices.** It lives in session (`gigapp_cart`), and
-  `ICartService.PriceAsync` looks every price up again, so a tampered cart cannot change a total. A
-  line whose service was deactivated is dropped rather than failing the checkout.
+- **The cart holds ids and quantities, never prices.** A guest's cart lives in session
+  (`gigapp_cart`) only; `ICartService.PriceAsync` looks every price up again, so a tampered cart
+  cannot change a total. A line whose service was deactivated is dropped rather than failing the
+  checkout.
+- **Signed in as a customer, the cart also persists to `CartItem(CustomerId, ServiceItemId, Quantity)`.**
+  Every `AddAsync`/`SetQuantityAsync` mirrors into it; `MergeIntoAccountAsync` folds the session cart
+  into whatever the customer already had stored the moment they sign in, via the `onSuccess` hook on
+  `PortalControllerBase.SignInAsync`. A guest who never logs in only ever has the session copy.
 - **Checkout creates one task per cart line**, at the catalogue price, as `BookingMode = instant`,
   with `GigTask.Quantity` carrying the units so three of something stays one visit for one partner.
   Each line then enters the offer chain on its own, because lines can be different trades.
@@ -206,10 +368,11 @@ Outside its window a banner is simply not rendered, and a section with nothing i
 heading rather than leaving an empty strip. The hero statistics stay hidden until there are five
 ratings or twenty completed jobs, because a real number that small reads worse than none.
 
-**The customer home page is a catalogue; the work lives in the profile.** `/customer` lists active
-categories as image tiles and does nothing else — a tile links to the booking form with that category
-preselected. Posting, tracking and history are profile sections, so every task action redirects into
-the profile rather than back to the catalogue.
+**`/services` is the only customer home page; the work lives in the profile.** There is no separate
+`/customer` dashboard — `CustomerController.DashboardPath` overrides the base to `/services`, so login,
+registration and the portal-home brand link all land on the storefront. `GET /customer` still exists
+only as a redirect, for old bookmarks. Posting, tracking and history are profile sections, so every
+task action redirects into the profile rather than back to the storefront.
 
 - **My tasks is live work only**; completed and cancelled rows belong to Order history. The two lists
   never overlap.
@@ -292,6 +455,19 @@ on purpose; never reintroduce one.
   anywhere. `GetOptionsIncludingAsync` additionally returns the currently-selected one, so a partner sitting
   on a deactivated category still sees it in their own edit form.
 - Servers validate the id on every write — never trust the posted category.
+- **`GET api/skillcategories` (the active-list action, not `/all`) is `[AllowAnonymous]`.** It only
+  ever returns `{id, name}` for active categories — the same names the public storefront and the
+  anonymous `/provider/register` page already show anyone, signed in or not — so this exposes
+  nothing new. It exists so a mobile client with no anonymous Razor page to server-render options
+  into (unlike the web KYC form) can still populate a skill picker before the visitor has an
+  account. Every other action on the controller stays behind `[Authorize]`.
+- **`ServiceItemsController` is plain `[Authorize]` at the class level, not admin-only.** A signed-in
+  customer needs to browse real bookable items before posting a task, same as any other authenticated
+  caller — only the write actions (`GetById`, `Save`, `Toggle`, `Delete`) keep their own
+  `[Authorize(Policy = Policies.AdminOnly)]`, the same class-plain-plus-per-action-override shape
+  `PartnersController` already used. `GET api/serviceitems/bookable?categoryId=` is the read a mobile
+  client actually wants: only `IsActive` items in that category, never trusting a client-supplied
+  `showInactive` the way the admin list does.
 
 ## Commands
 
@@ -315,6 +491,19 @@ dotnet ef database update --project GigApp.Api/GigApp.Api/GigApp.Api.csproj
 
 `dotnet ef` with `--no-build` uses a stale assembly and will silently skip a
 just-added migration. Always let it build.
+
+**`dotnet run` leaves the process alive after the terminal that started it closes** — closing a
+terminal tab, or a Claude Code session ending, does not send it Ctrl+C. The next `dotnet run` then
+fails with `Failed to bind to address http://127.0.0.1:5245: address already in use`, because the
+old instance is still holding the port. Before starting the server, always free the port first:
+
+```powershell
+Get-NetTCPConnection -LocalPort 5245 -ErrorAction SilentlyContinue |
+    ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
+```
+
+This is more reliable than `Stop-Process -Name GigApp.Api`, which misses the parent `dotnet` process
+when the app was launched via `dotnet run` rather than the built `.exe` directly.
 
 Postgres 18 runs locally as a service; `psql` is at `C:\Program Files\PostgreSQL\18\bin\psql.exe`
 (not on PATH). Database `gigapp_db`.
@@ -396,9 +585,54 @@ button name and value forward so multi-button forms still work.
 
 ## Not done yet
 
-- Phone/OTP verification (structure is ready; SMS provider and challenge table are not)
-- Refresh tokens — JWTs currently last 7 days because mobile cannot re-auth silently
-- Rate limiting on login and registration
+- A real SMS provider for OTP — `IOtpSender`/`OtpChallenge` are built and working, `LoggingOtpSender`
+  just logs the code instead of texting it (DLT registration is the long-lead item ahead of this).
+  Making the provider and its credentials admin-configurable (rather than one hardcoded `IOtpSender`)
+  is a separate, real piece of work — providers don't share a credential shape, so it needs a
+  provider picker plus per-provider fields, not one fixed settings form.
 - `Jwt:Key` and the DB password are in config files; production must supply `Jwt__Key` via environment
-- The three Flutter apps have not been started
-- `IsAvailable` does not currently gate task acceptance (only an approved KYC does)
+- **`provider_app`** covers the working-partner loop end to end and is organised as a sectioned app
+  — a bottom nav for the two screens opened constantly, a drawer for the rest: **Home** (greeting,
+  duty toggle, two stat cards, a tap-through into Orders), **Orders** (three tabs — Available work /
+  My bids / My jobs, the last filterable into Active/Completed/Cancelled — carrying every mutation:
+  place/change/withdraw a bid, accept a counter, accept a fixed-price task,
+  start/complete-with-rating/cancel a job), **Wallet** (balance, this-month/jobs-paid/commission
+  stats, a paged transaction list) and **Profile** (identity with an edit option, KYC badge, bank
+  account view/edit, change password, sign out). A bell in the AppBar opens **Notifications**
+  (unread badge, paged list, mark-read) off the same `api/notifications/*` endpoints the web bell
+  uses. A `RealtimeClient` connects to the same `/hubs/app` SignalR hub web uses — a `"tasks"`
+  refresh live-updates the dashboard, a `"notification"` push shows a toast — so a partner sees a new
+  job or a KYC decision without pulling to refresh, as long as the app is open (a fully closed app
+  needs Firebase to be woken up at all; see [docs/IMPLEMENTATION-LOG.md](docs/IMPLEMENTATION-LOG.md)
+  for why that is an OS constraint, not a missing feature, and is deliberately not built yet).
+  **An unverified partner (`pending`/`rejected` KYC) sees nothing but a `KycStatusScreen`** — status,
+  rejection reason, a resubmit form, sign out — the shell never builds the drawer or bottom nav at
+  all in that state. This is stricter than the web portal, which keeps "My jobs" visible for an
+  unverified partner so a mid-booking skill change can't strand a customer; mobile has no such
+  exception, by explicit request. Sign-in covers OTP, password fallback, session restore and
+  refresh-on-401; partner KYC registration handles an unknown number. Profile's Settings also has
+  **Service area** (base location via GPS or typed city/pincode, plus travel radius — `geolocator`,
+  not a map picker) and **Manage devices** (list, revoke one, "sign out others" — the last needed a
+  small backend fix, `DevicesController` now accepts an `X-Refresh-Token` header as the mobile
+  equivalent of the web's `gigapp_refresh` cookie for identifying "this device", since without it a
+  mobile "sign out others" would have signed itself out too). **Home** also shows the personal
+  first-refusal **offer widget** — a live countdown card with Accept/Pass, off the same `Offer`
+  field `GET api/partners/me/dashboard` already returned. Every one of these — including Wallet,
+  Notifications, profile editing, service area and devices — calls an endpoint the web portals
+  already had, bar that one small devices header. Not built yet: real push notifications for a
+  fully closed app (needs a Firebase project — see
+  [docs/IMPLEMENTATION-LOG.md](docs/IMPLEMENTATION-LOG.md) for why that's an OS constraint the app
+  can't route around) — see [docs/REUSABLE.md](docs/REUSABLE.md) for the pattern the next slice
+  follows.
+- **`customer_app` now covers the full booking loop**, same clean-architecture shape as
+  `provider_app`: sign-in (OTP with inline name for a new account, password fallback, session
+  restore), posting a task (category → real bookable item via the new `GET
+  api/serviceitems/bookable` → address → submit), a three-tab Active/Completed/Cancelled order
+  history with rate-partner, raise-help and cancel actions, live SignalR updates and in-app
+  notifications, and every profile section — edit profile, bank account, addresses (CRUD +
+  set-default), manage devices, change password. `provider_app`'s notification/device/realtime
+  layer and profile dialogs were copied over unchanged, confirming that shape is portal-agnostic.
+  Not built yet: Firebase push notifications for when the app is fully closed (deferred pending the
+  user's own Firebase account setup).
+- `admin_panel` stays the untouched `flutter create` template permanently — it is slated for
+  deletion, replaced by the Razor `/admin` portal.

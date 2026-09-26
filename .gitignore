@@ -36,3 +36,15 @@ GigApp.Api/GigApp.Api/wwwroot/uploads/
 *.log
 .DS_Store
 Thumbs.db
+
+# --------------------------------------------------------- local scratch work
+# Build output, debug scratch and phone-verification artifacts from local
+# development — regeneratable, and some (the APKs) are past GitHub's 100MB
+# per-file limit on their own.
+*.apk
+/javatest/
+/looptest*.ps1
+/phone_*.png
+/verify*.png
+/scratch_*.json
+/ui*.xml

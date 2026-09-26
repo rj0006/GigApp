@@ -1,204 +1,274 @@
-@model AdminTasksViewModel
 @{
     Layout = "_AdminLayout";
-    var list = Model.Tasks;
 }
 
 <h1 class="h4">Tasks</h1>
-<p class="text-secondary small"><strong>@list.TotalCount</strong> task(s) in total.</p>
+<p class="text-secondary small"><strong id="task-count">0</strong> task(s) in total.</p>
 
 <div class="card">
     <div class="card-body">
-        <form method="get" class="row g-2 align-items-end mb-3">
+        <div class="row g-2 align-items-end mb-3">
             <div class="col-sm-4 col-md-3">
-                <label class="form-label" for="search">Search</label>
-                <input class="form-control form-control-sm" id="search" name="search"
-                       value="@list.Search" placeholder="Description or address" />
+                <label class="form-label" for="task-search">Search</label>
+                <input class="form-control form-control-sm" id="task-search" placeholder="Description or address" />
             </div>
             <div class="col-sm-3 col-md-2">
-                <label class="form-label" for="status">Status</label>
-                <select class="form-select form-select-sm" id="status" name="status">
-                    <option value="" selected="@string.IsNullOrEmpty(Model.StatusFilter)">All</option>
+                <label class="form-label" for="task-status">Status</label>
+                <select class="form-select form-select-sm" id="task-status">
+                    <option value="">All</option>
                     @foreach (var status in GigTaskStatus.All)
                     {
-                        <option value="@status" selected="@(Model.StatusFilter == status)">
-                            @status.Replace('_', ' ')
-                        </option>
+                        <option value="@status">@status.Replace('_', ' ')</option>
                     }
                 </select>
             </div>
             <div class="col-sm-3 col-md-3">
-                <label class="form-label" for="categoryId">Category</label>
-                <select class="form-select form-select-sm" id="categoryId" name="categoryId">
-                    <option value="" selected="@(Model.CategoryFilter is null)">All</option>
-                    @foreach (var option in Model.Categories)
-                    {
-                        <option value="@option.Id" selected="@(Model.CategoryFilter == option.Id)">@option.Name</option>
-                    }
+                <label class="form-label" for="task-category">Category</label>
+                <select class="form-select form-select-sm" id="task-category">
+                    <option value="">All</option>
                 </select>
             </div>
             <div class="col-auto">
-                <button type="submit" class="btn btn-sm btn-primary">Filter</button>
-                <a class="btn btn-sm btn-outline-secondary" href="/admin/tasks">Reset</a>
+                <button type="button" id="task-filter-btn" class="btn btn-sm btn-primary">Filter</button>
+                <button type="button" id="task-filter-reset" class="btn btn-sm btn-outline-secondary">Reset</button>
             </div>
-        </form>
+        </div>
 
-        @if (list.TotalCount == 0)
-        {
-            <p class="text-center text-secondary py-4 mb-0">No tasks match this filter.</p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>#</th><th>Category</th><th>Description</th><th>Address</th>
-                            <th>Customer</th><th>Partner</th><th>Amount</th><th>Status</th><th>Created</th>
-                            <th class="text-end"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var task in list.Items)
-                    {
-                        <tr>
-                            <td class="text-secondary">@task.Id</td>
-                            <td>
-                                <span class="badge text-bg-light border">@task.CategoryName</span>
-                                @if (task.IsInstant)
-                                {
-                                    <span class="badge text-bg-success">Fixed price</span>
-                                }
-                                @if (task.Urgency != TaskUrgency.Normal)
-                                {
-                                    <div class="mt-1">
-                                        <span class="badge @task.UrgencyBadgeClass">@task.UrgencyLabel</span>
-                                    </div>
-                                }
-                            </td>
-                            <td class="small">@task.Description</td>
-                            <td class="small text-secondary">@task.Address</td>
-                            <td>@(task.CustomerName ?? "—")</td>
-                            <td>
-                                @(task.PartnerName ?? "—")
-                                @if (task.AssignedAt is not null)
-                                {
-                                    <div class="small text-secondary" style="max-width:16rem">
-                                        Assigned by @(task.AssignedByName ?? "support")
-                                        on @task.AssignedAt.Value.ToString("dd MMM yyyy")
-                                        <div class="fst-italic">@task.AssignmentNote</div>
-                                    </div>
-                                }
-                            </td>
-                            <td>₹@task.EffectiveAmount.ToString("N0")</td>
-                            <td><span class="badge badge-@task.Status text-white">@task.StatusLabel</span></td>
-                            <td class="small text-secondary">@task.CreatedAt.ToString("dd MMM, HH:mm")</td>
-                            <td class="text-end">
-                                @if (task.Status == GigTaskStatus.Pending)
-                                {
-                                    <button type="button" class="btn btn-sm btn-outline-primary"
-                                            data-bs-toggle="modal" data-bs-target="#assign-modal-@task.Id">
-                                        Assign
-                                    </button>
-                                }
-                            </td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
+        <div id="task-empty" class="text-center text-secondary py-4 mb-0" hidden>No tasks match this filter.</div>
+
+        <div id="task-table-wrap" class="table-responsive" hidden>
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th><th>Category</th><th>Description</th><th>Address</th>
+                        <th>Customer</th><th>Partner</th><th>Amount</th><th>Status</th><th>Created</th>
+                        <th class="text-end"></th>
+                    </tr>
+                </thead>
+                <tbody id="task-rows"></tbody>
+            </table>
+        </div>
+
+        <div id="task-pager" class="d-flex align-items-center gap-2 mt-3" hidden>
+            <span id="task-pager-summary" class="small text-secondary"></span>
+            <div class="btn-group btn-group-sm ms-auto">
+                <button type="button" id="task-prev" class="btn btn-outline-secondary">Previous</button>
+                <button type="button" id="task-next" class="btn btn-outline-secondary">Next</button>
             </div>
-
-            <partial name="_Pagination" model="PagerModel.From(list, Context)" />
-
-            @foreach (var task in list.Items.Where(t => t.Status == GigTaskStatus.Pending))
-            {
-                <div class="modal fade" id="assign-modal-@task.Id" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered">
-                        <form method="post" asp-action="AssignTask" asp-route-id="@task.Id" class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Assign task #@task.Id</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body gig-form">
-                                <p class="small text-secondary mb-3">
-                                    @task.Description<br />
-                                    <span class="text-body">@task.Address</span> ·
-                                    @task.CategoryName · <strong>₹@task.EffectiveAmount.ToString("N0")</strong>
-                                </p>
-                                @{ var ranked = Model.SuggestionsFor(task.Id); }
-
-                                @if (ranked.Count > 0)
-                                {
-                                    <div class="mb-3">
-                                        <label class="form-label">Best matches</label>
-                                        <div class="list-group match-list">
-                                            @foreach (var match in ranked)
-                                            {
-                                                <label class="list-group-item d-flex align-items-center gap-2">
-                                                    <input class="form-check-input m-0" type="radio"
-                                                           name="partnerId" value="@match.PartnerId" required />
-                                                    <span class="flex-grow-1">
-                                                        <span class="fw-semibold">@match.Name</span>
-                                                        <span class="mono small text-secondary">@match.Phone</span>
-                                                        <span class="d-block small">
-                                                            <partial name="_Stars" model="match.RoundedRating" />
-                                                            @if (match.RatingCount > 0)
-                                                            {
-                                                                <span class="text-secondary">@match.AverageRating!.Value.ToString("0.0") · @match.RatingCount</span>
-                                                            }
-                                                            else
-                                                            {
-                                                                <span class="text-secondary">no ratings yet</span>
-                                                            }
-                                                        </span>
-                                                    </span>
-                                                    <span class="text-end small">
-                                                        <span class="badge @(match.HasLocation ? "text-bg-light border" : "text-bg-warning")">
-                                                            @match.DistanceLabel
-                                                        </span>
-                                                        @if (match.IsOutOfRange)
-                                                        {
-                                                            <div class="text-warning-emphasis">past their @match.ServiceRadiusKm km limit</div>
-                                                        }
-                                                        @if (!match.IsAvailable)
-                                                        {
-                                                            <div class="text-secondary">off duty</div>
-                                                        }
-                                                    </span>
-                                                </label>
-                                            }
-                                        </div>
-                                        <div class="form-text">
-                                            Ranked by distance and rating. Anyone past their own travel
-                                            limit or off duty is pushed down, not hidden.
-                                        </div>
-                                    </div>
-                                }
-                                else
-                                {
-                                    <div class="alert alert-warning small">
-                                        No approved partner works in @task.CategoryName yet.
-                                    </div>
-                                }
-                                <div>
-                                    <label for="assign-note-@task.Id" class="form-label required">Why this partner</label>
-                                    <textarea id="assign-note-@task.Id" name="note" class="form-control" rows="2"
-                                              required maxlength="300"
-                                              placeholder="Customer called and asked for a partner who can come today"></textarea>
-                                    <div class="form-text">
-                                        The customer and the partner both see this task as assigned, so
-                                        write what the next person needs to know.
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <button type="submit" class="btn btn-sm btn-primary">Assign partner</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            }
-        }
+        </div>
     </div>
 </div>
+
+<div class="modal fade" id="assign-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="assign-modal-title"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body gig-form">
+                <p class="small text-secondary mb-3" id="assign-modal-summary"></p>
+                <div id="assign-modal-matches"></div>
+                <div>
+                    <label for="assign-note" class="form-label required">Why this partner</label>
+                    <textarea id="assign-note" class="form-control" rows="2" required maxlength="300"
+                              placeholder="Customer called and asked for a partner who can come today"></textarea>
+                    <div class="form-text">
+                        The customer and the partner both see this task as assigned, so
+                        write what the next person needs to know.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="assign-modal-submit" class="btn btn-sm btn-primary">Assign partner</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            var state = { page: 1, search: '', status: '', categoryId: '' };
+            var assignTaskId = null;
+
+            function stars(count) {
+                var html = '<span class="stars-read">';
+                for (var n = 1; n <= 5; n++) {
+                    html += '<span class="' + (n <= count ? '' : 'star-off') + '">&#9733;</span>';
+                }
+                return html + '</span>';
+            }
+
+            function row(task) {
+                var categoryCell = '<span class="badge text-bg-light border">' + Admin.escapeHtml(task.categoryName) + '</span>';
+                if (task.isInstant) categoryCell += ' <span class="badge text-bg-success">Fixed price</span>';
+                if (task.urgency !== 'normal') {
+                    categoryCell += '<div class="mt-1"><span class="badge ' + task.urgencyBadgeClass + '">' + task.urgencyLabel + '</span></div>';
+                }
+
+                var partnerCell = Admin.escapeHtml(task.partnerName || '—');
+                if (task.assignedAt) {
+                    partnerCell += '<div class="small text-secondary" style="max-width:16rem">Assigned by '
+                        + Admin.escapeHtml(task.assignedByName || 'support') + ' on '
+                        + new Date(task.assignedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                        + '<div class="fst-italic">' + Admin.escapeHtml(task.assignmentNote || '') + '</div></div>';
+                }
+
+                var actionCell = (task.status === 'pending' || task.status === 'cancelled')
+                    ? '<button type="button" class="btn btn-sm btn-outline-primary" data-assign="' + task.id + '">'
+                      + (task.status === 'cancelled' ? 'Reassign' : 'Assign') + '</button>'
+                    : '';
+
+                return '<tr>'
+                    + '<td class="text-secondary">' + task.id + '</td>'
+                    + '<td>' + categoryCell + '</td>'
+                    + '<td class="small">' + Admin.escapeHtml(task.description) + '</td>'
+                    + '<td class="small text-secondary">' + Admin.escapeHtml(task.address) + '</td>'
+                    + '<td>' + Admin.escapeHtml(task.customerName || '—') + '</td>'
+                    + '<td>' + partnerCell + '</td>'
+                    + '<td>₹' + Math.round(task.effectiveAmount).toLocaleString('en-IN') + '</td>'
+                    + '<td><span class="badge badge-' + task.status + ' text-white">' + Admin.escapeHtml(task.statusLabel) + '</span></td>'
+                    + '<td class="small text-secondary">' + new Date(task.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }) + '</td>'
+                    + '<td class="text-end">' + actionCell + '</td>'
+                    + '</tr>';
+            }
+
+            function load() {
+                var url = '/api/gigtasks/all?page=' + state.page + '&pageSize=10'
+                    + (state.search ? '&search=' + encodeURIComponent(state.search) : '')
+                    + (state.status ? '&status=' + state.status : '')
+                    + (state.categoryId ? '&categoryId=' + state.categoryId : '');
+
+                App.api.get(url).then(function (result) {
+                    $('#task-count').text(result.totalCount);
+                    $('#task-empty').prop('hidden', result.totalCount > 0);
+                    $('#task-table-wrap').prop('hidden', result.totalCount === 0);
+                    $('#task-pager').prop('hidden', result.totalCount === 0);
+
+                    $('#task-rows').html(result.items.map(row).join(''));
+
+                    $('#task-pager-summary').text(result.totalCount === 0
+                        ? ''
+                        : 'Showing ' + result.firstRow + '–' + result.lastRow + ' of ' + result.totalCount);
+
+                    $('#task-prev').prop('disabled', !result.hasPrevious);
+                    $('#task-next').prop('disabled', !result.hasNext);
+                });
+            }
+
+            function matchRow(match) {
+                var ratingCell = !match.ratingCount
+                    ? '<span class="text-secondary">no ratings yet</span>'
+                    : stars(match.roundedRating) + ' <span class="text-secondary">' + match.averageRating.toFixed(1) + ' · ' + match.ratingCount + '</span>';
+
+                var noteLines = '';
+                if (match.isOutOfRange) noteLines += '<div class="text-warning-emphasis">past their ' + match.serviceRadiusKm + ' km limit</div>';
+                if (!match.isAvailable) noteLines += '<div class="text-secondary">off duty</div>';
+
+                return '<label class="list-group-item d-flex align-items-center gap-2">'
+                    + '<input class="form-check-input m-0" type="radio" name="assign-partner" value="' + match.partnerId + '" required />'
+                    + '<span class="flex-grow-1"><span class="fw-semibold">' + Admin.escapeHtml(match.name) + '</span> '
+                    + '<span class="mono small text-secondary">' + Admin.escapeHtml(match.phone) + '</span>'
+                    + '<span class="d-block small">' + ratingCell + '</span></span>'
+                    + '<span class="text-end small"><span class="badge ' + (match.hasLocation ? 'text-bg-light border' : 'text-bg-warning') + '">'
+                    + match.distanceLabel + '</span>' + noteLines + '</span>'
+                    + '</label>';
+            }
+
+            function openAssign(task) {
+                assignTaskId = task.id;
+
+                $('#assign-modal-title').text((task.status === 'cancelled' ? 'Reassign' : 'Assign') + ' task #' + task.id);
+                $('#assign-modal-summary').html(Admin.escapeHtml(task.description) + '<br /><span class="text-body">'
+                    + Admin.escapeHtml(task.address) + '</span> · ' + Admin.escapeHtml(task.categoryName)
+                    + ' · <strong>₹' + Math.round(task.effectiveAmount).toLocaleString('en-IN') + '</strong>');
+                $('#assign-note').val('');
+                $('#assign-modal-matches').html('<p class="text-secondary small">Loading matches…</p>');
+
+                new bootstrap.Modal(document.getElementById('assign-modal')).show();
+
+                App.api.get('/api/gigtasks/' + task.id + '/matches').then(function (matches) {
+                    if (!matches.length) {
+                        $('#assign-modal-matches').html('<div class="alert alert-warning small">No approved partner works in '
+                            + Admin.escapeHtml(task.categoryName) + ' yet.</div>');
+                        return;
+                    }
+
+                    $('#assign-modal-matches').html('<label class="form-label">Best matches</label>'
+                        + '<div class="list-group match-list mb-3">' + matches.map(matchRow).join('') + '</div>'
+                        + '<div class="form-text">Ranked by distance and rating. Anyone past their own travel '
+                        + 'limit or off duty is pushed down, not hidden.</div>');
+                });
+            }
+
+            $(function () {
+                App.api.get('/api/skillcategories').then(function (options) {
+                    $('#task-category').append(options.map(function (o) {
+                        return '<option value="' + o.id + '">' + Admin.escapeHtml(o.name) + '</option>';
+                    }).join(''));
+                });
+
+                load();
+                App.realtime.on('tasks', load);
+
+                $('#task-filter-btn').on('click', function () {
+                    state.search = $('#task-search').val().trim();
+                    state.status = $('#task-status').val();
+                    state.categoryId = $('#task-category').val();
+                    state.page = 1;
+                    load();
+                });
+
+                $('#task-search').on('keydown', function (event) {
+                    if (event.which === 13) {
+                        event.preventDefault();
+                        $('#task-filter-btn').click();
+                    }
+                });
+
+                $('#task-filter-reset').on('click', function () {
+                    $('#task-search').val('');
+                    $('#task-status').val('');
+                    $('#task-category').val('');
+                    state = { page: 1, search: '', status: '', categoryId: '' };
+                    load();
+                });
+
+                $('#task-prev').on('click', function () { state.page -= 1; load(); });
+                $('#task-next').on('click', function () { state.page += 1; load(); });
+
+                $('#task-rows').on('click', '[data-assign]', function () {
+                    var id = $(this).data('assign');
+                    App.api.get('/api/gigtasks/' + id).then(openAssign);
+                });
+
+                $('#assign-modal-submit').on('click', function () {
+                    var partnerId = $('input[name="assign-partner"]:checked').val();
+                    var note = $('#assign-note').val().trim();
+
+                    if (!partnerId) {
+                        showToast('Error', 'Choose a partner.', 'error');
+                        return;
+                    }
+
+                    if (!note) {
+                        showToast('Error', 'Say why this partner.', 'error');
+                        return;
+                    }
+
+                    App.api.post('/api/gigtasks/' + assignTaskId + '/assign', { partnerId: partnerId, note: note })
+                        .then(function (result) {
+                            bootstrap.Modal.getInstance(document.getElementById('assign-modal')).hide();
+                            showToast('Success', 'Task #' + assignTaskId + ' assigned at ₹'
+                                + Math.round(result.effectiveAmount).toLocaleString('en-IN') + '. Any open bids on it were closed.', 'success');
+                            load();
+                        });
+                });
+            });
+        })();
+    </script>
+}

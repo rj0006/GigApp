@@ -58,10 +58,11 @@ namespace GigApp.Api.Services.Profile
             var phone = request.Phone.Trim();
             var email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim().ToLowerInvariant();
 
-            if (await _context.Users.AnyAsync(u => u.Id != userId && u.Phone == phone, ct))
+            if (await _context.Users.AnyAsync(u => u.Id != userId && u.Role == user.Role && u.Phone == phone, ct))
                 return ProfileResult.Fail("Another account already uses this phone number.");
 
-            if (email is not null && await _context.Users.AnyAsync(u => u.Id != userId && u.Email == email, ct))
+            if (email is not null && await _context.Users.AnyAsync(
+                    u => u.Id != userId && u.Role == user.Role && u.Email == email, ct))
                 return ProfileResult.Fail("Another account already uses this email.");
 
             // Changing the number invalidates the verification that was done

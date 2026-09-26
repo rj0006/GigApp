@@ -1,6 +1,7 @@
 using GigApp.Api.Data;
 using GigApp.Api.Models;
 using GigApp.Api.Services.Notifications;
+using GigApp.Api.Services.Realtime;
 using Microsoft.EntityFrameworkCore;
 
 namespace GigApp.Api.Services.Booking
@@ -48,15 +49,18 @@ namespace GigApp.Api.Services.Booking
     {
         private readonly AppDbContext _context;
         private readonly INotificationService _notifications;
+        private readonly IRealtimeNotifier _realtime;
         private readonly ILogger<TaskClaimService> _logger;
 
         public TaskClaimService(
             AppDbContext context,
             INotificationService notifications,
+            IRealtimeNotifier realtime,
             ILogger<TaskClaimService> logger)
         {
             _context = context;
             _notifications = notifications;
+            _realtime = realtime;
             _logger = logger;
         }
 
@@ -72,6 +76,9 @@ namespace GigApp.Api.Services.Booking
 
             if (!partner.IsVerified)
                 return TaskClaimResult.NotAllowed("Your account is pending KYC verification.");
+
+            if (!partner.IsAvailable)
+                return TaskClaimResult.NotAllowed("You are marked off duty. Switch to on duty before accepting work.");
 
             var task = await _context.GigTasks
                 .AsNoTracking()
@@ -98,6 +105,13 @@ namespace GigApp.Api.Services.Booking
 
             if (task.Status != GigTaskStatus.Pending)
                 return TaskClaimResult.Taken();
+
+            var previouslyCancelled = await _context.TaskCancellations
+                .AnyAsync(c => c.GigTaskId == taskId && c.PartnerId == partner.Id, ct);
+
+            if (previouslyCancelled)
+                return TaskClaimResult.NotAllowed(
+                    "You cancelled this job earlier, so it is no longer available to you.");
 
             // A live offer is first refusal for the partner holding it. Once it
             // expires the job opens to everyone, so nobody is ever stranded by
@@ -126,6 +140,11 @@ namespace GigApp.Api.Services.Booking
                 "Instant task {TaskId} claimed by partner {PartnerId}", taskId, partner.Id);
 
             await TellCustomerAsync(taskId, ct);
+
+            // Taken — every other partner in the category should stop seeing
+            // it on their board without needing to reload for that to happen.
+            await _realtime.NotifyCategoryPartnersAsync(task.CategoryId, "tasks", ct);
+            await _realtime.NotifyAdminsAsync("tasks", ct);
 
             return TaskClaimResult.Ok(task.AgreedAmount ?? task.Budget);
         }
@@ -190,14 +209,15 @@ namespace GigApp.Api.Services.Booking
                 return TaskClaimResult.NotAllowed(
                     $"{partner.User?.Name} works in a different category, so they cannot take this job.");
 
-            if (task.Status != GigTaskStatus.Pending)
+            if (task.Status != GigTaskStatus.Pending && task.Status != GigTaskStatus.Cancelled)
                 return TaskClaimResult.NotAllowed(
                     $"A {task.Status.Replace('_', ' ')} task cannot be assigned.");
 
             var amount = task.AgreedAmount ?? task.Budget;
 
             var rowsAffected = await _context.GigTasks
-                .Where(t => t.Id == taskId && t.Status == GigTaskStatus.Pending)
+                .Where(t => t.Id == taskId
+                         && (t.Status == GigTaskStatus.Pending || t.Status == GigTaskStatus.Cancelled))
                 .ExecuteUpdateAsync(setters => setters
                     .SetProperty(t => t.PartnerId, partner.Id)
                     .SetProperty(t => t.Status, GigTaskStatus.Accepted)
@@ -216,9 +236,19 @@ namespace GigApp.Api.Services.Booking
 
             await TellCustomerAsync(taskId, ct);
 
+            await _notifications.PushAsync(new NotificationRequest(
+                partner.UserId,
+                NotificationTypes.JobAssigned,
+                $"You have been assigned job #{taskId}",
+                $"₹{amount:N0} · {note}",
+                "/provider"), ct);
+
             _logger.LogInformation(
                 "Task {TaskId} assigned to partner {PartnerId} by user {AdminUserId}",
                 taskId, partner.Id, adminUserId);
+
+            await _realtime.NotifyCategoryPartnersAsync(task.CategoryId, "tasks", ct);
+            await _realtime.NotifyAdminsAsync("tasks", ct);
 
             return TaskClaimResult.Ok(amount);
         }

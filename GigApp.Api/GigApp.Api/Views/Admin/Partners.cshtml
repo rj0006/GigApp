@@ -1,6 +1,6 @@
-@model AdminPartnersViewModel
 @{
     Layout = "_AdminLayout";
+    var isSuperAdmin = ViewData["IsSuperAdmin"] is true;
 }
 
 <h1 class="h4">Partners</h1>
@@ -8,36 +8,188 @@
 
 <div class="card">
     <div class="card-body">
-        <form method="get" class="row g-2 align-items-end mb-3" data-auto-submit>
+        <div class="row g-2 align-items-end mb-3">
             <div class="col-sm-4 col-md-3">
-                <label class="form-label" for="search">Search</label>
-                <input class="form-control form-control-sm" id="search" name="search"
-                       value="@Model.Partners.Search" placeholder="Name or mobile" />
+                <label class="form-label" for="partner-search">Search</label>
+                <input class="form-control form-control-sm" id="partner-search" placeholder="Name or mobile" />
             </div>
             <div class="col-sm-3 col-md-2">
-                <label class="form-label" for="verified">Status</label>
-                <select class="form-select form-select-sm" id="verified" name="verified">
-                    <option value="" selected="@(Model.VerifiedFilter is null)">All</option>
-                    <option value="true" selected="@(Model.VerifiedFilter == true)">Verified</option>
-                    <option value="false" selected="@(Model.VerifiedFilter == false)">Pending</option>
+                <label class="form-label" for="partner-verified">Status</label>
+                <select class="form-select form-select-sm" id="partner-verified">
+                    <option value="">All</option>
+                    <option value="true">Verified</option>
+                    <option value="false">Pending</option>
                 </select>
             </div>
             <div class="col-sm-3 col-md-3">
-                <label class="form-label" for="categoryId">Skill</label>
-                <select class="form-select form-select-sm" id="categoryId" name="categoryId">
-                    <option value="" selected="@(Model.CategoryFilter is null)">All</option>
-                    @foreach (var option in Model.Categories)
-                    {
-                        <option value="@option.Id" selected="@(Model.CategoryFilter == option.Id)">@option.Name</option>
-                    }
+                <label class="form-label" for="partner-category">Skill</label>
+                <select class="form-select form-select-sm" id="partner-category">
+                    <option value="">All</option>
                 </select>
             </div>
             <div class="col-auto">
-                <button type="submit" class="btn btn-sm btn-primary">Filter</button>
-                <a class="btn btn-sm btn-outline-secondary" href="/admin/users/partners">Reset</a>
+                <button type="button" id="partner-filter-btn" class="btn btn-sm btn-primary">Filter</button>
+                <button type="button" id="partner-filter-reset" class="btn btn-sm btn-outline-secondary">Reset</button>
             </div>
-        </form>
+        </div>
 
-        <partial name="_PartnerTable" model="Model" />
+        <div id="partner-empty" class="text-center text-secondary py-4 mb-0" hidden>No partners match this filter.</div>
+
+        <div id="partner-table-wrap" class="table-responsive" hidden>
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th><th>Name</th><th>Mobile</th><th>Skill</th>
+                        <th>Rating</th><th>Aadhaar</th><th>Status</th><th>Duty</th><th class="text-end">Review</th>
+                        @if (isSuperAdmin) { <th class="text-end">Account</th> }
+                    </tr>
+                </thead>
+                <tbody id="partner-rows"></tbody>
+            </table>
+        </div>
+
+        <div id="partner-pager" class="d-flex align-items-center gap-2 mt-3" hidden>
+            <span id="partner-pager-summary" class="small text-secondary"></span>
+            <div class="btn-group btn-group-sm ms-auto">
+                <button type="button" id="partner-prev" class="btn btn-outline-secondary">Previous</button>
+                <button type="button" id="partner-next" class="btn btn-outline-secondary">Next</button>
+            </div>
+        </div>
     </div>
 </div>
+
+<partial name="_KycModal" />
+@if (isSuperAdmin)
+{
+    <partial name="_AccountModal" />
+}
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            var isSuperAdmin = @(isSuperAdmin ? "true" : "false");
+            var state = { page: 1, search: '', verified: '', categoryId: '' };
+
+            function stars(count) {
+                var html = '<span class="stars-read">';
+                for (var n = 1; n <= 5; n++) {
+                    html += '<span class="' + (n <= count ? '' : 'star-off') + '">&#9733;</span>';
+                }
+                return html + '</span>';
+            }
+
+            function row(partner) {
+                var ratingCell = !partner.ratingCount
+                    ? '<span class="text-secondary small">Not rated yet</span>'
+                    : stars(partner.roundedRating) + '<div class="small text-secondary">'
+                      + partner.averageRating.toFixed(1) + ' · ' + partner.ratingCount + '</div>';
+
+                var accountCell = isSuperAdmin
+                    ? '<td class="text-end"><button type="button" class="btn btn-sm btn-outline-warning" data-manage="' + partner.userId + '">Manage</button></td>'
+                    : '';
+
+                return '<tr>'
+                    + '<td class="text-secondary">' + partner.id + '</td>'
+                    + '<td><div class="fw-semibold">' + Admin.escapeHtml(partner.name) + '</div>'
+                    + (partner.email ? '<div class="small text-secondary">' + Admin.escapeHtml(partner.email) + '</div>' : '') + '</td>'
+                    + '<td class="mono">' + Admin.escapeHtml(partner.phone) + '</td>'
+                    + '<td><span class="badge text-bg-light border">' + Admin.escapeHtml(partner.skillCategoryName) + '</span></td>'
+                    + '<td>' + ratingCell + '</td>'
+                    + '<td class="mono small">' + (partner.maskedAadhaar || '—') + '</td>'
+                    + '<td><span class="badge ' + partner.kycBadgeClass + '">' + partner.kycLabel + '</span></td>'
+                    + '<td class="small text-secondary">' + (partner.isAvailable ? 'On duty' : 'Off duty') + '</td>'
+                    + '<td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" data-review="' + partner.id + '">&#128065; View</button></td>'
+                    + accountCell
+                    + '</tr>';
+            }
+
+            function load() {
+                var url = '/api/partners/all?page=' + state.page + '&pageSize=10'
+                    + (state.search ? '&search=' + encodeURIComponent(state.search) : '')
+                    + (state.verified ? '&verified=' + state.verified : '')
+                    + (state.categoryId ? '&categoryId=' + state.categoryId : '');
+
+                App.api.get(url).then(function (result) {
+                    $('#partner-empty').prop('hidden', result.totalCount > 0);
+                    $('#partner-table-wrap').prop('hidden', result.totalCount === 0);
+                    $('#partner-pager').prop('hidden', result.totalCount === 0);
+
+                    $('#partner-rows').html(result.items.map(row).join(''));
+
+                    $('#partner-pager-summary').text(result.totalCount === 0
+                        ? ''
+                        : 'Showing ' + result.firstRow + '–' + result.lastRow + ' of ' + result.totalCount);
+
+                    $('#partner-prev').prop('disabled', !result.hasPrevious);
+                    $('#partner-next').prop('disabled', !result.hasNext);
+                });
+            }
+
+            function openReview(id) {
+                Promise.all([
+                    App.api.get('/api/partners/' + id),
+                    App.api.get('/api/partners/' + id + '/kyc-history'),
+                ]).then(function (results) {
+                    var partner = results[0], history = results[1];
+
+                    Admin.openKycModal(partner, history, function (approved, reason) {
+                        App.api.put('/api/partners/' + id + '/verify', { isVerified: approved, reason: reason }).then(function () {
+                            bootstrap.Modal.getInstance(document.getElementById('kyc-modal')).hide();
+                            showToast('Success', approved ? partner.name + ' is now verified.' : partner.name + ' was rejected.', 'success');
+                            load();
+                        });
+                    });
+                });
+            }
+
+            $(function () {
+                App.api.get('/api/skillcategories').then(function (options) {
+                    $('#partner-category').append(options.map(function (o) {
+                        return '<option value="' + o.id + '">' + Admin.escapeHtml(o.name) + '</option>';
+                    }).join(''));
+                });
+
+                load();
+
+                $('#partner-filter-btn').on('click', function () {
+                    state.search = $('#partner-search').val().trim();
+                    state.verified = $('#partner-verified').val();
+                    state.categoryId = $('#partner-category').val();
+                    state.page = 1;
+                    load();
+                });
+
+                $('#partner-search').on('keydown', function (event) {
+                    if (event.which === 13) {
+                        event.preventDefault();
+                        $('#partner-filter-btn').click();
+                    }
+                });
+
+                $('#partner-filter-reset').on('click', function () {
+                    $('#partner-search').val('');
+                    $('#partner-verified').val('');
+                    $('#partner-category').val('');
+                    state = { page: 1, search: '', verified: '', categoryId: '' };
+                    load();
+                });
+
+                $('#partner-prev').on('click', function () { state.page -= 1; load(); });
+                $('#partner-next').on('click', function () { state.page += 1; load(); });
+
+                $('#partner-rows').on('click', '[data-review]', function () {
+                    openReview($(this).data('review'));
+                });
+
+                $('#partner-rows').on('click', '[data-manage]', function () {
+                    var userId = $(this).data('manage');
+                    App.api.get('/api/users/' + userId).then(function (user) {
+                        Admin.openAccountModal(user, load);
+                    });
+                });
+            });
+        })();
+    </script>
+}

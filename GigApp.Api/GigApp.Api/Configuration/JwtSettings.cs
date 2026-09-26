@@ -15,9 +15,16 @@ namespace GigApp.Api.Configuration
         public string Audience { get; set; } = "GigApp.Clients";
 
         /// <summary>
-        /// Long-lived by default because mobile clients cannot silently
-        /// re-authenticate yet. Shorten this once refresh tokens exist.
+        /// Short-lived on purpose — a refresh token (see <see cref="RefreshTokenExpiryDays"/>)
+        /// is what keeps a client signed in past this without asking for a password again.
         /// </summary>
-        public int ExpiryMinutes { get; set; } = 60 * 24 * 7; // 7 days
+        public int ExpiryMinutes { get; set; } = 60;
+
+        /// <summary>
+        /// How long a refresh token stays redeemable with no activity. Each
+        /// redemption issues a new one and revokes the one just used, so this
+        /// is really "how long since the last time this device was seen."
+        /// </summary>
+        public int RefreshTokenExpiryDays { get; set; } = 30;
     }
 }

@@ -1,14 +1,10 @@
 @model ProfilePageViewModel
-@{
-    var work = Model.Work ?? new CustomerDashboardViewModel();
-    var live = work.Tasks.Where(t => GigTaskStatus.IsOpen(t.Status)).ToList();
-}
 
 <div class="card">
     <div class="card-body">
         <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
             <h2 class="h6 mb-0">My tasks</h2>
-            <a class="btn btn-sm btn-primary ms-auto"
+            <a class="btn btn-sm btn-uc-primary ms-auto"
                href="@Model.SectionPath(ProfileSections.PostTask)">Post a task</a>
         </div>
         <p class="text-secondary small">
@@ -16,117 +12,279 @@
             <a href="@Model.SectionPath(ProfileSections.Orders)">Order history</a>.
         </p>
 
-        @if (live.Count == 0)
-        {
-            <p class="text-center text-secondary py-4 mb-0">
-                Nothing in progress. Post a task and partners will pick it up.
-            </p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead>
-                        <tr><th>#</th><th>Category</th><th>Description</th><th>Amount</th><th>Status</th><th>Bids</th><th>Partner</th><th class="text-end"></th></tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var task in live)
-                    {
-                        <tr>
-                            <td class="text-secondary">@task.Id</td>
-                            <td>
-                                <div>@(task.ServiceItemName ?? task.CategoryName)</div>
-                                <span class="badge text-bg-light border">@task.CategoryName</span>
-                                @if (task.IsInstant)
-                                {
-                                    <span class="badge text-bg-success">Fixed price</span>
-                                }
-                                @if (task.Urgency != TaskUrgency.Normal)
-                                {
-                                    <div class="mt-1">
-                                        <span class="badge @task.UrgencyBadgeClass">@task.UrgencyLabel</span>
-                                    </div>
-                                }
-                            </td>
-                            <td class="small">@task.Description</td>
-                            <td>
-                                <span class="fw-semibold">₹@task.EffectiveAmount.ToString("N0")</span>
-                                @if (task.AgreedAmount is not null && task.AgreedAmount != task.Budget)
-                                {
-                                    <div class="small text-secondary">budget ₹@task.Budget.ToString("N0")</div>
-                                }
-                            </td>
-                            <td><span class="badge badge-@task.Status text-white">@task.StatusLabel</span></td>
-                            <td>
-                                @if (task.IsInstant)
-                                {
-                                    <span class="text-secondary small">
-                                        @(task.Status == GigTaskStatus.Pending ? "Waiting for a partner" : "No bidding")
-                                    </span>
-                                }
-                                else if (task.Status == GigTaskStatus.Pending)
-                                {
-                                    var bidCount = work.BidsFor(task.Id).Count;
-                                    <button type="button" class="btn btn-sm @(bidCount > 0 ? "btn-primary" : "btn-outline-secondary")"
-                                            data-bs-toggle="modal" data-bs-target="#bids-modal-@task.Id">
-                                        @bidCount bid@(bidCount == 1 ? "" : "s")
-                                    </button>
-                                }
-                                else
-                                {
-                                    <span class="text-secondary">—</span>
-                                }
-                            </td>
-                            <td>
-                                @if (task.PartnerId is not null && task.PartnerName is not null)
-                                {
-                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none"
-                                            data-bs-toggle="modal" data-bs-target="#partner-modal-@task.PartnerId"
-                                            title="View partner details">@task.PartnerName</button>
+        <div id="tasks-empty" class="text-center text-secondary py-4 mb-0" hidden>
+            Nothing in progress. Post a task and partners will pick it up.
+        </div>
 
-                                    @if (task.WasAssignedBySupport)
-                                    {
-                                        <div class="small text-secondary mt-1" style="max-width:14rem">
-                                            Assigned for you by our support team.
-                                        </div>
-                                    }
-
-                                    @if (task.PartnerChangedSkill)
-                                    {
-                                        <div class="small text-warning-emphasis mt-1" style="max-width:14rem">
-                                            This partner has changed their skill to
-                                            @task.PartnerSkillCategory since accepting your task. They
-                                            are still expected to finish it as agreed.
-                                        </div>
-                                    }
-                                }
-                                else
-                                {
-                                    <span class="text-secondary">—</span>
-                                }
-                            </td>
-                            <td class="text-end">
-                                @if (GigTaskStatus.CanTransition(task.Status, GigTaskStatus.Cancelled))
-                                {
-                                    <form method="post" action="/customer/tasks/@task.Id/cancel"
-                                          data-confirm="Cancel task #@task.Id?">
-                                        @Html.AntiForgeryToken()
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">Cancel</button>
-                                    </form>
-                                }
-                            </td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
-            </div>
-        }
+        <div id="tasks-table-wrap" class="table-responsive" hidden>
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr><th>#</th><th>Category</th><th>Description</th><th>Amount</th><th>Status</th><th>Bids</th><th>Partner</th><th class="text-end"></th></tr>
+                </thead>
+                <tbody id="tasks-rows"></tbody>
+            </table>
+        </div>
     </div>
 </div>
 
-@foreach (var partner in work.Partners)
-{
-    <partial name="_PartnerInfoModal" model="partner" />
-}
+<div class="modal fade" id="partner-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Partner details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="partner-modal-body"></div>
+            <div class="modal-footer">
+                <a class="btn btn-sm btn-primary" id="partner-modal-call" href="#">Call partner</a>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-<partial name="_TaskBidsModal" model="work" />
+<div class="modal fade" id="bids-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bids-modal-title"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-secondary" id="bids-modal-summary"></p>
+                <div id="bids-modal-list"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        'use strict';
+
+        var tasksById = {};
+        var currentTaskId = null;
+
+        function inr(amount) {
+            return '₹' + Math.round(amount).toLocaleString('en-IN');
+        }
+
+        function row(task) {
+            var bidsCell = '<span class="text-secondary">—</span>';
+
+            if (task.isInstant) {
+                bidsCell = '<span class="text-secondary small">' + (task.status === 'pending' ? 'Waiting for a partner' : 'No bidding') + '</span>';
+            } else if (task.status === 'pending') {
+                bidsCell = '<button type="button" class="btn btn-sm btn-outline-secondary" data-bids="' + task.id + '">View bids</button>';
+            }
+
+            var partnerCell = '<span class="text-secondary">—</span>';
+
+            if (task.partnerId && task.partnerName) {
+                partnerCell = '<button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" data-partner="' + task.partnerId + '">'
+                    + Admin.escapeHtml(task.partnerName) + '</button>';
+
+                if (task.wasAssignedBySupport) {
+                    partnerCell += '<div class="small text-secondary mt-1" style="max-width:14rem">Assigned for you by our support team.</div>';
+                }
+                if (task.partnerChangedSkill) {
+                    partnerCell += '<div class="small text-warning-emphasis mt-1" style="max-width:14rem">This partner has changed their skill to '
+                        + Admin.escapeHtml(task.partnerSkillCategory || '') + ' since accepting your task. They are still expected to finish it as agreed.</div>';
+                }
+            }
+
+            var budgetLine = (task.agreedAmount != null && task.agreedAmount !== task.budget)
+                ? '<div class="small text-secondary">budget ' + inr(task.budget) + '</div>' : '';
+
+            return '<tr>'
+                + '<td class="text-secondary">' + task.id + '</td>'
+                + '<td><div>' + Admin.escapeHtml(task.serviceItemName || task.categoryName) + '</div>'
+                + '<span class="badge text-bg-light border">' + Admin.escapeHtml(task.categoryName) + '</span>'
+                + (task.isInstant ? ' <span class="badge text-bg-success">Fixed price</span>' : '')
+                + (task.urgency !== 'normal' ? '<div class="mt-1"><span class="badge ' + task.urgencyBadgeClass + '">' + task.urgencyLabel + '</span></div>' : '')
+                + '</td>'
+                + '<td class="small">' + Admin.escapeHtml(task.description) + '</td>'
+                + '<td><span class="fw-semibold">' + inr(task.effectiveAmount) + '</span>' + budgetLine + '</td>'
+                + '<td><span class="badge badge-' + task.status + ' text-white">' + Admin.escapeHtml(task.statusLabel) + '</span></td>'
+                + '<td>' + bidsCell + '</td>'
+                + '<td>' + partnerCell + '</td>'
+                + '<td class="text-end">' + (['pending', 'accepted', 'in_progress'].indexOf(task.status) !== -1
+                    ? '<button type="button" class="btn btn-sm btn-outline-danger" data-cancel="' + task.id + '">Cancel</button>' : '')
+                + '</td></tr>';
+        }
+
+        function load() {
+            App.api.get('/api/gigtasks/my').then(function (tasks) {
+                var live = tasks.filter(function (t) { return ['pending', 'accepted', 'in_progress'].indexOf(t.status) !== -1; });
+
+                tasksById = {};
+                live.forEach(function (t) { tasksById[t.id] = t; });
+
+                $('#tasks-empty').prop('hidden', live.length > 0);
+                $('#tasks-table-wrap').prop('hidden', live.length === 0);
+                $('#tasks-rows').html(live.map(row).join(''));
+            });
+        }
+
+        function openPartnerModal(partnerId) {
+            App.api.get('/api/partners/' + partnerId + '/public').then(function (p) {
+                var html = '<div class="d-flex align-items-center gap-3 mb-3">'
+                    + (p.profileImageUrl
+                        ? '<img src="' + p.profileImageUrl + '" alt="' + Admin.escapeHtml(p.name) + '" class="rounded-circle border" width="64" height="64" style="object-fit:cover" />'
+                        : '<div class="rounded-circle border d-flex align-items-center justify-content-center bg-body-tertiary fw-semibold text-secondary" style="width:64px;height:64px;font-size:1.25rem">' + Admin.escapeHtml(p.initials) + '</div>')
+                    + '<div><div class="h6 mb-1">' + Admin.escapeHtml(p.name) + '</div>'
+                    + '<span class="badge text-bg-light border">' + Admin.escapeHtml(p.skillCategoryName) + '</span>'
+                    + (p.isVerified ? ' <span class="badge text-bg-success">Verified</span>' : '') + '</div></div>'
+                    + '<dl class="row small mb-0">'
+                    + '<dt class="col-5">Mobile</dt><dd class="col-7"><a href="tel:' + p.phone + '" class="mono">' + Admin.escapeHtml(p.phone) + '</a></dd>'
+                    + '<dt class="col-5">Skill</dt><dd class="col-7">' + Admin.escapeHtml(p.skillCategoryName) + '</dd>'
+                    + '<dt class="col-5">Jobs completed</dt><dd class="col-7">' + p.completedJobs + '</dd>'
+                    + '<dt class="col-5">Rating</dt><dd class="col-7">' + starsHtml(p.roundedRating)
+                    + (p.ratingCount > 0 ? ' <span class="small text-secondary">' + p.averageRating.toFixed(1) + ' from ' + p.ratingCount + ' customer' + (p.ratingCount === 1 ? '' : 's') + '</span>' : '') + '</dd>'
+                    + '<dt class="col-5">Currently</dt><dd class="col-7">' + (p.isAvailable ? 'Accepting work' : 'Off duty') + '</dd>'
+                    + '<dt class="col-5">Partner since</dt><dd class="col-7">' + new Date(p.memberSince).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) + '</dd>'
+                    + '</dl>';
+
+                $('#partner-modal-body').html(html);
+                $('#partner-modal-call').attr('href', 'tel:' + p.phone);
+
+                new bootstrap.Modal(document.getElementById('partner-modal')).show();
+            });
+        }
+
+        function starsHtml(count) {
+            var html = '<span class="stars-read">';
+            for (var n = 1; n <= 5; n++) html += '<span class="' + (n <= count ? '' : 'star-off') + '">&#9733;</span>';
+            return html + '</span>';
+        }
+
+        function bidCard(bid, task) {
+            var html = '<div class="border rounded p-3 mb-2" data-bid-card="' + bid.id + '">'
+                + '<div class="d-flex flex-wrap align-items-start gap-2">'
+                + '<div><button type="button" class="btn btn-link p-0 fw-semibold text-decoration-none" data-partner="' + bid.partnerId + '">'
+                + Admin.escapeHtml(bid.partnerName) + '</button>'
+                + (bid.partnerIsVerified ? ' <span class="badge text-bg-success">Verified</span>' : '')
+                + '<div class="small text-secondary">' + Admin.escapeHtml(bid.partnerSkillCategory || '') + '</div></div>'
+                + '<div class="ms-auto text-end"><div class="h6 mb-0">' + inr(bid.amount) + '</div><div class="small text-secondary">partner\'s price</div></div>'
+                + '</div>';
+
+            if (bid.note) html += '<p class="small mt-2 mb-0 fst-italic">&ldquo;' + Admin.escapeHtml(bid.note) + '&rdquo;</p>';
+
+            if (bid.counterAmount != null) {
+                html += '<div class="alert alert-warning small mt-2 mb-0">You countered at <strong>' + inr(bid.counterAmount) + '</strong> — waiting for the partner to respond.'
+                    + (bid.counterNote ? '<div class="fst-italic">&ldquo;' + Admin.escapeHtml(bid.counterNote) + '&rdquo;</div>' : '') + '</div>';
+            }
+
+            html += '<div class="row-actions mt-3">'
+                + '<button type="button" class="btn btn-sm btn-success" data-accept-bid="' + bid.id + '" data-partner-name="' + Admin.escapeHtml(bid.partnerName) + '" data-amount="' + bid.amount + '">Accept ' + inr(bid.amount) + '</button>';
+
+            if (bid.status === 'pending') {
+                html += '<button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#counter-' + bid.id + '">Counter offer</button>';
+            }
+
+            html += '<button type="button" class="btn btn-sm btn-outline-danger" data-reject-bid="' + bid.id + '" data-partner-name="' + Admin.escapeHtml(bid.partnerName) + '">Reject</button>'
+                + '</div>';
+
+            if (bid.status === 'pending') {
+                html += '<div class="collapse mt-2" id="counter-' + bid.id + '">'
+                    + '<div class="row g-2 align-items-end">'
+                    + '<div class="col-sm-4"><label class="form-label required">Your counter (₹)</label>'
+                    + '<input type="number" min="1" step="50" class="form-control form-control-sm" data-counter-amount="' + bid.id + '" value="' + task.budget + '" /></div>'
+                    + '<div class="col-sm-6"><label class="form-label">Message</label>'
+                    + '<input class="form-control form-control-sm" maxlength="500" placeholder="Optional" data-counter-note="' + bid.id + '" /></div>'
+                    + '<div class="col-sm-2"><button type="button" class="btn btn-sm btn-primary w-100" data-send-counter="' + bid.id + '">Send</button></div>'
+                    + '</div></div>';
+            }
+
+            return html + '</div>';
+        }
+
+        function openBidsModal(task) {
+            currentTaskId = task.id;
+
+            $('#bids-modal-title').html('Bids on task #' + task.id + ' <span class="badge text-bg-light border">' + Admin.escapeHtml(task.categoryName) + '</span>');
+            $('#bids-modal-summary').html(Admin.escapeHtml(task.description) + '<br />Your budget: <strong>' + inr(task.budget) + '</strong>');
+            $('#bids-modal-list').html('<p class="text-secondary small">Loading…</p>');
+
+            new bootstrap.Modal(document.getElementById('bids-modal')).show();
+
+            App.api.get('/api/bids/task/' + task.id).then(function (bids) {
+                $('#bids-modal-list').html(bids.length === 0
+                    ? '<p class="text-center text-secondary py-4 mb-0">No bids yet. Partners in this category will see your task and can bid on it.</p>'
+                    : bids.map(function (b) { return bidCard(b, task); }).join(''));
+            });
+        }
+
+        $(function () {
+            load();
+            App.realtime.on('tasks', load);
+
+            $('#tasks-rows').on('click', '[data-bids]', function () {
+                openBidsModal(tasksById[$(this).data('bids')]);
+            });
+
+            $(document).on('click', '[data-partner]', function () {
+                openPartnerModal($(this).data('partner'));
+            });
+
+            $('#tasks-rows').on('click', '[data-cancel]', function () {
+                var id = $(this).data('cancel');
+
+                App.confirmAction({ title: 'Cancel task #' + id + '?' }).then(function (ok) {
+                    if (!ok) return;
+
+                    App.api.put('/api/gigtasks/' + id + '/status', { status: 'cancelled' }).then(function () {
+                        showToast('Success', 'Task #' + id + ' cancelled.', 'success');
+                        load();
+                    });
+                });
+            });
+
+            $('#bids-modal-list').on('click', '[data-accept-bid]', function () {
+                var bidId = $(this).data('accept-bid');
+                var partnerName = $(this).data('partner-name');
+                var amount = $(this).data('amount');
+
+                App.confirmAction({ title: 'Assign this task to ' + partnerName + ' at ' + inr(amount) + '?' }).then(function (ok) {
+                    if (!ok) return;
+
+                    App.api.post('/api/bids/' + bidId + '/accept', {}).then(function (bid) {
+                        showToast('Success', bid.partnerName + ' is assigned at ' + inr(bid.amount) + '.', 'success');
+                        bootstrap.Modal.getInstance(document.getElementById('bids-modal')).hide();
+                        load();
+                    });
+                });
+            });
+
+            $('#bids-modal-list').on('click', '[data-reject-bid]', function () {
+                var bidId = $(this).data('reject-bid');
+                var partnerName = $(this).data('partner-name');
+
+                App.confirmAction({ title: "Reject " + partnerName + "'s bid?" }).then(function (ok) {
+                    if (!ok) return;
+
+                    App.api.post('/api/bids/' + bidId + '/reject', {}).then(function () {
+                        showToast('Success', 'Bid rejected.', 'success');
+                        bootstrap.Modal.getInstance(document.getElementById('bids-modal')).hide();
+                        load();
+                    });
+                });
+            });
+
+            $('#bids-modal-list').on('click', '[data-send-counter]', function () {
+                var bidId = $(this).data('send-counter');
+                var amount = $('[data-counter-amount="' + bidId + '"]').val();
+                var note = $('[data-counter-note="' + bidId + '"]').val();
+
+                App.api.post('/api/bids/' + bidId + '/counter', { counterAmount: amount, counterNote: note }).then(function (bid) {
+                    showToast('Success', 'Counter offer of ' + inr(amount) + ' sent to ' + bid.partnerName + '.', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('bids-modal')).hide();
+                    load();
+                });
+            });
+        });
+    });
+</script>

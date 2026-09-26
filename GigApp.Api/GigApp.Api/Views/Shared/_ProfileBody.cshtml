@@ -31,7 +31,7 @@
         sections.Add((ProfileSections.Kyc, "KYC", "&#128196;", true, Model.Partner!.KycLabel));
     }
 
-    sections.Add((ProfileSections.Devices, "Manage devices", "&#128241;", false, "Coming soon"));
+    sections.Add((ProfileSections.Devices, "Manage devices", "&#128241;", true, null));
     sections.Add((ProfileSections.Settings, "Settings", "&#9881;", true, null));
 }
 
@@ -130,6 +130,10 @@
 
             case ProfileSections.Settings:
                 <partial name="_ProfileSettings" model="Model" />
+                break;
+
+            case ProfileSections.Devices:
+                <partial name="_ProfileDevices" model="Model" />
                 break;
 
             default:

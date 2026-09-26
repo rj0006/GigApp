@@ -28,6 +28,11 @@ namespace GigApp.Api.Data
         public DbSet<PartnerPlanSubscription> PartnerPlanSubscriptions => Set<PartnerPlanSubscription>();
         public DbSet<TaxRule> TaxRules => Set<TaxRule>();
         public DbSet<Banner> Banners => Set<Banner>();
+        public DbSet<TaskCancellation> TaskCancellations => Set<TaskCancellation>();
+        public DbSet<CartItem> CartItems => Set<CartItem>();
+        public DbSet<OtpChallenge> OtpChallenges => Set<OtpChallenge>();
+        public DbSet<AuthSettings> AuthSettings => Set<AuthSettings>();
+        public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -437,6 +442,70 @@ namespace GigApp.Api.Data
                 e.ToTable(t => t.HasCheckConstraint(
                     "CK_TaskOffers_Status",
                     "\"Status\" IN ('pending','accepted','declined','expired')"));
+            });
+
+            modelBuilder.Entity<TaskCancellation>(e =>
+            {
+                e.Property(c => c.Reason).HasMaxLength(500);
+
+                e.HasOne(c => c.GigTask)
+                 .WithMany()
+                 .HasForeignKey(c => c.GigTaskId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(c => c.Partner)
+                 .WithMany()
+                 .HasForeignKey(c => c.PartnerId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasIndex(c => new { c.GigTaskId, c.PartnerId });
+            });
+
+            modelBuilder.Entity<CartItem>(e =>
+            {
+                e.HasOne(c => c.Customer)
+                 .WithMany()
+                 .HasForeignKey(c => c.CustomerId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(c => c.ServiceItem)
+                 .WithMany()
+                 .HasForeignKey(c => c.ServiceItemId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasIndex(c => new { c.CustomerId, c.ServiceItemId }).IsUnique();
+            });
+
+            modelBuilder.Entity<OtpChallenge>(e =>
+            {
+                e.Property(o => o.Phone).HasMaxLength(20).IsRequired();
+                e.Property(o => o.Role).HasMaxLength(20).IsRequired();
+                e.Property(o => o.CodeHash).HasMaxLength(100).IsRequired();
+
+                e.HasIndex(o => new { o.Phone, o.Role, o.CreatedAt });
+            });
+
+            modelBuilder.Entity<AuthSettings>(e =>
+            {
+                e.Property(a => a.CustomerLoginMode).HasMaxLength(20).IsRequired();
+                e.Property(a => a.PartnerLoginMode).HasMaxLength(20).IsRequired();
+            });
+
+            modelBuilder.Entity<RefreshToken>(e =>
+            {
+                e.Property(r => r.TokenHash).HasMaxLength(88).IsRequired();
+                e.Property(r => r.DeviceLabel).HasMaxLength(100);
+                e.Property(r => r.IpAddress).HasMaxLength(45);
+
+                e.HasOne(r => r.User)
+                 .WithMany()
+                 .HasForeignKey(r => r.UserId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasIndex(r => r.TokenHash).IsUnique();
+
+                // Manage devices lists a user's own live sessions.
+                e.HasIndex(r => new { r.UserId, r.RevokedAt, r.ExpiresAt });
             });
 
             modelBuilder.Entity<SupportEnquiry>(e =>

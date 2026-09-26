@@ -26,4 +26,22 @@ namespace GigApp.Api.Dtos
         public int ItemCount => Lines.Sum(l => l.Quantity);
         public decimal Total => Lines.Sum(l => l.LineTotal);
     }
+
+    public class AddCartItemRequest
+    {
+        public int ServiceItemId { get; set; }
+        public int Quantity { get; set; } = 1;
+    }
+
+    public class SetCartQuantityRequest
+    {
+        public int Quantity { get; set; }
+    }
+
+    public class PlaceOrderRequest
+    {
+        public int AddressId { get; set; }
+        public string? Note { get; set; }
+        public DateTime? PreferredAt { get; set; }
+    }
 }

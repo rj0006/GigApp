@@ -1,6 +1,96 @@
 @model ProfilePageViewModel
-@{
-    ViewData["PortalSlug"] = Model.PortalSlug;
-}
 
-<partial name="_AddressBook" model="Model.Addresses" />
+<div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+    <h2 class="h5 mb-0">Saved addresses</h2>
+    <button type="button" id="address-add-btn" class="btn btn-primary btn-sm ms-auto">+ Add address</button>
+</div>
+<p class="text-secondary small">
+    Saved addresses are what you pick when booking, so you never retype them.
+    A location pin is what lets us match you with the nearest partner.
+</p>
+
+<div id="address-no-pin-alert" class="alert alert-info small" hidden></div>
+
+<div id="address-empty" class="card" hidden>
+    <div class="card-body">
+        <p class="text-center text-secondary py-4 mb-0">No addresses saved yet. Add one so booking is a single tap.</p>
+    </div>
+</div>
+
+<div id="address-cards" class="row g-3"></div>
+
+<partial name="_AddAddressModal" />
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        'use strict';
+
+        var addressesById = {};
+
+        function card(address) {
+            return '<div class="col-md-6"><div class="card h-100 ' + (address.isDefault ? 'border-primary' : '') + '">'
+                + '<div class="card-body">'
+                + '<div class="d-flex align-items-start gap-2 mb-2">'
+                + '<span class="badge text-bg-light border">' + Admin.escapeHtml(address.label) + '</span>'
+                + (address.isDefault ? '<span class="badge text-bg-primary">Default</span>' : '')
+                + (address.hasCoordinates ? '<span class="badge text-bg-success">&#128205; Pinned</span>' : '<span class="badge text-bg-warning">No pin</span>')
+                + '</div>'
+                + '<p class="small mb-2">' + Admin.escapeHtml(address.singleLine) + '</p>'
+                + '<div class="row-actions">'
+                + '<button type="button" class="btn btn-sm btn-outline-secondary" data-edit="' + address.id + '">Edit</button>'
+                + (address.isDefault ? '' : '<button type="button" class="btn btn-sm btn-outline-primary" data-default="' + address.id + '">Make default</button>')
+                + '<button type="button" class="btn btn-sm btn-outline-danger" data-remove="' + address.id + '" data-label="' + Admin.escapeHtml(address.label) + '">Remove</button>'
+                + '</div></div></div></div>';
+        }
+
+        function load() {
+            App.api.get('/api/addresses').then(function (addresses) {
+                addressesById = {};
+                addresses.forEach(function (a) { addressesById[a.id] = a; });
+
+                var withoutCoordinates = addresses.filter(function (a) { return !a.hasCoordinates; }).length;
+
+                $('#address-no-pin-alert').prop('hidden', withoutCoordinates === 0).html(
+                    '<strong>' + withoutCoordinates + '</strong> address(es) have no location pin. They still work '
+                    + 'for booking, but cannot be matched by distance. Edit one and use '
+                    + '<em>Use my current location</em> to add a pin.');
+
+                $('#address-empty').prop('hidden', addresses.length > 0);
+                $('#address-cards').toggle(addresses.length > 0).html(addresses.map(card).join(''));
+            });
+        }
+
+        $(function () {
+            load();
+
+            $('#address-add-btn').on('click', function () {
+                Admin.openAddressModal(null, load);
+            });
+
+            $('#address-cards').on('click', '[data-edit]', function () {
+                Admin.openAddressModal(addressesById[$(this).data('edit')], load);
+            });
+
+            $('#address-cards').on('click', '[data-default]', function () {
+                App.api.put('/api/addresses/' + $(this).data('default') + '/default', {}).then(function (saved) {
+                    showToast('Success', "'" + saved.label + "' is now your default address.", 'success');
+                    load();
+                });
+            });
+
+            $('#address-cards').on('click', '[data-remove]', function () {
+                var id = $(this).data('remove');
+                var label = $(this).data('label');
+
+                App.confirmAction({ title: 'Remove this ' + label + ' address?' }).then(function (ok) {
+                    if (!ok) return;
+
+                    App.api.del('/api/addresses/' + id).then(function () {
+                        showToast('Success', 'Address removed.', 'success');
+                        load();
+                    });
+                });
+            });
+        });
+    });
+</script>

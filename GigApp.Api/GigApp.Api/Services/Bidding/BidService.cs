@@ -1,6 +1,8 @@
 using GigApp.Api.Data;
 using GigApp.Api.Dtos;
 using GigApp.Api.Models;
+using GigApp.Api.Services.Notifications;
+using GigApp.Api.Services.Realtime;
 using Microsoft.EntityFrameworkCore;
 
 namespace GigApp.Api.Services.Bidding
@@ -28,11 +30,19 @@ namespace GigApp.Api.Services.Bidding
     public class BidService : IBidService
     {
         private readonly AppDbContext _context;
+        private readonly INotificationService _notifications;
+        private readonly IRealtimeNotifier _realtime;
         private readonly ILogger<BidService> _logger;
 
-        public BidService(AppDbContext context, ILogger<BidService> logger)
+        public BidService(
+            AppDbContext context,
+            INotificationService notifications,
+            IRealtimeNotifier realtime,
+            ILogger<BidService> logger)
         {
             _context = context;
+            _notifications = notifications;
+            _realtime = realtime;
             _logger = logger;
         }
 
@@ -42,6 +52,7 @@ namespace GigApp.Api.Services.Bidding
             var partner = await LoadPartnerAsync(partnerUserId, ct);
             if (partner is null) return BidResult.Fail("No partner profile is attached to this account.");
             if (!partner.IsVerified) return BidResult.Fail("Your account is pending KYC verification.");
+            if (!partner.IsAvailable) return BidResult.Fail("You are marked off duty. Switch to on duty before placing a bid.");
 
             var task = await _context.GigTasks.FirstOrDefaultAsync(t => t.Id == taskId, ct);
             if (task is null) return BidResult.Fail("Task not found.");
@@ -90,6 +101,16 @@ namespace GigApp.Api.Services.Bidding
 
             await _context.SaveChangesAsync(ct);
 
+            await _notifications.PushAsync(new NotificationRequest(
+                task.CustomerId,
+                NotificationTypes.BidReceived,
+                $"New bid on task #{taskId}",
+                $"{partner.User?.Name ?? "A partner"} bid ₹{request.Amount:N0}.",
+                "/customer/profile/tasks"), ct);
+
+            await _realtime.NotifyUserAsync(task.CustomerId, "tasks", ct);
+            await _realtime.NotifyAdminsAsync("tasks", ct);
+
             return BidResult.Ok(await ReloadAsync(existing.Id, ct));
         }
 
@@ -105,6 +126,8 @@ namespace GigApp.Api.Services.Bidding
             bid.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(ct);
 
+            await _realtime.NotifyAdminsAsync("tasks", ct);
+
             return BidResult.Ok(await ReloadAsync(bid.Id, ct));
         }
 
@@ -116,7 +139,22 @@ namespace GigApp.Api.Services.Bidding
             if (bid!.Status != BidStatus.Countered)
                 return BidResult.Fail("There is no counter offer to accept on this bid.");
 
-            return await AwardAsync(bid, bid.CounterAmount ?? bid.Amount, ct);
+            var result = await AwardAsync(bid, bid.CounterAmount ?? bid.Amount, ct);
+            if (!result.Succeeded) return result;
+
+            var customerId = await _context.GigTasks
+                .Where(t => t.Id == bid.GigTaskId).Select(t => t.CustomerId).FirstAsync(ct);
+
+            await _notifications.PushAsync(new NotificationRequest(
+                customerId,
+                NotificationTypes.JobAssigned,
+                $"Partner accepted your offer on task #{bid.GigTaskId}",
+                $"Confirmed at ₹{bid.CounterAmount ?? bid.Amount:N0}.",
+                "/customer/profile/tasks"), ct);
+
+            await _realtime.NotifyUserAsync(customerId, "tasks", ct);
+
+            return result;
         }
 
         public async Task<BidResult> CounterAsync(
@@ -135,6 +173,17 @@ namespace GigApp.Api.Services.Bidding
 
             await _context.SaveChangesAsync(ct);
 
+            var partnerUserId = await PartnerUserIdAsync(bid.PartnerId, ct);
+
+            await _notifications.PushAsync(new NotificationRequest(
+                partnerUserId,
+                NotificationTypes.BidCountered,
+                $"Counter offer on task #{bid.GigTaskId}",
+                $"The customer offered ₹{request.CounterAmount:N0}.",
+                "/provider"), ct);
+
+            await _realtime.NotifyUserAsync(partnerUserId, "tasks", ct);
+
             return BidResult.Ok(await ReloadAsync(bid.Id, ct));
         }
 
@@ -148,7 +197,21 @@ namespace GigApp.Api.Services.Bidding
 
             // Accepting a countered bid means accepting at the partner's original
             // asking price — the customer is dropping their own counter.
-            return await AwardAsync(bid, bid.Amount, ct);
+            var result = await AwardAsync(bid, bid.Amount, ct);
+            if (!result.Succeeded) return result;
+
+            var partnerUserId = await PartnerUserIdAsync(bid.PartnerId, ct);
+
+            await _notifications.PushAsync(new NotificationRequest(
+                partnerUserId,
+                NotificationTypes.JobAssigned,
+                $"Your bid was accepted — task #{bid.GigTaskId}",
+                $"Confirmed at ₹{bid.Amount:N0}.",
+                "/provider"), ct);
+
+            await _realtime.NotifyUserAsync(partnerUserId, "tasks", ct);
+
+            return result;
         }
 
         public async Task<BidResult> RejectAsync(int customerUserId, int bidId, CancellationToken ct = default)
@@ -162,6 +225,17 @@ namespace GigApp.Api.Services.Bidding
             bid.Status = BidStatus.Rejected;
             bid.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(ct);
+
+            var partnerUserId = await PartnerUserIdAsync(bid.PartnerId, ct);
+
+            await _notifications.PushAsync(new NotificationRequest(
+                partnerUserId,
+                NotificationTypes.BidRejected,
+                $"Bid declined on task #{bid.GigTaskId}",
+                "The customer went with another partner.",
+                "/provider"), ct);
+
+            await _realtime.NotifyUserAsync(partnerUserId, "tasks", ct);
 
             return BidResult.Ok(await ReloadAsync(bid.Id, ct));
         }
@@ -245,6 +319,12 @@ namespace GigApp.Api.Services.Bidding
                 "Task {TaskId} awarded to partner {PartnerId} at {Amount}",
                 bid.GigTaskId, bid.PartnerId, agreedAmount);
 
+            var categoryId = await _context.GigTasks
+                .Where(t => t.Id == bid.GigTaskId).Select(t => t.CategoryId).FirstAsync(ct);
+
+            await _realtime.NotifyCategoryPartnersAsync(categoryId, "tasks", ct);
+            await _realtime.NotifyAdminsAsync("tasks", ct);
+
             return BidResult.Ok(await ReloadAsync(bid.Id, ct));
         }
 
@@ -259,7 +339,10 @@ namespace GigApp.Api.Services.Bidding
             BidDto.From(await DetailedBids.FirstAsync(b => b.Id == bidId, ct));
 
         private Task<Partner?> LoadPartnerAsync(int userId, CancellationToken ct) =>
-            _context.Partners.FirstOrDefaultAsync(p => p.UserId == userId, ct);
+            _context.Partners.Include(p => p.User).FirstOrDefaultAsync(p => p.UserId == userId, ct);
+
+        private Task<int> PartnerUserIdAsync(int partnerId, CancellationToken ct) =>
+            _context.Partners.Where(p => p.Id == partnerId).Select(p => p.UserId).FirstAsync(ct);
 
         private async Task<(TaskBid? Bid, string? Error)> LoadOwnBidAsync(
             int partnerUserId, int bidId, CancellationToken ct)

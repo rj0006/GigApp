@@ -1,68 +1,58 @@
-@model SkillCategoryFormViewModel
+@model CategoryFormShellViewModel
 @{
     Layout = "_AdminLayout";
-    var postAction = Model.IsEdit ? "EditCategory" : "NewCategory";
 }
 
 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-    <h1 class="h4 mb-0">@Model.Heading</h1>
+    <h1 class="h4 mb-0" id="category-form-heading">@Model.Heading</h1>
     <a class="btn btn-outline-secondary btn-sm ms-auto" href="/admin/masters/categories">Back to list</a>
 </div>
 
 <div class="card form-card">
     <div class="card-body">
-        <partial name="_ValidationSummary" />
+        <div id="category-form-usage-note" class="alert alert-info small" hidden></div>
 
-        @if (Model.IsEdit && (Model.PartnerCount > 0 || Model.TaskCount > 0))
-        {
-            <div class="alert alert-info small">
-                <strong>@Model.PartnerCount</strong> partner(s) and <strong>@Model.TaskCount</strong>
-                task(s) are using this category. Renaming is safe because they link by id;
-                deactivating only stops new selections.
-            </div>
-        }
+        <div id="category-form-errors"></div>
 
-        @* Standard form format — see docs/REUSABLE.md *@
-        <form method="post" asp-action="@postAction" asp-route-id="@Model.Id"
-              enctype="multipart/form-data" class="gig-form row g-3">
+        <form id="category-form" class="gig-form row g-3">
+            <input type="hidden" name="Id" value="@Model.Id" />
+
             <div class="col-md-8">
-                <label asp-for="Form.Name" class="form-label required"></label>
-                <input asp-for="Form.Name" class="form-control" autofocus placeholder="Plumbing" />
-                <span asp-validation-for="Form.Name" class="text-danger small"></span>
+                <label for="category-name" class="form-label required">Category name</label>
+                <input id="category-name" name="Name" class="form-control" autofocus placeholder="Plumbing" />
             </div>
 
             <div class="col-md-4">
-                <label asp-for="Form.DisplayOrder" class="form-label"></label>
-                <input asp-for="Form.DisplayOrder" type="number" min="0" max="9999" class="form-control" />
+                <label for="category-order" class="form-label">Display order</label>
+                <input id="category-order" name="DisplayOrder" type="number" min="0" max="9999"
+                       class="form-control" value="0" />
                 <div class="form-text">Lower numbers appear first in pickers.</div>
             </div>
 
             <div class="col-md-8">
-                <label asp-for="Form.Description" class="form-label"></label>
-                <textarea asp-for="Form.Description" class="form-control" rows="3"
+                <label for="category-description" class="form-label">Description</label>
+                <textarea id="category-description" name="Description" class="form-control" rows="3"
                           placeholder="Taps, pipes, leaks, bathroom and kitchen fittings"></textarea>
             </div>
 
             <div class="col-md-4">
                 <partial name="_ImageUpload" model="@(new ImageUploadModel {
-                    Name = "Form.Image",
+                    Name = "Image",
                     Label = "Category image",
                     Hint = "Shown on the customer home page. A wide photo of the work reads best.",
-                    CurrentUrl = Model.ImageUrl,
                     Shape = ImageUploadShape.Wide,
                 })" />
-                <span asp-validation-for="Form.Image" class="text-danger small"></span>
             </div>
 
             <div class="col-12">
                 <div class="form-check">
-                    <input asp-for="Form.IsActive" class="form-check-input" type="checkbox" />
-                    <label asp-for="Form.IsActive" class="form-check-label"></label>
+                    <input id="category-active" name="IsActive" class="form-check-input" type="checkbox" value="true" checked />
+                    <label for="category-active" class="form-check-label">Active</label>
                 </div>
             </div>
 
             <div class="col-12 d-flex gap-2 pt-2">
-                <button type="submit" class="btn btn-primary">
+                <button type="submit" id="category-save" class="btn btn-primary">
                     @(Model.IsEdit ? "Save changes" : "Create category")
                 </button>
                 <a class="btn btn-outline-secondary" href="/admin/masters/categories">Cancel</a>
@@ -70,3 +60,47 @@
         </form>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            function fillForm(category) {
+                $('#category-name').val(category.name);
+                $('#category-description').val(category.description || '');
+                $('#category-order').val(category.displayOrder);
+                $('#category-active').prop('checked', category.isActive);
+                Admin.showImagePreview(category.imageUrl);
+
+                if (category.partnerCount > 0 || category.taskCount > 0) {
+                    $('#category-form-usage-note').prop('hidden', false).html(
+                        '<strong>' + category.partnerCount + '</strong> partner(s) and <strong>' + category.taskCount
+                        + '</strong> task(s) are using this category. Renaming is safe because they link by id; '
+                        + 'deactivating only stops new selections.');
+                }
+            }
+
+            $(function () {
+                var form = document.getElementById('category-form');
+                var id = $(form).find('input[name="Id"]').val();
+
+                if (id) {
+                    App.api.get('/api/skillcategories/' + id).then(fillForm);
+                }
+
+                $(form).on('submit', function (event) {
+                    event.preventDefault();
+                    $('#category-form-errors').empty();
+
+                    App.api.post('/api/skillcategories', new FormData(form), { silent: true })
+                        .then(function () {
+                            showToast('Success', id ? 'Category updated.' : 'Category created.', 'success');
+                            window.location.href = '/admin/masters/categories';
+                        })
+                        .catch(function (error) { Admin.showFormErrors('#category-form-errors', error.message); });
+                });
+            });
+        })();
+    </script>
+}

@@ -1,7 +1,4 @@
 @model ProfilePageViewModel
-@{
-    var saved = Model.BankAccount;
-}
 
 <div class="card mb-3">
     <div class="card-body">
@@ -12,89 +9,122 @@
                 : "Used for refunds when a booking is cancelled after payment.")
         </p>
 
-        @if (saved is not null)
-        {
-            <div class="alert alert-light border small">
-                <div class="row g-2">
-                    <div class="col-md-6"><span class="text-secondary">Account holder</span><br />@saved.AccountHolderName</div>
-                    <div class="col-md-6"><span class="text-secondary">Account number</span><br /><span class="mono">@saved.MaskedAccountNumber</span></div>
-                    <div class="col-md-6"><span class="text-secondary">IFSC</span><br /><span class="mono">@saved.IfscCode</span></div>
-                    <div class="col-md-6"><span class="text-secondary">Bank</span><br />@saved.BankName @(saved.BranchName is null ? "" : $"({saved.BranchName})")</div>
-                    @if (!string.IsNullOrWhiteSpace(saved.UpiId))
-                    {
-                        <div class="col-md-6"><span class="text-secondary">UPI ID</span><br />@saved.UpiId</div>
-                    }
-                    <div class="col-md-6">
-                        <span class="text-secondary">Last updated</span><br />
-                        @((saved.UpdatedAt ?? saved.CreatedAt).ToString("dd MMM yyyy, HH:mm")) UTC
-                    </div>
-                </div>
-            </div>
-        }
-        else
-        {
-            <div class="alert alert-warning small">
-                No bank account is on file yet.
-            </div>
-        }
+        <div id="bank-saved"></div>
     </div>
 </div>
 
 <div class="card">
     <div class="card-body">
-        <h2 class="h6 mb-3">@(saved is null ? "Add bank account" : "Update bank account")</h2>
+        <h2 class="h6 mb-3" id="bank-form-heading">Bank account</h2>
 
-        <partial name="_ValidationSummary" />
+        <div id="bank-form-errors"></div>
 
-        <form method="post" action="/@Model.PortalSlug/profile/bank" class="gig-form row g-3"
-              data-confirm-title="@(saved is null ? "Save bank account?" : "Change bank account?")"
-              data-confirm="Money is paid into this account. Check the account number and IFSC once more before saving."
-              data-confirm-icon="question"
-              data-confirm-ok="Yes, save it">
-            @Html.AntiForgeryToken()
-
+        <form id="bank-form" class="gig-form row g-3">
             <div class="col-md-6">
-                <label asp-for="BankForm.AccountHolderName" class="form-label required"></label>
-                <input asp-for="BankForm.AccountHolderName" class="form-control"
+                <label for="bank-holder" class="form-label required">Account holder name</label>
+                <input id="bank-holder" name="AccountHolderName" class="form-control"
                        placeholder="Exactly as printed in the passbook" />
                 <div class="form-text">Must match the name on the bank record, not a nickname.</div>
             </div>
 
             <div class="col-md-6">
-                <label asp-for="BankForm.AccountNumber" class="form-label required"></label>
-                <input asp-for="BankForm.AccountNumber" class="form-control mono"
+                <label for="bank-number" class="form-label required">Account number</label>
+                <input id="bank-number" name="AccountNumber" class="form-control mono"
                        inputmode="numeric" maxlength="18" autocomplete="off" />
                 <div class="form-text">@ValidationPatterns.BankAccountNumberMessage</div>
             </div>
 
             <div class="col-md-4">
-                <label asp-for="BankForm.IfscCode" class="form-label required"></label>
-                <input asp-for="BankForm.IfscCode" class="form-control mono text-uppercase"
+                <label for="bank-ifsc" class="form-label required">IFSC code</label>
+                <input id="bank-ifsc" name="IfscCode" class="form-control mono text-uppercase"
                        maxlength="11" placeholder="HDFC0001234" />
                 <div class="form-text">@ValidationPatterns.IfscMessage</div>
             </div>
 
             <div class="col-md-4">
-                <label asp-for="BankForm.BankName" class="form-label required"></label>
-                <input asp-for="BankForm.BankName" class="form-control" placeholder="State Bank of India" />
+                <label for="bank-name" class="form-label required">Bank name</label>
+                <input id="bank-name" name="BankName" class="form-control" placeholder="State Bank of India" />
             </div>
 
             <div class="col-md-4">
-                <label asp-for="BankForm.BranchName" class="form-label"></label>
-                <input asp-for="BankForm.BranchName" class="form-control" placeholder="Hisar Main" />
+                <label for="bank-branch" class="form-label">Branch</label>
+                <input id="bank-branch" name="BranchName" class="form-control" placeholder="Hisar Main" />
             </div>
 
             <div class="col-md-6">
-                <label asp-for="BankForm.UpiId" class="form-label"></label>
-                <input asp-for="BankForm.UpiId" class="form-control" placeholder="name@bank" />
+                <label for="bank-upi" class="form-label">UPI ID</label>
+                <input id="bank-upi" name="UpiId" class="form-control" placeholder="name@bank" />
                 <div class="form-text">Optional. Small payouts can be sent here instead.</div>
             </div>
 
             <div class="col-12">
-                <button type="submit" class="btn btn-primary">
-                    @(saved is null ? "Save bank account" : "Update bank account")
-                </button>
+                <button type="submit" id="bank-submit" class="btn btn-primary">Save bank account</button>
             </div>
         </form>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        'use strict';
+
+        var hasSaved = false;
+
+        function load() {
+            App.api.get('/api/profile/bank').then(function (account) {
+                hasSaved = !!account;
+
+                if (account) {
+                    $('#bank-saved').html('<div class="alert alert-light border small"><div class="row g-2">'
+                        + '<div class="col-md-6"><span class="text-secondary">Account holder</span><br />' + Admin.escapeHtml(account.accountHolderName) + '</div>'
+                        + '<div class="col-md-6"><span class="text-secondary">Account number</span><br /><span class="mono">' + Admin.escapeHtml(account.maskedAccountNumber) + '</span></div>'
+                        + '<div class="col-md-6"><span class="text-secondary">IFSC</span><br /><span class="mono">' + Admin.escapeHtml(account.ifscCode) + '</span></div>'
+                        + '<div class="col-md-6"><span class="text-secondary">Bank</span><br />' + Admin.escapeHtml(account.bankName)
+                        + (account.branchName ? ' (' + Admin.escapeHtml(account.branchName) + ')' : '') + '</div>'
+                        + (account.upiId ? '<div class="col-md-6"><span class="text-secondary">UPI ID</span><br />' + Admin.escapeHtml(account.upiId) + '</div>' : '')
+                        + '<div class="col-md-6"><span class="text-secondary">Last updated</span><br />'
+                        + new Date(account.updatedAt || account.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
+                        + ' UTC</div></div></div>');
+
+                    $('#bank-holder').val(account.accountHolderName);
+                    $('#bank-number').val('');
+                    $('#bank-ifsc').val(account.ifscCode);
+                    $('#bank-name').val(account.bankName);
+                    $('#bank-branch').val(account.branchName || '');
+                    $('#bank-upi').val(account.upiId || '');
+                } else {
+                    $('#bank-saved').html('<div class="alert alert-warning small">No bank account is on file yet.</div>');
+                }
+
+                $('#bank-form-heading').text(account ? 'Update bank account' : 'Add bank account');
+                $('#bank-submit').text(account ? 'Update bank account' : 'Save bank account');
+            });
+        }
+
+        $(function () {
+            load();
+
+            $('#bank-form').on('submit', function (event) {
+                event.preventDefault();
+                $('#bank-form-errors').empty();
+
+                App.confirmAction({
+                    title: hasSaved ? 'Change bank account?' : 'Save bank account?',
+                    text: 'Money is paid into this account. Check the account number and IFSC once more before saving.',
+                    icon: 'question',
+                    confirmText: 'Yes, save it',
+                }).then(function (ok) {
+                    if (!ok) return;
+
+                    var form = this;
+                    App.api.put('/api/profile/bank', Admin.formToJson(form), { silent: true })
+                        .then(function () {
+                            showToast('Success', 'Bank account saved.', 'success');
+                            load();
+                        })
+                        .catch(function (error) { Admin.showFormErrors('#bank-form-errors', error.message); });
+                }.bind(this));
+            });
+        });
+    });
+</script>

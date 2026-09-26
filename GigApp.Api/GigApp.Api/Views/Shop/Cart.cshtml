@@ -11,7 +11,7 @@
     <div class="card">
         <div class="card-body text-center py-5">
             <p class="text-secondary mb-3">Your cart is empty.</p>
-            <a class="btn btn-primary" href="/services">Browse services</a>
+            <a class="btn btn-uc-primary" href="/services">Browse services</a>
         </div>
     </div>
 }
@@ -23,7 +23,7 @@ else
                 <div class="card-body">
                     @foreach (var line in cart.Lines)
                     {
-                        <div class="cart-line">
+                        <div class="cart-line" data-cart-line data-service-id="@line.ServiceItemId">
                             @if (line.ImageUrl is not null)
                             {
                                 <img src="@line.ImageUrl" alt="" loading="lazy" />
@@ -36,23 +36,17 @@ else
                             </div>
 
                             <div class="text-end">
-                                <div class="fw-semibold mb-2">₹@line.LineTotal.ToString("N0")</div>
+                                <div class="fw-semibold mb-2" data-line-total>₹@line.LineTotal.ToString("N0")</div>
 
                                 <partial name="_QuantityStepper" model="@(new QuantityStepperModel {
                                     ServiceItemId = line.ServiceItemId,
                                     Quantity = line.Quantity,
-                                    ReturnTo = "/cart",
                                 })" />
 
-                                <form method="post" action="/cart/update" class="mt-1">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="serviceItemId" value="@line.ServiceItemId" />
-                                    <input type="hidden" name="quantity" value="0" />
-                                    <input type="hidden" name="returnTo" value="/cart" />
-                                    <button type="submit" class="btn btn-link btn-sm p-0 text-danger text-decoration-none">
-                                        Remove
-                                    </button>
-                                </form>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-danger text-decoration-none mt-1"
+                                        data-cart-remove>
+                                    Remove
+                                </button>
                             </div>
                         </div>
                     }
@@ -67,7 +61,7 @@ else
                 <div class="card-body">
                     <h2 class="h6 mb-3">Payment summary</h2>
 
-                    <dl class="row small mb-2">
+                    <dl class="row small mb-2" data-cart-summary>
                         @foreach (var line in cart.Lines)
                         {
                             <dt class="col-8 fw-normal text-secondary">
@@ -81,16 +75,27 @@ else
 
                     <div class="d-flex fw-semibold">
                         <span>Amount to pay</span>
-                        <span class="ms-auto">₹@cart.Total.ToString("N0")</span>
+                        <span class="ms-auto" data-cart-summary-total>₹@cart.Total.ToString("N0")</span>
                     </div>
 
                     <p class="small text-secondary mt-2 mb-3">
                         Pay the partner after the work is done. Nothing is charged now.
                     </p>
 
-                    <a class="btn btn-primary w-100" href="/checkout">Proceed to checkout</a>
+                    <a class="btn btn-uc-primary w-100" href="/checkout">Proceed to checkout</a>
                 </div>
             </div>
         </div>
     </div>
+}
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+            $(document).on('cart:updated', function (event, cart) {
+                if (cart.isEmpty) window.location.reload();
+            });
+        })();
+    </script>
 }

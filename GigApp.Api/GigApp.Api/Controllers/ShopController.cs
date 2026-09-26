@@ -14,9 +14,9 @@ namespace GigApp.Api.Controllers
     /// <summary>
     /// The public storefront. Everything up to placing the order works without
     /// an account, because asking a visitor to sign up before they know what
-    /// anything costs is how you lose them.
+    /// anything costs is how you lose them. [AllowAnonymous] is on every action
+    /// individually except PlaceOrder — see CLAUDE.md's Gotchas.
     /// </summary>
-    [AllowAnonymous]
     public class ShopController : Controller
     {
         private readonly AppDbContext _context;
@@ -45,6 +45,7 @@ namespace GigApp.Api.Controllers
             await next();
         }
 
+        [AllowAnonymous]
         [HttpGet("/services")]
         public async Task<IActionResult> Index(string? q, CancellationToken ct)
         {
@@ -54,6 +55,21 @@ namespace GigApp.Api.Controllers
 
             ViewData["Title"] = "Home services at your doorstep";
 
+            return View(await BuildHomeAsync(ct));
+        }
+
+        [AllowAnonymous]
+        [HttpGet("/api/shop/home")]
+        public async Task<ActionResult<StorefrontViewModel>> HomeJson(CancellationToken ct) =>
+            Ok(await BuildHomeAsync(ct));
+
+        [AllowAnonymous]
+        [HttpGet("/api/shop/search")]
+        public async Task<ActionResult<StorefrontSearchViewModel>> SearchJson(string q, CancellationToken ct) =>
+            Ok(await BuildSearchAsync(q.Trim(), ct));
+
+        private async Task<StorefrontViewModel> BuildHomeAsync(CancellationToken ct)
+        {
             var categories = await BuildCategoriesAsync(ct);
 
             var popular = await SellableItems()
@@ -91,7 +107,7 @@ namespace GigApp.Api.Controllers
 
             var banners = await LiveBannersAsync(ct);
 
-            return View(new StorefrontViewModel
+            return new StorefrontViewModel
             {
                 Categories = categories,
                 Popular = popular.Select(ServiceItemDto.From).ToList(),
@@ -101,13 +117,18 @@ namespace GigApp.Api.Controllers
                 WideBanner = banners.FirstOrDefault(b => b.Placement == BannerPlacements.Wide),
                 Stats = await BuildStatsAsync(ct),
                 Cart = await _cart.PriceAsync(ct),
-            });
+            };
         }
 
         private async Task<IActionResult> SearchAsync(string term, CancellationToken ct)
         {
             ViewData["Title"] = $"Search: {term}";
 
+            return View("Search", await BuildSearchAsync(term, ct));
+        }
+
+        private async Task<StorefrontSearchViewModel> BuildSearchAsync(string term, CancellationToken ct)
+        {
             var lowered = term.ToLower();
 
             var matches = await SellableItems()
@@ -118,13 +139,13 @@ namespace GigApp.Api.Controllers
                 .Take(40)
                 .ToListAsync(ct);
 
-            return View("Search", new StorefrontSearchViewModel
+            return new StorefrontSearchViewModel
             {
                 Term = term,
                 Results = matches.Select(ServiceItemDto.From).ToList(),
                 Categories = await BuildCategoriesAsync(ct),
                 Cart = await _cart.PriceAsync(ct),
-            });
+            };
         }
 
         private async Task<IReadOnlyList<BannerDto>> LiveBannersAsync(CancellationToken ct)
@@ -165,59 +186,49 @@ namespace GigApp.Api.Controllers
             };
         }
 
+        [AllowAnonymous]
         [HttpGet("/services/{categoryId:int}")]
         public async Task<IActionResult> Category(int categoryId, CancellationToken ct)
+        {
+            var vm = await BuildCategoryAsync(categoryId, ct);
+            if (vm is null) return Redirect("/services");
+
+            ViewData["Title"] = vm.Category.Name;
+
+            return View(vm);
+        }
+
+        [AllowAnonymous]
+        [HttpGet("/api/shop/category/{categoryId:int}")]
+        public async Task<ActionResult<StorefrontCategoryViewModel>> CategoryJson(int categoryId, CancellationToken ct)
+        {
+            var vm = await BuildCategoryAsync(categoryId, ct);
+            return vm is null ? NotFound() : Ok(vm);
+        }
+
+        private async Task<StorefrontCategoryViewModel?> BuildCategoryAsync(int categoryId, CancellationToken ct)
         {
             var category = await _context.SkillCategories
                 .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.Id == categoryId && c.IsActive, ct);
 
-            if (category is null) return Redirect("/services");
-
-            ViewData["Title"] = category.Name;
+            if (category is null) return null;
 
             var items = await SellableItems()
                 .Where(s => s.SkillCategoryId == categoryId)
                 .OrderBy(s => s.DisplayOrder).ThenBy(s => s.Name)
                 .ToListAsync(ct);
 
-            return View(new StorefrontCategoryViewModel
+            return new StorefrontCategoryViewModel
             {
                 Category = SkillCategoryDto.From(category),
                 Services = items.Select(ServiceItemDto.From).ToList(),
                 Categories = await BuildCategoriesAsync(ct),
                 Cart = await _cart.PriceAsync(ct),
-            });
+            };
         }
 
-        [HttpPost("/cart/add")]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> AddToCart(
-            int serviceItemId, int quantity, string? returnTo, CancellationToken ct)
-        {
-            var sellable = await SellableItems()
-                .AnyAsync(s => s.Id == serviceItemId, ct);
-
-            if (!sellable)
-            {
-                TempData["Error"] = "That service is not available right now.";
-                return RedirectBack(returnTo);
-            }
-
-            _cart.Add(serviceItemId, quantity < 1 ? 1 : quantity);
-            TempData["Success"] = "Added to your cart.";
-
-            return RedirectBack(returnTo);
-        }
-
-        [HttpPost("/cart/update")]
-        [ValidateAntiForgeryToken]
-        public IActionResult UpdateCart(int serviceItemId, int quantity, string? returnTo)
-        {
-            _cart.SetQuantity(serviceItemId, quantity);
-            return RedirectBack(returnTo ?? "/cart");
-        }
-
+        [AllowAnonymous]
         [HttpGet("/cart")]
         public async Task<IActionResult> Cart(CancellationToken ct)
         {
@@ -230,6 +241,7 @@ namespace GigApp.Api.Controllers
             });
         }
 
+        [AllowAnonymous]
         [HttpGet("/checkout")]
         public async Task<IActionResult> Checkout(CancellationToken ct)
         {
@@ -255,24 +267,19 @@ namespace GigApp.Api.Controllers
 
         [HttpPost("/checkout")]
         [Authorize(Policy = Policies.CustomerOnly)]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> PlaceOrder(
-            int addressId, string? note, DateTime? preferredAt, CancellationToken ct)
+        public async Task<IActionResult> PlaceOrder([FromBody] PlaceOrderRequest request, CancellationToken ct)
         {
             var result = await _checkout.PlaceAsync(
-                User.GetRequiredUserId(), addressId, note, preferredAt.ToUtc(), ct);
+                User.GetRequiredUserId(), request.AddressId, request.Note, request.PreferredAt.ToUtc(), ct);
 
             if (!result.Succeeded)
-            {
-                TempData["Error"] = result.Error;
-                return Redirect("/checkout");
-            }
+                return BadRequest(new ProblemDetails { Title = result.Error, Status = 400 });
 
             TempData["Success"] = result.TaskIds.Count == 1
                 ? "Booked. We are finding you the nearest partner now."
                 : $"{result.TaskIds.Count} services booked. We are finding partners for each now.";
 
-            return Redirect("/customer/profile/tasks");
+            return Ok(new { redirectTo = "/customer/profile/tasks" });
         }
 
         private IQueryable<ServiceItem> SellableItems() =>
@@ -301,10 +308,5 @@ namespace GigApp.Api.Controllers
                         .Min(s => s.BasePayout),
                 })
                 .ToListAsync(ct);
-
-        // Only ever back to a page of our own — a returnTo from the query string
-        // is attacker-controlled.
-        private IActionResult RedirectBack(string? returnTo) =>
-            Redirect(Url.IsLocalUrl(returnTo) ? returnTo! : "/services");
     }
 }

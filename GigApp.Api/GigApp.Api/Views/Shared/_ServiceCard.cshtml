@@ -1,10 +1,9 @@
 @model ServiceItemDto
 @{
-    var returnTo = Context.Request.Path + Context.Request.QueryString;
     var inCart = ViewData["CartQuantity"] as int? ?? 0;
 }
 
-<div class="shop-card">
+<div class="shop-card" data-service-card data-service-id="@Model.Id">
     <div class="catalog-art">
         @if (Model.ImageUrl is not null)
         {
@@ -28,24 +27,19 @@
         <div class="shop-card-foot">
             <span class="shop-card-price">₹@Model.BasePayout!.Value.ToString("N0")</span>
 
-            @if (inCart > 0)
-            {
-                <span class="ms-auto"><partial name="_QuantityStepper" model="@(new QuantityStepperModel {
-                    ServiceItemId = Model.Id,
-                    Quantity = inCart,
-                    ReturnTo = returnTo,
-                })" /></span>
-            }
-            else
-            {
-                <form method="post" action="/cart/add" class="ms-auto">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="serviceItemId" value="@Model.Id" />
-                    <input type="hidden" name="quantity" value="1" />
-                    <input type="hidden" name="returnTo" value="@returnTo" />
-                    <button type="submit" class="btn btn-sm btn-outline-primary">Add</button>
-                </form>
-            }
+            <span class="ms-auto" data-cart-control>
+                @if (inCart > 0)
+                {
+                    <partial name="_QuantityStepper" model="@(new QuantityStepperModel {
+                        ServiceItemId = Model.Id,
+                        Quantity = inCart,
+                    })" />
+                }
+                else
+                {
+                    <button type="button" class="btn btn-sm btn-uc-outline" data-add-to-cart>Add</button>
+                }
+            </span>
         </div>
     </div>
 </div>
