@@ -36,12 +36,20 @@ namespace GigApp.Api.Controllers
         [HttpGet("bookable")]
         [Authorize]
         public async Task<ActionResult<IReadOnlyList<ServiceItemDto>>> GetBookable(
-            int categoryId, CancellationToken ct)
+            int categoryId, int? zoneId, CancellationToken ct)
         {
-            var items = await _context.ServiceItems
+            var query = _context.ServiceItems
                 .AsNoTracking()
                 .Include(s => s.SkillCategory)
-                .Where(s => s.SkillCategoryId == categoryId && s.IsActive)
+                .Where(s => s.SkillCategoryId == categoryId && s.IsActive);
+
+            // zoneId is optional here for backward compatibility with callers that predate area
+            // gating; customer_app always sends it once a zone is picked.
+            if (zoneId is not null)
+                query = query.Where(s => _context.ServiceZoneCategories.Any(
+                    zc => zc.ServiceZoneId == zoneId && zc.SkillCategoryId == s.SkillCategoryId));
+
+            var items = await query
                 .OrderBy(s => s.DisplayOrder).ThenBy(s => s.Name)
                 .Select(s => ServiceItemDto.From(s))
                 .ToListAsync(ct);

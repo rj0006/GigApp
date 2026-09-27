@@ -1,0 +1,162 @@
+@{
+    Layout = "_AdminLayout";
+}
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+    <h1 class="h4 mb-0">Service zones</h1>
+    <a class="btn btn-primary btn-sm ms-auto" href="/admin/masters/servicezones/new">
+        + New zone
+    </a>
+</div>
+<p class="text-secondary small">
+    A zone is a circle on the map — the storefront only sells a category to a customer whose picked
+    location falls inside a zone where that category is enabled. Outside every zone, nothing shows.
+</p>
+
+<div class="card">
+    <div class="card-body">
+        <div class="row g-2 align-items-end mb-3">
+            <div class="col-sm-5 col-md-4">
+                <label class="form-label" for="zone-search">Search</label>
+                <input class="form-control form-control-sm" id="zone-search" placeholder="Zone name" />
+            </div>
+            <div class="col-auto">
+                <button type="button" id="zone-search-btn" class="btn btn-sm btn-primary">Search</button>
+            </div>
+        </div>
+
+        <div id="zone-empty" class="text-center text-secondary py-4 mb-0" hidden>
+            No service zones yet.
+            <a href="/admin/masters/servicezones/new">Add the first one</a>.
+        </div>
+
+        <div id="zone-table-wrap" class="table-responsive" hidden>
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Name</th><th>Centre</th><th>Radius</th><th>Categories</th>
+                        <th>Status</th><th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="zone-rows"></tbody>
+            </table>
+        </div>
+
+        <div id="zone-pager" class="d-flex align-items-center gap-2 mt-3" hidden>
+            <span id="zone-pager-summary" class="small text-secondary"></span>
+            <div class="btn-group btn-group-sm ms-auto">
+                <button type="button" id="zone-prev" class="btn btn-outline-secondary">Previous</button>
+                <button type="button" id="zone-next" class="btn btn-outline-secondary">Next</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            var state = { page: 1, search: '' };
+
+            function statusBadge(zone) {
+                var cls = zone.isActive ? 'text-bg-success' : 'text-bg-warning';
+                var text = zone.isActive ? 'Active' : 'Inactive';
+                return '<span class="badge ' + cls + '">' + text + '</span>';
+            }
+
+            function row(zone) {
+                var toggleLabel = zone.isActive ? 'Deactivate' : 'Activate';
+                var centre = (zone.latitude != null && zone.longitude != null)
+                    ? zone.latitude.toFixed(4) + ', ' + zone.longitude.toFixed(4)
+                    : '—';
+
+                var actions = ''
+                    + '<a class="btn btn-sm btn-outline-secondary" href="/admin/masters/servicezones/' + zone.id + '/edit">Edit</a> '
+                    + '<button type="button" class="btn btn-sm btn-outline-secondary" data-toggle="' + zone.id
+                    + '" data-active="' + zone.isActive + '">' + toggleLabel + '</button> '
+                    + '<button type="button" class="btn btn-sm btn-outline-danger" data-delete="' + zone.id
+                    + '" data-name="' + Admin.escapeHtml(zone.name) + '">Delete</button>';
+
+                return '<tr>'
+                    + '<td class="fw-semibold">' + Admin.escapeHtml(zone.name) + '</td>'
+                    + '<td class="small text-secondary">' + centre + '</td>'
+                    + '<td class="small">' + zone.radiusKm + ' km</td>'
+                    + '<td class="small">' + zone.categoryIds.length + '</td>'
+                    + '<td>' + statusBadge(zone) + '</td>'
+                    + '<td><div class="row-actions justify-end">' + actions + '</div></td>'
+                    + '</tr>';
+            }
+
+            function load() {
+                var url = '/api/servicezones/all?page=' + state.page + '&pageSize=10'
+                    + (state.search ? '&search=' + encodeURIComponent(state.search) : '');
+
+                App.api.get(url).then(function (result) {
+                    $('#zone-empty').prop('hidden', result.totalCount > 0);
+                    $('#zone-table-wrap').prop('hidden', result.totalCount === 0);
+                    $('#zone-pager').prop('hidden', result.totalCount === 0);
+
+                    $('#zone-rows').html(result.items.map(row).join(''));
+
+                    $('#zone-pager-summary').text(result.totalCount === 0
+                        ? ''
+                        : 'Showing ' + result.firstRow + '–' + result.lastRow + ' of ' + result.totalCount);
+
+                    $('#zone-prev').prop('disabled', !result.hasPrevious);
+                    $('#zone-next').prop('disabled', !result.hasNext);
+                });
+            }
+
+            $(function () {
+                load();
+
+                $('#zone-search-btn').on('click', function () {
+                    state.search = $('#zone-search').val().trim();
+                    state.page = 1;
+                    load();
+                });
+
+                $('#zone-search').on('keydown', function (event) {
+                    if (event.which === 13) {
+                        event.preventDefault();
+                        $('#zone-search-btn').click();
+                    }
+                });
+
+                $('#zone-prev').on('click', function () { state.page -= 1; load(); });
+                $('#zone-next').on('click', function () { state.page += 1; load(); });
+
+                $('#zone-rows').on('click', '[data-toggle]', function () {
+                    var id = $(this).data('toggle');
+                    var isActive = String($(this).data('active')) === 'true';
+
+                    App.api.post('/api/servicezones/' + id + '/toggle', { isActive: !isActive }).then(function (updated) {
+                        showToast('Success', updated.isActive
+                            ? "'" + updated.name + "' is active again."
+                            : "'" + updated.name + "' deactivated.", 'success');
+                        load();
+                    });
+                });
+
+                $('#zone-rows').on('click', '[data-delete]', function () {
+                    var id = $(this).data('delete');
+                    var name = $(this).data('name');
+
+                    App.confirmAction({
+                        title: 'Delete this zone?',
+                        text: "Delete '" + name + "'? Customers there will see nothing sellable until a new zone covers them.",
+                        icon: 'warning',
+                    }).then(function (ok) {
+                        if (!ok) return;
+
+                        App.api.del('/api/servicezones/' + id).then(function () {
+                            showToast('Success', "Zone '" + name + "' deleted.", 'success');
+                            load();
+                        });
+                    });
+                });
+            });
+        })();
+    </script>
+}

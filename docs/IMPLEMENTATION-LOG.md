@@ -9,6 +9,63 @@ developer can call the same thing.
 
 ---
 
+## 2026-09-27 — The storefront becomes area-gated, on web and mobile alike
+
+**Asked:** limit which services show by the customer's own area — some services cannot be delivered
+everywhere yet — with location taken either manually (from a list of areas we serve) or auto-detected
+from the device's GPS, on both the website and `customer_app`.
+
+**A `ServiceZone` is a circle, not a polygon or a pincode list** — a centre point plus a radius in
+km, the same shape `Partner.BaseLocation`/`ServiceRadiusKm` already used for partner service areas
+(`Services/Geo/GeoPoint.cs`, PostGIS `geography` distance). This was chosen over a free-text Google
+Places search specifically to avoid the Places API's cost and a new SDK dependency on three
+surfaces — the admin only has to draw a circle, not a service-area polygon editor.
+`ServiceZoneCategory` is the join: which `SkillCategory` rows are enabled inside which zone. A
+category can be live in Gurugram and not yet in a new city — that decision lives entirely in this
+table, nothing in code branches on a city name.
+
+**The storefront fails closed, not open, when no zone is known.** `ShopController.SellableItems`/
+`BuildCategoriesAsync` require `zoneId != null` **and** a matching `ServiceZoneCategories` row —
+with no zone picked, every storefront query returns empty rather than falling back to "show
+everywhere." This was a deliberate reversal of the obvious first draft (`zoneId == null || ...`,
+which fails *open* and defeats the entire feature for any caller that forgets to send a zone) — the
+early version of this change had exactly that bug caught before it shipped.
+
+**`GET api/servicezones/nearest?lat=&lng=`** is the auto-detect endpoint: nearest zone whose circle
+the point actually falls inside, `404` with `"We do not serve this area yet."` if none does — being
+near a zone is not enough, the point has to be inside its radius. `GET api/servicezones` is the
+plain `{id, name}` list the manual picker shows. Both `[AllowAnonymous]`, same reasoning as
+`api/skillcategories`'s active list: nothing here is sensitive, and a guest has to be able to pick a
+location before signing in.
+
+**Web resolves the zone from a cookie, mobile always sends it explicitly.** `ShopController.
+ResolveZoneId` takes an explicit `?zoneId=` query param first and falls back to the `gigapp_zone`
+cookie — the same explicit-param-wins-cookie-or-session-is-fallback shape `CartService.Read()`
+already uses for the same reason (a mobile client has no cookie jar). The web picker
+(`wwwroot/js/global.js`'s `wireZonePicker`, `_ZonePicker.cshtml`) writes `gigapp_zone` (id) and
+`gigapp_zone_name` (display) as year-long cookies and reloads the page; `customer_app` persists the
+same pair via `ZoneStorage` (secure storage) and sends `zoneId` on every storefront/category/search/
+bookable-items call once picked. Both surfaces open the exact same picker automatically the first
+time — no cookie yet on web, `zoneControllerProvider`'s state is `null` on mobile — and reopen it on
+"change location," which on mobile is just resetting the stored zone (`app.dart`'s `_PostLoginGate`
+already routes to the picker whenever the zone is null, so clearing it is the whole navigation).
+
+**The old single-item "post a task" flow (bidding, not the fixed-price catalogue) is zone-aware too,
+optionally.** `GET api/serviceitems/bookable` takes an optional `zoneId` — filtered when sent,
+unfiltered when not, so it stays backward compatible with any caller that predates area gating.
+`customer_app`'s `PostTaskScreen` always sends the current zone once one exists.
+
+**A pre-existing bug, found while building this**: `Admin.formToJson(form)` posts a hidden `Id`
+input's value as `""` for a brand-new record, and ASP.NET Core's `[FromBody]` JSON binder throws a
+hard `400` trying to convert `""` into `int?` — unlike classic form binding, which happily treats an
+empty value as absent. `CommissionPlansController`'s "new plan" flow has carried this bug since it
+shipped (confirmed live with a direct API call). The new `ServiceZoneForm.cshtml` avoids it by
+setting `payload.id = id ? parseInt(id, 10) : null` before posting rather than trusting
+`formToJson`'s raw output — any other plain-JSON (non-`FormData`) admin form with an optional `Id`
+should do the same until `formToJson` itself is fixed to omit blank fields.
+
+---
+
 ## 2026-09-15 — `customer_app`'s Home becomes the storefront, with a real cart and checkout
 
 **Asked:** make `customer_app`'s Home page match the web storefront — banners, categories, popular

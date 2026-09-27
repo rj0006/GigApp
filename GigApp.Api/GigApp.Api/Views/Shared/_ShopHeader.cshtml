@@ -2,13 +2,19 @@
     var cartCount = ViewData["CartCount"] as int? ?? 0;
     var signedIn = User.Identity?.IsAuthenticated == true;
     var isCustomer = signedIn && User.IsInRole(UserRoles.Customer);
+    var zoneName = Context.Request.Cookies["gigapp_zone_name"];
 }
 
 <header class="shop-header">
-    <div class="container py-2 d-flex align-items-center gap-3">
+    <div class="container py-2 d-flex align-items-center gap-3 flex-wrap">
         <a class="navbar-brand fw-bold text-decoration-none" href="/services">
             Gig<span class="text-primary">App</span>
         </a>
+
+        <button type="button" id="zone-picker-trigger" class="btn btn-sm btn-uc-outline d-flex align-items-center gap-1">
+            <partial name="_Icon" model="@("location")" />
+            <span id="zone-picker-current">@(string.IsNullOrEmpty(zoneName) ? "Select location" : zoneName)</span>
+        </button>
 
         <form method="get" action="/services" class="shop-search d-none d-md-block" role="search">
             <input type="search" name="q" class="form-control form-control-sm"

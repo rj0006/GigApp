@@ -11,11 +11,11 @@ class StorefrontRepositoryImpl implements StorefrontRepository {
   final StorefrontRemoteDataSource _remote;
 
   @override
-  Future<StorefrontHome> getHome() => _remote.getHome();
+  Future<StorefrontHome> getHome(int zoneId) => _remote.getHome(zoneId);
 
   @override
-  Future<CategoryDetail> getCategory(int categoryId) async {
-    final json = await _remote.getCategory(categoryId);
+  Future<CategoryDetail> getCategory(int categoryId, int zoneId) async {
+    final json = await _remote.getCategory(categoryId, zoneId);
     final category = json['category'] as Map<String, dynamic>? ?? const {};
     final services = json['services'] as List<dynamic>? ?? const [];
     return CategoryDetail(
@@ -25,7 +25,7 @@ class StorefrontRepositoryImpl implements StorefrontRepository {
   }
 
   @override
-  Future<List<ServiceItem>> search(String term) => _remote.search(term);
+  Future<List<ServiceItem>> search(String term, int zoneId) => _remote.search(term, zoneId);
 
   @override
   Future<void> placeOrder({required int addressId, String? note}) =>

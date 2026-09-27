@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../core/network/api_client.dart';
 import '../core/realtime/realtime_client.dart';
 import '../core/storage/token_storage.dart';
+import '../core/storage/zone_storage.dart';
 import '../data/datasources/address_remote_data_source.dart';
 import '../data/datasources/auth_remote_data_source.dart';
 import '../data/datasources/cart_remote_data_source.dart';
@@ -14,6 +15,7 @@ import '../data/datasources/notification_remote_data_source.dart';
 import '../data/datasources/profile_remote_data_source.dart';
 import '../data/datasources/storefront_remote_data_source.dart';
 import '../data/datasources/task_remote_data_source.dart';
+import '../data/datasources/zone_remote_data_source.dart';
 import '../data/repositories/address_repository_impl.dart';
 import '../data/repositories/auth_repository_impl.dart';
 import '../data/repositories/cart_repository_impl.dart';
@@ -23,6 +25,7 @@ import '../data/repositories/notification_repository_impl.dart';
 import '../data/repositories/profile_repository_impl.dart';
 import '../data/repositories/storefront_repository_impl.dart';
 import '../data/repositories/task_repository_impl.dart';
+import '../data/repositories/zone_repository_impl.dart';
 import '../domain/entities/address.dart';
 import '../domain/entities/app_notification.dart';
 import '../domain/entities/cart.dart';
@@ -30,6 +33,7 @@ import '../domain/entities/category_detail.dart';
 import '../domain/entities/device_session.dart';
 import '../domain/entities/gig_task.dart';
 import '../domain/entities/service_item.dart';
+import '../domain/entities/service_zone.dart';
 import '../domain/entities/skill_category.dart';
 import '../domain/entities/storefront_home.dart';
 import '../domain/repositories/address_repository.dart';
@@ -41,10 +45,12 @@ import '../domain/repositories/notification_repository.dart';
 import '../domain/repositories/profile_repository.dart';
 import '../domain/repositories/storefront_repository.dart';
 import '../domain/repositories/task_repository.dart';
+import '../domain/repositories/zone_repository.dart';
 import 'auth/session_controller.dart';
 import 'cart/cart_controller.dart';
 import 'common/paged_list_controller.dart';
 import 'orders/order_history_controller.dart';
+import 'zone/zone_controller.dart';
 
 final tokenStorageProvider = Provider<TokenStorage>((ref) {
   return TokenStorage(const FlutterSecureStorage());
@@ -101,7 +107,8 @@ final categoriesProvider = FutureProvider.autoDispose<List<SkillCategory>>((ref)
 });
 
 final bookableItemsProvider = FutureProvider.autoDispose.family((ref, int categoryId) {
-  return ref.watch(catalogueRepositoryProvider).getBookableItems(categoryId);
+  final zoneId = ref.watch(zoneControllerProvider).valueOrNull?.id;
+  return ref.watch(catalogueRepositoryProvider).getBookableItems(categoryId, zoneId: zoneId);
 });
 
 final addressRemoteDataSourceProvider = Provider<AddressRemoteDataSource>((ref) {
@@ -184,16 +191,22 @@ final storefrontRepositoryProvider = Provider<StorefrontRepository>((ref) {
   return StorefrontRepositoryImpl(ref.watch(storefrontRemoteDataSourceProvider));
 });
 
+int _requireZoneId(Ref ref) {
+  final zoneId = ref.watch(zoneControllerProvider).valueOrNull?.id;
+  if (zoneId == null) throw StateError('No service zone selected yet.');
+  return zoneId;
+}
+
 final storefrontHomeProvider = FutureProvider.autoDispose<StorefrontHome>((ref) {
-  return ref.watch(storefrontRepositoryProvider).getHome();
+  return ref.watch(storefrontRepositoryProvider).getHome(_requireZoneId(ref));
 });
 
 final categoryDetailProvider = FutureProvider.autoDispose.family<CategoryDetail, int>((ref, categoryId) {
-  return ref.watch(storefrontRepositoryProvider).getCategory(categoryId);
+  return ref.watch(storefrontRepositoryProvider).getCategory(categoryId, _requireZoneId(ref));
 });
 
 final searchResultsProvider = FutureProvider.autoDispose.family<List<ServiceItem>, String>((ref, term) {
-  return ref.watch(storefrontRepositoryProvider).search(term);
+  return ref.watch(storefrontRepositoryProvider).search(term, _requireZoneId(ref));
 });
 
 final cartRemoteDataSourceProvider = Provider<CartRemoteDataSource>((ref) {
@@ -206,4 +219,24 @@ final cartRepositoryProvider = Provider<CartRepository>((ref) {
 
 final cartControllerProvider = StateNotifierProvider.autoDispose<CartController, AsyncValue<Cart>>((ref) {
   return CartController(ref.watch(cartRepositoryProvider));
+});
+
+final zoneRemoteDataSourceProvider = Provider<ZoneRemoteDataSource>((ref) {
+  return ZoneRemoteDataSource(ref.watch(dioProvider));
+});
+
+final zoneRepositoryProvider = Provider<ZoneRepository>((ref) {
+  return ZoneRepositoryImpl(ref.watch(zoneRemoteDataSourceProvider));
+});
+
+final zoneStorageProvider = Provider<ZoneStorage>((ref) {
+  return ZoneStorage(const FlutterSecureStorage());
+});
+
+final zoneControllerProvider = StateNotifierProvider<ZoneController, AsyncValue<SelectedZone?>>((ref) {
+  return ZoneController(ref.watch(zoneRepositoryProvider), ref.watch(zoneStorageProvider));
+});
+
+final zonesProvider = FutureProvider.autoDispose<List<ServiceZoneOption>>((ref) {
+  return ref.watch(zoneRepositoryProvider).getZones();
 });

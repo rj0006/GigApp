@@ -1,4 +1,5 @@
 using GigApp.Api.Models;
+using GigApp.Api.Services.Geo;
 using Microsoft.EntityFrameworkCore;
 
 namespace GigApp.Api.Data
@@ -54,6 +55,7 @@ namespace GigApp.Api.Data
             await SeedMenuAsync(context, logger, ct);
             await SeedPlansAndTaxesAsync(context, logger, ct);
             await SeedAuthSettingsAsync(context, logger, ct);
+            await SeedServiceZonesAsync(context, logger, ct);
         }
 
         private static async Task SeedAuthSettingsAsync(AppDbContext context, ILogger logger, CancellationToken ct)
@@ -198,6 +200,7 @@ namespace GigApp.Api.Data
                 new MenuItem { Label = "Tasks", ControllerName = "Admin", ActionName = "Tasks", Icon = "▤", SortOrder = 1, ParentId = groups["Operations"].Id },
                 new MenuItem { Label = "Support enquiries", ControllerName = "Admin", ActionName = "Enquiries", Icon = "☎", SortOrder = 4, ParentId = groups["Operations"].Id, BadgeKey = MenuBadgeKeys.OpenEnquiries },
                 new MenuItem { Label = "Storefront banners", ControllerName = "Admin", ActionName = "Banners", Icon = "▣", SortOrder = 7, ParentId = groups["Masters"].Id },
+                new MenuItem { Label = "Service zones", ControllerName = "Admin", ActionName = "ServiceZones", Icon = "◎", SortOrder = 9, ParentId = groups["Masters"].Id },
                 new MenuItem { Label = "Login settings", ControllerName = "Admin", ActionName = "AuthSettings", Icon = "⚿", SortOrder = 8, ParentId = groups["Masters"].Id, Visibility = MenuVisibility.SuperAdmin },
                 new MenuItem { Label = "Partner payouts", ControllerName = "Admin", ActionName = "Payouts", Icon = "₹", SortOrder = 2, ParentId = groups["Money"].Id },
                 new MenuItem { Label = "Error log", ControllerName = "Admin", ActionName = "Errors", Icon = "⚠", SortOrder = 3, ParentId = groups["Operations"].Id, Visibility = MenuVisibility.SuperAdmin },
@@ -242,6 +245,14 @@ namespace GigApp.Api.Data
                     Icon = "⚿",
                     SortOrder = 8,
                     Visibility = MenuVisibility.SuperAdmin,
+                }),
+                (Group: "Masters", Item: new MenuItem
+                {
+                    Label = "Service zones",
+                    ControllerName = "Admin",
+                    ActionName = "ServiceZones",
+                    Icon = "◎",
+                    SortOrder = 9,
                 }),
             };
 
@@ -316,6 +327,32 @@ namespace GigApp.Api.Data
                 await context.SaveChangesAsync(ct);
                 logger.LogInformation("Seeded {Count} service items", added);
             }
+        }
+
+        // A fresh database serves nothing until an admin draws a real zone —
+        // this one just keeps local dev and the seeded demo accounts working
+        // out of the box, centred on the seeded Gurugram addresses.
+        private static async Task SeedServiceZonesAsync(AppDbContext context, ILogger logger, CancellationToken ct)
+        {
+            if (await context.ServiceZones.AnyAsync(ct)) return;
+
+            var categoryIds = await context.SkillCategories.Select(c => c.Id).ToListAsync(ct);
+
+            var zone = new ServiceZone
+            {
+                Name = "Gurugram",
+                Center = GeoPoint.From(28.4949, 77.0885),
+                RadiusKm = 25,
+                IsActive = true,
+                DisplayOrder = 0,
+                CreatedAt = DateTime.UtcNow,
+                Categories = categoryIds.Select(id => new ServiceZoneCategory { SkillCategoryId = id }).ToList(),
+            };
+
+            context.ServiceZones.Add(zone);
+            await context.SaveChangesAsync(ct);
+
+            logger.LogInformation("Seeded default service zone {Name} with {Count} categories", zone.Name, categoryIds.Count);
         }
 
         private static async Task SeedCategoriesAsync(AppDbContext context, ILogger logger, CancellationToken ct)

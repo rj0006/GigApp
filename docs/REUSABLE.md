@@ -1085,6 +1085,17 @@ re-deciding the pattern.
   (`add`/`setQuantity`/`remove`) let a thrown `ApiException` propagate rather than writing it into
   `state` — the calling widget's own try/catch shows the SnackBar, and the last good cart stays on
   screen instead of being replaced by an error page.
+- **The area picker is the same shape on web and mobile — explicit param on mobile, cookie on
+  web, both opened automatically until a zone is chosen.** Mobile:
+  `presentation/zone/zone_controller.dart`'s `ZoneController` (plain, not `.autoDispose` —
+  `app.dart` watches it before `AppShell` even exists) exposes `select(id, name)`,
+  `useCurrentLocation()` (via `geolocator` + `GET api/servicezones/nearest`) and `change()`
+  (clears the stored zone, which re-routes to `LocationPickerScreen` since `_PostLoginGate` treats
+  a null zone as "show the picker"). Web: `wwwroot/js/global.js`'s `wireZonePicker()` does the same
+  three things against `_ZonePicker.cshtml`'s modal, writing `gigapp_zone`/`gigapp_zone_name`
+  cookies and reloading the page instead of holding client state. Any future area-gated feature
+  reads the resolved zone the same way `ShopController.ResolveZoneId` does — explicit `?zoneId=`
+  query param first, the `gigapp_zone` cookie as the web-only fallback.
 
 `customer-ui.css` holds the customer-facing button look — `.btn-uc-primary`, `.btn-uc-outline`,
 `.btn-uc-pill` — layered on top of Bootstrap's `btn` class (keep `btn` for focus/disabled/sizing,

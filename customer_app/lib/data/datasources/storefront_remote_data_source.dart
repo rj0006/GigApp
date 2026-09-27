@@ -10,29 +10,35 @@ class StorefrontRemoteDataSource {
 
   final Dio _dio;
 
-  Future<StorefrontHomeModel> getHome() async {
+  Future<StorefrontHomeModel> getHome(int zoneId) async {
     try {
-      final response = await _dio.get<Map<String, dynamic>>(ApiEndpoints.storefrontHome);
+      final response = await _dio.get<Map<String, dynamic>>(
+        ApiEndpoints.storefrontHome,
+        queryParameters: {'zoneId': zoneId},
+      );
       return StorefrontHomeModel.fromJson(response.data!);
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
   }
 
-  Future<Map<String, dynamic>> getCategory(int categoryId) async {
+  Future<Map<String, dynamic>> getCategory(int categoryId, int zoneId) async {
     try {
-      final response = await _dio.get<Map<String, dynamic>>(ApiEndpoints.storefrontCategory(categoryId));
+      final response = await _dio.get<Map<String, dynamic>>(
+        ApiEndpoints.storefrontCategory(categoryId),
+        queryParameters: {'zoneId': zoneId},
+      );
       return response.data!;
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
   }
 
-  Future<List<ServiceItemModel>> search(String term) async {
+  Future<List<ServiceItemModel>> search(String term, int zoneId) async {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         ApiEndpoints.storefrontSearch,
-        queryParameters: {'q': term},
+        queryParameters: {'q': term, 'zoneId': zoneId},
       );
       final results = response.data?['results'] as List<dynamic>? ?? const [];
       return results.map((e) => ServiceItemModel.fromJson(e as Map<String, dynamic>)).toList();

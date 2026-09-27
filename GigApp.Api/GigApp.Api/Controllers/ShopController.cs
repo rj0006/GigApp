@@ -11,12 +11,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GigApp.Api.Controllers
 {
-    /// <summary>
-    /// The public storefront. Everything up to placing the order works without
-    /// an account, because asking a visitor to sign up before they know what
-    /// anything costs is how you lose them. [AllowAnonymous] is on every action
-    /// individually except PlaceOrder — see CLAUDE.md's Gotchas.
-    /// </summary>
+    // Public storefront; [AllowAnonymous] is on every action individually except PlaceOrder — see CLAUDE.md's Gotchas.
     public class ShopController : Controller
     {
         private readonly AppDbContext _context;
@@ -47,38 +42,39 @@ namespace GigApp.Api.Controllers
 
         [AllowAnonymous]
         [HttpGet("/services")]
-        public async Task<IActionResult> Index(string? q, CancellationToken ct)
+        public async Task<IActionResult> Index(string? q, int? zoneId, CancellationToken ct)
         {
             var term = q?.Trim();
+            var zone = ResolveZoneId(zoneId);
 
-            if (!string.IsNullOrWhiteSpace(term)) return await SearchAsync(term, ct);
+            if (!string.IsNullOrWhiteSpace(term)) return await SearchAsync(term, zone, ct);
 
             ViewData["Title"] = "Home services at your doorstep";
 
-            return View(await BuildHomeAsync(ct));
+            return View(await BuildHomeAsync(zone, ct));
         }
 
         [AllowAnonymous]
         [HttpGet("/api/shop/home")]
-        public async Task<ActionResult<StorefrontViewModel>> HomeJson(CancellationToken ct) =>
-            Ok(await BuildHomeAsync(ct));
+        public async Task<ActionResult<StorefrontViewModel>> HomeJson(int? zoneId, CancellationToken ct) =>
+            Ok(await BuildHomeAsync(ResolveZoneId(zoneId), ct));
 
         [AllowAnonymous]
         [HttpGet("/api/shop/search")]
-        public async Task<ActionResult<StorefrontSearchViewModel>> SearchJson(string q, CancellationToken ct) =>
-            Ok(await BuildSearchAsync(q.Trim(), ct));
+        public async Task<ActionResult<StorefrontSearchViewModel>> SearchJson(string q, int? zoneId, CancellationToken ct) =>
+            Ok(await BuildSearchAsync(q.Trim(), ResolveZoneId(zoneId), ct));
 
-        private async Task<StorefrontViewModel> BuildHomeAsync(CancellationToken ct)
+        private async Task<StorefrontViewModel> BuildHomeAsync(int? zoneId, CancellationToken ct)
         {
-            var categories = await BuildCategoriesAsync(ct);
+            var categories = await BuildCategoriesAsync(zoneId, ct);
 
-            var popular = await SellableItems()
+            var popular = await SellableItems(zoneId)
                 .OrderByDescending(s => s.Tasks.Count(t => t.Status == GigTaskStatus.Completed))
                 .ThenBy(s => s.DisplayOrder)
                 .Take(8)
                 .ToListAsync(ct);
 
-            var fresh = await SellableItems()
+            var fresh = await SellableItems(zoneId)
                 .OrderByDescending(s => s.CreatedAt)
                 .Take(6)
                 .ToListAsync(ct);
@@ -89,7 +85,7 @@ namespace GigApp.Api.Controllers
 
             foreach (var tile in categories.Take(6))
             {
-                var services = await SellableItems()
+                var services = await SellableItems(zoneId)
                     .Where(s => s.SkillCategoryId == tile.Category.Id)
                     .OrderBy(s => s.DisplayOrder).ThenBy(s => s.Name)
                     .Take(6)
@@ -120,18 +116,18 @@ namespace GigApp.Api.Controllers
             };
         }
 
-        private async Task<IActionResult> SearchAsync(string term, CancellationToken ct)
+        private async Task<IActionResult> SearchAsync(string term, int? zoneId, CancellationToken ct)
         {
             ViewData["Title"] = $"Search: {term}";
 
-            return View("Search", await BuildSearchAsync(term, ct));
+            return View("Search", await BuildSearchAsync(term, zoneId, ct));
         }
 
-        private async Task<StorefrontSearchViewModel> BuildSearchAsync(string term, CancellationToken ct)
+        private async Task<StorefrontSearchViewModel> BuildSearchAsync(string term, int? zoneId, CancellationToken ct)
         {
             var lowered = term.ToLower();
 
-            var matches = await SellableItems()
+            var matches = await SellableItems(zoneId)
                 .Where(s => s.Name.ToLower().Contains(lowered)
                          || s.SkillCategory!.Name.ToLower().Contains(lowered)
                          || (s.Description != null && s.Description.ToLower().Contains(lowered)))
@@ -143,7 +139,7 @@ namespace GigApp.Api.Controllers
             {
                 Term = term,
                 Results = matches.Select(ServiceItemDto.From).ToList(),
-                Categories = await BuildCategoriesAsync(ct),
+                Categories = await BuildCategoriesAsync(zoneId, ct),
                 Cart = await _cart.PriceAsync(ct),
             };
         }
@@ -188,9 +184,9 @@ namespace GigApp.Api.Controllers
 
         [AllowAnonymous]
         [HttpGet("/services/{categoryId:int}")]
-        public async Task<IActionResult> Category(int categoryId, CancellationToken ct)
+        public async Task<IActionResult> Category(int categoryId, int? zoneId, CancellationToken ct)
         {
-            var vm = await BuildCategoryAsync(categoryId, ct);
+            var vm = await BuildCategoryAsync(categoryId, ResolveZoneId(zoneId), ct);
             if (vm is null) return Redirect("/services");
 
             ViewData["Title"] = vm.Category.Name;
@@ -200,13 +196,13 @@ namespace GigApp.Api.Controllers
 
         [AllowAnonymous]
         [HttpGet("/api/shop/category/{categoryId:int}")]
-        public async Task<ActionResult<StorefrontCategoryViewModel>> CategoryJson(int categoryId, CancellationToken ct)
+        public async Task<ActionResult<StorefrontCategoryViewModel>> CategoryJson(int categoryId, int? zoneId, CancellationToken ct)
         {
-            var vm = await BuildCategoryAsync(categoryId, ct);
+            var vm = await BuildCategoryAsync(categoryId, ResolveZoneId(zoneId), ct);
             return vm is null ? NotFound() : Ok(vm);
         }
 
-        private async Task<StorefrontCategoryViewModel?> BuildCategoryAsync(int categoryId, CancellationToken ct)
+        private async Task<StorefrontCategoryViewModel?> BuildCategoryAsync(int categoryId, int? zoneId, CancellationToken ct)
         {
             var category = await _context.SkillCategories
                 .AsNoTracking()
@@ -214,7 +210,7 @@ namespace GigApp.Api.Controllers
 
             if (category is null) return null;
 
-            var items = await SellableItems()
+            var items = await SellableItems(zoneId)
                 .Where(s => s.SkillCategoryId == categoryId)
                 .OrderBy(s => s.DisplayOrder).ThenBy(s => s.Name)
                 .ToListAsync(ct);
@@ -223,22 +219,32 @@ namespace GigApp.Api.Controllers
             {
                 Category = SkillCategoryDto.From(category),
                 Services = items.Select(ServiceItemDto.From).ToList(),
-                Categories = await BuildCategoriesAsync(ct),
+                Categories = await BuildCategoriesAsync(zoneId, ct),
                 Cart = await _cart.PriceAsync(ct),
             };
         }
 
         [AllowAnonymous]
         [HttpGet("/cart")]
-        public async Task<IActionResult> Cart(CancellationToken ct)
+        public async Task<IActionResult> Cart(int? zoneId, CancellationToken ct)
         {
             ViewData["Title"] = "Your cart";
 
             return View(new StorefrontCartViewModel
             {
                 Cart = await _cart.PriceAsync(ct),
-                Categories = await BuildCategoriesAsync(ct),
+                Categories = await BuildCategoriesAsync(ResolveZoneId(zoneId), ct),
             });
+        }
+
+        // Explicit query param wins (mobile always sends it, no cookie jar there); the cookie the storefront's own JS writes is the web fallback.
+        private int? ResolveZoneId(int? zoneId)
+        {
+            if (zoneId is not null) return zoneId;
+
+            return Request.Cookies.TryGetValue("gigapp_zone", out var raw) && int.TryParse(raw, out var fromCookie)
+                ? fromCookie
+                : null;
         }
 
         [AllowAnonymous]
@@ -282,21 +288,30 @@ namespace GigApp.Api.Controllers
             return Ok(new { redirectTo = "/customer/profile/tasks" });
         }
 
-        private IQueryable<ServiceItem> SellableItems() =>
+        // No zone picked yet means nothing is sellable — fail closed, never fall back to showing everywhere.
+        private IQueryable<ServiceItem> SellableItems(int? zoneId) =>
             _context.ServiceItems
                 .AsNoTracking()
                 .Include(s => s.SkillCategory)
                 .Where(s => s.IsActive
                          && s.SkillCategory!.IsActive
                          && s.AllowsInstantBooking
-                         && s.BasePayout > 0);
+                         && s.BasePayout > 0
+                         && zoneId != null
+                         && _context.ServiceZoneCategories.Any(
+                                zc => zc.ServiceZoneId == zoneId && zc.SkillCategoryId == s.SkillCategoryId));
 
         private async Task<IReadOnlyList<CatalogCategoryViewModel>> BuildCategoriesAsync(
-            CancellationToken ct) =>
-            await _context.SkillCategories
+            int? zoneId, CancellationToken ct)
+        {
+            if (zoneId is null) return Array.Empty<CatalogCategoryViewModel>();
+
+            return await _context.SkillCategories
                 .AsNoTracking()
                 .Where(c => c.IsActive
-                         && c.ServiceItems.Any(s => s.IsActive && s.AllowsInstantBooking && s.BasePayout > 0))
+                         && c.ServiceItems.Any(s => s.IsActive && s.AllowsInstantBooking && s.BasePayout > 0)
+                         && _context.ServiceZoneCategories.Any(
+                                zc => zc.ServiceZoneId == zoneId && zc.SkillCategoryId == c.Id))
                 .OrderBy(c => c.DisplayOrder).ThenBy(c => c.Name)
                 .Select(c => new CatalogCategoryViewModel
                 {
@@ -308,5 +323,6 @@ namespace GigApp.Api.Controllers
                         .Min(s => s.BasePayout),
                 })
                 .ToListAsync(ct);
+        }
     }
 }

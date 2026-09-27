@@ -19,6 +19,8 @@ class ApiEndpoints {
   static const String cart = '/api/cart';
   static const String cartItems = '/api/cart/items';
   static const String checkout = '/checkout';
+  static const String serviceZones = '/api/servicezones';
+  static const String nearestServiceZone = '/api/servicezones/nearest';
 
   static const String addresses = '/api/addresses';
 

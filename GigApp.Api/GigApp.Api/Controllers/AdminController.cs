@@ -467,6 +467,30 @@ namespace GigApp.Api.Controllers
             return View("BannerForm", new BannerFormShellViewModel { Id = id });
         }
 
+        [HttpGet("masters/servicezones")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        public IActionResult ServiceZones()
+        {
+            ViewData["Title"] = "Service zones";
+            return View();
+        }
+
+        [HttpGet("masters/servicezones/new")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        public IActionResult NewServiceZone()
+        {
+            ViewData["Title"] = "New service zone";
+            return View("ServiceZoneForm", new ServiceZoneFormShellViewModel());
+        }
+
+        [HttpGet("masters/servicezones/{id:int}/edit")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        public IActionResult EditServiceZone(int id)
+        {
+            ViewData["Title"] = "Edit service zone";
+            return View("ServiceZoneForm", new ServiceZoneFormShellViewModel { Id = id });
+        }
+
         [HttpGet("enquiries")]
         [Authorize(Policy = Policies.AdminOnly)]
         public IActionResult Enquiries()

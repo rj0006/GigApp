@@ -1,0 +1,137 @@
+@model ServiceZoneFormShellViewModel
+@{
+    Layout = "_AdminLayout";
+}
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <h1 class="h4 mb-0">@Model.Heading</h1>
+    <a class="btn btn-outline-secondary btn-sm ms-auto" href="/admin/masters/servicezones">Back to list</a>
+</div>
+
+<div class="card form-card">
+    <div class="card-body">
+        <div id="zone-form-errors"></div>
+
+        <form id="zone-form" class="gig-form row g-3">
+            <input type="hidden" name="Id" value="@Model.Id" />
+
+            <div class="col-md-6">
+                <label for="zone-name" class="form-label required">Zone name</label>
+                <input id="zone-name" name="Name" class="form-control" autofocus placeholder="Gurugram — Sector 45" />
+                <div class="form-text">Shown to the customer as "Delivering to ...".</div>
+            </div>
+
+            <div class="col-md-3">
+                <label for="zone-radius" class="form-label required">Radius (km)</label>
+                <input id="zone-radius" name="RadiusKm" type="number" min="1" max="200" class="form-control" value="10" />
+            </div>
+
+            <div class="col-md-3 d-flex align-items-end">
+                <div class="form-check">
+                    <input id="zone-active" name="IsActive" class="form-check-input" type="checkbox" value="true" checked />
+                    <label for="zone-active" class="form-check-label">Active</label>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <label for="zone-lat" class="form-label required">Centre latitude</label>
+                <input id="zone-lat" name="Latitude" type="number" step="any" class="form-control" placeholder="28.4949" />
+            </div>
+
+            <div class="col-md-4">
+                <label for="zone-lng" class="form-label required">Centre longitude</label>
+                <input id="zone-lng" name="Longitude" type="number" step="any" class="form-control" placeholder="77.0885" />
+            </div>
+
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="button" id="zone-use-my-location" class="btn btn-outline-secondary">Use my location</button>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Categories sellable in this zone</label>
+                <div id="zone-categories" class="d-flex flex-wrap gap-3"></div>
+                <div class="form-text">Only these categories will show on the storefront for a customer in this zone.</div>
+            </div>
+
+            <div class="col-12 d-flex gap-2 pt-2">
+                <button type="submit" id="zone-save" class="btn btn-primary">
+                    @(Model.IsEdit ? "Save changes" : "Create zone")
+                </button>
+                <a class="btn btn-outline-secondary" href="/admin/masters/servicezones">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            function categoryCheckbox(category, checkedIds) {
+                var checked = checkedIds.indexOf(category.id) !== -1 ? 'checked' : '';
+                return '<div class="form-check">'
+                    + '<input class="form-check-input" type="checkbox" value="' + category.id + '" id="zone-cat-' + category.id + '" ' + checked + '>'
+                    + '<label class="form-check-label" for="zone-cat-' + category.id + '">' + Admin.escapeHtml(category.name) + '</label>'
+                    + '</div>';
+            }
+
+            function fillForm(zone) {
+                $('#zone-name').val(zone.name);
+                $('#zone-radius').val(zone.radiusKm);
+                $('#zone-active').prop('checked', zone.isActive);
+                $('#zone-lat').val(zone.latitude);
+                $('#zone-lng').val(zone.longitude);
+                $('#zone-categories input[type="checkbox"]').each(function () {
+                    $(this).prop('checked', zone.categoryIds.indexOf(parseInt($(this).val(), 10)) !== -1);
+                });
+            }
+
+            $(function () {
+                var form = document.getElementById('zone-form');
+                var id = $(form).find('input[name="Id"]').val();
+
+                App.api.get('/api/skillcategories/all?pageSize=200').then(function (result) {
+                    var checkedIds = [];
+                    $('#zone-categories').html(result.items.map(function (c) { return categoryCheckbox(c, checkedIds); }).join(''));
+
+                    if (id) {
+                        App.api.get('/api/servicezones/' + id).then(function (zone) {
+                            fillForm(zone);
+                        });
+                    }
+                });
+
+                $('#zone-use-my-location').on('click', function () {
+                    if (!navigator.geolocation) {
+                        showToast('Error', 'Your browser does not support location.', 'error');
+                        return;
+                    }
+                    navigator.geolocation.getCurrentPosition(function (position) {
+                        $('#zone-lat').val(position.coords.latitude);
+                        $('#zone-lng').val(position.coords.longitude);
+                    }, function () {
+                        showToast('Error', 'Could not read your location.', 'error');
+                    });
+                });
+
+                $(form).on('submit', function (event) {
+                    event.preventDefault();
+                    $('#zone-form-errors').empty();
+
+                    var payload = Admin.formToJson(form);
+                    payload.id = id ? parseInt(id, 10) : null;
+                    payload.categoryIds = $('#zone-categories input[type="checkbox"]:checked')
+                        .map(function () { return parseInt(this.value, 10); }).get();
+
+                    App.api.post('/api/servicezones', payload, { silent: true })
+                        .then(function () {
+                            showToast('Success', id ? 'Zone updated.' : 'Zone created.', 'success');
+                            window.location.href = '/admin/masters/servicezones';
+                        })
+                        .catch(function (error) { Admin.showFormErrors('#zone-form-errors', error.message); });
+                });
+            });
+        })();
+    </script>
+}

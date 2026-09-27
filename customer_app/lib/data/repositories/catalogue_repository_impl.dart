@@ -12,5 +12,6 @@ class CatalogueRepositoryImpl implements CatalogueRepository {
   Future<List<SkillCategory>> getCategories() => _remote.getCategories();
 
   @override
-  Future<List<ServiceItem>> getBookableItems(int categoryId) => _remote.getBookableItems(categoryId);
+  Future<List<ServiceItem>> getBookableItems(int categoryId, {int? zoneId}) =>
+      _remote.getBookableItems(categoryId, zoneId: zoneId);
 }

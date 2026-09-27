@@ -33,6 +33,8 @@ namespace GigApp.Api.Data
         public DbSet<OtpChallenge> OtpChallenges => Set<OtpChallenge>();
         public DbSet<AuthSettings> AuthSettings => Set<AuthSettings>();
         public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+        public DbSet<ServiceZone> ServiceZones => Set<ServiceZone>();
+        public DbSet<ServiceZoneCategory> ServiceZoneCategories => Set<ServiceZoneCategory>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -474,6 +476,31 @@ namespace GigApp.Api.Data
                  .OnDelete(DeleteBehavior.Cascade);
 
                 e.HasIndex(c => new { c.CustomerId, c.ServiceItemId }).IsUnique();
+            });
+
+            modelBuilder.Entity<ServiceZone>(e =>
+            {
+                e.Property(z => z.Name).HasMaxLength(80).IsRequired();
+                e.Property(z => z.Center).HasColumnType("geography (point, 4326)");
+                e.HasIndex(z => z.Center).HasMethod("gist");
+                e.HasIndex(z => new { z.IsActive, z.DisplayOrder });
+            });
+
+            modelBuilder.Entity<ServiceZoneCategory>(e =>
+            {
+                e.HasOne(z => z.ServiceZone)
+                 .WithMany(z => z.Categories)
+                 .HasForeignKey(z => z.ServiceZoneId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                // Restrict, not Cascade — a category in use elsewhere must be
+                // deactivated rather than deleted out from under a zone.
+                e.HasOne(z => z.SkillCategory)
+                 .WithMany()
+                 .HasForeignKey(z => z.SkillCategoryId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(z => new { z.ServiceZoneId, z.SkillCategoryId }).IsUnique();
             });
 
             modelBuilder.Entity<OtpChallenge>(e =>

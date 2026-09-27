@@ -1216,6 +1216,74 @@
         });
     }
 
+    function setZoneCookie(id, name) {
+        var expires = 'expires=' + new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString();
+        document.cookie = 'gigapp_zone=' + id + '; path=/; ' + expires;
+        document.cookie = 'gigapp_zone_name=' + encodeURIComponent(name) + '; path=/; ' + expires;
+    }
+
+    function hasZoneCookie() {
+        return document.cookie.split('; ').some(function (row) { return row.indexOf('gigapp_zone=') === 0; });
+    }
+
+    function wireZonePicker() {
+        if (!$('#zone-picker-modal').length) return;
+
+        var modal = new bootstrap.Modal(document.getElementById('zone-picker-modal'));
+
+        function renderZones(zones) {
+            var $list = $('#zone-picker-list').empty();
+            zones.forEach(function (zone) {
+                var $item = $('<button type="button" class="list-group-item list-group-item-action"></button>')
+                    .text(zone.name)
+                    .on('click', function () {
+                        setZoneCookie(zone.id, zone.name);
+                        window.location.reload();
+                    });
+                $list.append($item);
+            });
+        }
+
+        function showError(message) {
+            $('#zone-picker-error').text(message).prop('hidden', false);
+        }
+
+        App.api.get('/api/servicezones').then(renderZones);
+
+        $('#zone-picker-trigger').on('click', function () { modal.show(); });
+
+        $('#zone-picker-locate').on('click', function () {
+            $('#zone-picker-error').prop('hidden', true);
+
+            if (!navigator.geolocation) {
+                showError('This browser cannot share a location.');
+                return;
+            }
+
+            var $btn = $('#zone-picker-locate').prop('disabled', true);
+
+            navigator.geolocation.getCurrentPosition(
+                function (pos) {
+                    App.api.get('/api/servicezones/nearest?lat=' + pos.coords.latitude + '&lng=' + pos.coords.longitude)
+                        .then(function (zone) {
+                            setZoneCookie(zone.id, zone.name);
+                            window.location.reload();
+                        })
+                        .catch(function (error) {
+                            $btn.prop('disabled', false);
+                            showError(error.message || 'We do not serve this area yet.');
+                        });
+                },
+                function () {
+                    $btn.prop('disabled', false);
+                    showError('Could not read your location. Choose an area from the list instead.');
+                }
+            );
+        });
+
+        if (!hasZoneCookie()) modal.show();
+    }
+
     App.showToast = showToast;
     App.confirmAction = confirmAction;
     App.notify = notify;
@@ -1239,6 +1307,7 @@
         wireLoginForm();
         wireOtpAuthForm();
         wireCartControls();
+        wireZonePicker();
         wireSessionRefresh();
         wireRealtime();
     });

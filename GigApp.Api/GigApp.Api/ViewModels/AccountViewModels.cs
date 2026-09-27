@@ -152,6 +152,13 @@ namespace GigApp.Api.ViewModels
         public string Heading => IsEdit ? "Edit banner" : "New banner";
     }
 
+    public class ServiceZoneFormShellViewModel
+    {
+        public int? Id { get; set; }
+        public bool IsEdit => Id is not null;
+        public string Heading => IsEdit ? "Edit service zone" : "New service zone";
+    }
+
     public class ServiceFormShellViewModel
     {
         public int? Id { get; set; }

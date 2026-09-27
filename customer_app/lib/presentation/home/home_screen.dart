@@ -35,6 +35,10 @@ class HomeScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: Text('Hello, ${user.name}', style: Theme.of(context).textTheme.headlineSmall),
           ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+            child: _DeliveringToRow(),
+          ),
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -275,6 +279,28 @@ class _PostTaskCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _DeliveringToRow extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final zoneName = ref.watch(zoneControllerProvider).valueOrNull?.name ?? '';
+
+    return InkWell(
+      onTap: () => ref.read(zoneControllerProvider.notifier).change(),
+      borderRadius: BorderRadius.circular(6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.place, size: 15, color: Color(0xFF4F46E5)),
+          const SizedBox(width: 4),
+          Text('Delivering to $zoneName', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF4F46E5))),
+          const SizedBox(width: 2),
+          const Icon(Icons.keyboard_arrow_down, size: 15, color: Color(0xFF4F46E5)),
+        ],
       ),
     );
   }

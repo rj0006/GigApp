@@ -1,0 +1,25 @@
+<div class="modal fade" id="zone-picker-modal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Where do you want your service?</h5>
+            </div>
+
+            <div class="modal-body">
+                <p class="text-secondary small">We only show services in areas we currently cover.</p>
+
+                <div id="zone-picker-error" class="alert alert-danger small" hidden></div>
+
+                <button type="button" id="zone-picker-locate" class="btn btn-uc-primary w-100 mb-3">
+                    Use my current location
+                </button>
+
+                <div class="d-flex align-items-center gap-2 text-secondary small mb-3">
+                    <hr class="flex-grow-1" /> or choose manually <hr class="flex-grow-1" />
+                </div>
+
+                <div id="zone-picker-list" class="list-group"></div>
+            </div>
+        </div>
+    </div>
+</div>

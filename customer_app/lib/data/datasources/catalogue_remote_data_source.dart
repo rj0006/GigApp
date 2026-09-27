@@ -21,11 +21,11 @@ class CatalogueRemoteDataSource {
     }
   }
 
-  Future<List<ServiceItemModel>> getBookableItems(int categoryId) async {
+  Future<List<ServiceItemModel>> getBookableItems(int categoryId, {int? zoneId}) async {
     try {
       final response = await _dio.get<List<dynamic>>(
         ApiEndpoints.bookableServiceItems,
-        queryParameters: {'categoryId': categoryId},
+        queryParameters: {'categoryId': categoryId, 'zoneId': ?zoneId},
       );
       return (response.data ?? const [])
           .map((e) => ServiceItemModel.fromJson(e as Map<String, dynamic>))

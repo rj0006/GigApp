@@ -368,6 +368,21 @@ Outside its window a banner is simply not rendered, and a section with nothing i
 heading rather than leaving an empty strip. The hero statistics stay hidden until there are five
 ratings or twenty completed jobs, because a real number that small reads worse than none.
 
+**The storefront is area-gated — a `ServiceZone` circle decides what a customer can even see.**
+`ServiceZone` (centre point + `RadiusKm`, PostGIS geography, same shape as `Partner.BaseLocation`)
+and `ServiceZoneCategory` (which `SkillCategory` rows are enabled in which zone) exist because not
+every category launches in every area at once. `ShopController.SellableItems`/`BuildCategoriesAsync`
+**fail closed**: no zone picked, or the picked zone doesn't enable that category, means the item does
+not show — there is no "show everywhere" fallback, on purpose, so a caller that forgets to send a
+zone gets nothing rather than an unfiltered catalogue. `GET api/servicezones` (list, for a manual
+picker) and `GET api/servicezones/nearest?lat=&lng=` (auto-detect, 404 when the point falls outside
+every zone's radius) are both `[AllowAnonymous]` — a guest has to be able to pick a location before
+signing in. Web resolves the zone from a `gigapp_zone` cookie its own JS writes
+(`wwwroot/js/global.js`'s `wireZonePicker`); `customer_app` always sends `zoneId` explicitly (no
+cookie jar there) and persists the choice via `ZoneStorage`. Both open the same picker automatically
+the first time and on "change location" — see
+[docs/IMPLEMENTATION-LOG.md](docs/IMPLEMENTATION-LOG.md) for the full shape.
+
 **`/services` is the only customer home page; the work lives in the profile.** There is no separate
 `/customer` dashboard — `CustomerController.DashboardPath` overrides the base to `/services`, so login,
 registration and the portal-home brand link all land on the storefront. `GET /customer` still exists
@@ -573,6 +588,14 @@ cookie, only the bearer token, so a session-only read always came back empty for
 `CartItems` directly for a signed-in customer and falls back to the session only for a guest — the
 DB was always the correct answer for an authenticated caller, it just was never consulted on read.
 
+**`Admin.formToJson(form)` sends a blank hidden `Id` input as `""`, and `[FromBody]` JSON binding
+does not tolerate that for a nullable numeric property** — `int? Id` throws a hard `400` trying to
+parse `""`, unlike classic form binding, which treats an empty value as absent. This has been
+silently breaking `CommissionPlansController`'s "new plan" flow since it shipped (confirmed live:
+`{"id":""}` returns 400). Any plain-JSON admin form with an optional `Id` must convert it explicitly
+before posting — `payload.id = id ? parseInt(id, 10) : null` — rather than trusting `formToJson`'s
+raw output; `ServiceZoneForm.cshtml` does this correctly and is the reference.
+
 ## Admin portal layout
 
 `/admin` uses `_AdminLayout.cshtml` (sidebar shell), not the plain `_Layout` the other two portals use.
@@ -667,6 +690,14 @@ button name and value forward so multi-button forms still work.
   `cartControllerProvider`) backs the AppBar's cart badge, every add-to-cart stepper, and the Cart
   screen itself, so a quantity change on Home is instantly reflected everywhere else without any
   manual refresh. `CartService.Read()` had to change for this to work at all — see Gotchas.
+- **The whole storefront is area-gated, signed in or not.** A fresh session (`app.dart`'s
+  `_PostLoginGate`) always routes to `LocationPickerScreen` until `zoneControllerProvider` holds a
+  zone — GPS auto-detect via `geolocator` (`ZoneController.useCurrentLocation`, resolves through
+  `GET api/servicezones/nearest`) or a manual pick from `GET api/servicezones`. The choice persists
+  in secure storage (`ZoneStorage`) and is sent as `zoneId` on every storefront/category/search/
+  bookable-items call; Home's "Delivering to <zone>" row reopens the picker to change it. See
+  CLAUDE.md's storefront architecture note and [docs/IMPLEMENTATION-LOG.md](docs/IMPLEMENTATION-LOG.md)
+  for why the backend fails closed with no zone rather than showing everything.
   Not built yet: Firebase push notifications for when the app is fully closed (deferred pending the
   user's own Firebase account setup).
 - `admin_panel` stays the untouched `flutter create` template permanently — it is slated for
