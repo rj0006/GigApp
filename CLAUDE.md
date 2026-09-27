@@ -5,6 +5,9 @@ Three-sided: customer, partner ("provider"), admin.
 
 **Stack:** ASP.NET Core 8 · PostgreSQL · vanilla JS + CSS · Flutter (mobile)
 
+Read [docs/CLAUDE-MEMORY.md](docs/CLAUDE-MEMORY.md) too — a backup of Claude's own standing
+memory for this project, checked in so it survives a machine reinstall.
+
 **The customer web portal is permanent.** Local services are found through search, and an app cannot
 be indexed, so the Razor customer pages are an acquisition channel and grow public category and city
 landing pages. Only the partner portal is replaceable by the app.
