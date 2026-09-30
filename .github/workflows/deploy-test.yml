@@ -1,0 +1,78 @@
+name: Deploy to test server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'GigApp.Api/**'
+      - 'deploy/**'
+      - '.github/workflows/deploy-test.yml'
+  pull_request:
+    paths:
+      - 'GigApp.Api/**'
+      - 'deploy/**'
+      - '.github/workflows/deploy-test.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('gigapp-check-{0}', github.ref) || 'gigapp-test-server' }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PROJECT: GigApp.Api/GigApp.Api/GigApp.Api.csproj
+      DEPLOY: ${{ github.event_name != 'pull_request' }}
+      HOST: ${{ secrets.GIGAPP_TEST_HOST }}
+
+    steps:
+      - name: Check the server secrets are set
+        if: env.DEPLOY == 'true'
+        env:
+          SSH_KEY: ${{ secrets.GIGAPP_TEST_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.GIGAPP_TEST_KNOWN_HOSTS }}
+        run: |
+          if [ -z "$HOST" ] || [ -z "$SSH_KEY" ] || [ -z "$KNOWN_HOSTS" ]; then
+            echo "::error::Add GIGAPP_TEST_HOST, GIGAPP_TEST_SSH_KEY and GIGAPP_TEST_KNOWN_HOSTS under Settings > Secrets and variables > Actions. See deploy/README.md."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Use the .NET 8 SDK
+        run: |
+          echo '{"sdk":{"version":"8.0.100","rollForward":"latestFeature"}}' > global.json
+
+      - name: Build the app
+        run: dotnet publish "$PROJECT" --configuration Release --runtime linux-x64 --self-contained false --output out
+
+      - name: Build the migrations bundle
+        env:
+          ASPNETCORE_ENVIRONMENT: Development
+        run: |
+          dotnet tool install dotnet-ef --version 8.0.10 --tool-path "$RUNNER_TEMP/tools"
+          "$RUNNER_TEMP/tools/dotnet-ef" migrations bundle --project "$PROJECT" --configuration Release \
+            --target-runtime linux-x64 --output out/efbundle --force
+
+      - name: Upload the build
+        if: env.DEPLOY == 'true'
+        env:
+          SSH_KEY: ${{ secrets.GIGAPP_TEST_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.GIGAPP_TEST_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          rsync -az --delete --exclude=/wwwroot/uploads --exclude=/App_Data \
+            out/ "gigapp@$HOST:/var/www/gigapp/releases/$GITHUB_SHA/"
+
+      - name: Put it live
+        if: env.DEPLOY == 'true'
+        run: ssh "gigapp@$HOST" "bash -s -- $GITHUB_SHA" < deploy/activate.sh
