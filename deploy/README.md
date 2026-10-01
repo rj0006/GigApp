@@ -22,6 +22,28 @@ Running it again is safe. The database password, JWT key, domain, repository and
 GIGAPP_REPO_URL=https://github.com/rj0006/GigApp.git GIGAPP_BRANCH=main bash gigapp-setup.sh
 ```
 
+## First admin
+
+A new database has no accounts. The seeder fills in categories, services, plans, taxes, the admin menu and settings, but it creates no user, and the app has no screen to create an admin. Create the first one on the server, once.
+
+First choose a password of letters and numbers and make its hash. The space at the start keeps the password out of the shell history:
+
+```bash
+ PW='replace-with-your-password'
+HASH="$(python3 -W ignore -c 'import crypt,sys; print(crypt.crypt(sys.argv[1], crypt.mksalt(crypt.METHOD_BLOWFISH)))' "$PW")"
+```
+
+Then add the admin. Use a 10-digit phone number that you will sign in with:
+
+```bash
+cd / && sudo -u postgres psql -d gigapp -v name='Admin' -v phone='9XXXXXXXXX' -v hash="$HASH" <<'SQL'
+INSERT INTO "Users" ("Name", "Phone", "PasswordHash", "Role", "IsActive", "IsPhoneVerified", "PhoneVerifiedAt", "RatingCount", "CreatedAt")
+VALUES (:'name', :'phone', :'hash', 'superadmin', true, true, now(), 0, now());
+SQL
+```
+
+Sign in at `/admin/login` with that phone number and password. Customers and partners register themselves from their portals, and in Development mode the OTP code appears on the screen. Approve new partners under Approvals.
+
 ## What a deploy does
 
 1. Reads the latest commit of the branch. If it is already deployed, or failed earlier, nothing happens.
@@ -78,7 +100,7 @@ To change the deploy script, edit `deploy/server-setup.sh` and run it again on t
 
 ## Test server settings
 
-- **Development mode.** The seeder creates the dev accounts from `CLAUDE.md`, Swagger is on at `/swagger`, and OTP codes come back in the response. Anyone can therefore sign in to any customer or partner account by its number, so keep only test data here. Change the admin password after the first deploy, because the seeded one is public.
+- **Development mode.** The seeder fills categories, services, plans, taxes and settings on every start. It does not create accounts, so follow "First admin" above. Swagger is on at `/swagger`, and OTP codes come back in the response, so anyone who knows a customer or partner phone number can sign in to that account. Keep only test data here.
 - **Real visitor IPs.** `ASPNETCORE_FORWARDEDHEADERS_ENABLED=true` makes the app read the visitor's IP from Caddy. Without it every request comes from `127.0.0.1`, and the login and OTP rate limits would block all users together.
 - **Memory.** The app runs with workstation GC and a 768 MB limit.
 

@@ -381,8 +381,7 @@ cat <<EOF
  The first build starts within a minute and takes several minutes. Watch it with:
    journalctl -u gigapp-deploy -f
 
- The first deploy creates the test accounts listed under "Dev accounts" in
- CLAUDE.md. Their password is public, so change the admin password after
- signing in.
+ A new database has no accounts. Create the first admin as described under
+ "First admin" in deploy/README.md.
 ================================================================================
 EOF
