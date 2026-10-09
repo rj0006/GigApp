@@ -202,6 +202,7 @@ builder.Services.AddScoped<IEarningsService, EarningsService>();
 builder.Services.AddScoped<IPlanService, PlanService>();
 builder.Services.AddScoped<ITaxService, TaxService>();
 builder.Services.Configure<PlatformOptions>(builder.Configuration.GetSection(PlatformOptions.SectionName));
+builder.Services.Configure<CompanyOptions>(builder.Configuration.GetSection(CompanyOptions.SectionName));
 builder.Services.AddHttpContextAccessor();
 
 // Masters: add a new one by implementing IMasterSource and registering it here.

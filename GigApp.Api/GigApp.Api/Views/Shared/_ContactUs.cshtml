@@ -1,0 +1,65 @@
+@using GigApp.Api.Configuration
+@using Microsoft.Extensions.Options
+@inject IOptions<CompanyOptions> Company
+
+@{
+    var company = Company.Value;
+    var hasAddress = !string.IsNullOrWhiteSpace(company.Address);
+    var hasHelpline = !string.IsNullOrWhiteSpace(company.HelplineNumber);
+    var dialNumber = new string(company.HelplineNumber.Where(c => char.IsDigit(c) || c == '+').ToArray());
+    var socialLinks = new[]
+    {
+        (Icon: "facebook", Label: "Facebook", Url: company.FacebookUrl),
+        (Icon: "instagram", Label: "Instagram", Url: company.InstagramUrl),
+        (Icon: "twitter", Label: "Twitter", Url: company.TwitterUrl),
+        (Icon: "linkedin", Label: "LinkedIn", Url: company.LinkedInUrl),
+        (Icon: "youtube", Label: "YouTube", Url: company.YouTubeUrl)
+    }
+    .Where(link => Uri.TryCreate(link.Url, UriKind.Absolute, out var uri)
+        && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp))
+    .ToList();
+}
+
+<div class="row g-3 mt-3 pt-3 border-top">
+    <div class="@(hasAddress ? "col-md-4" : "col-12")">
+        <div class="fw-semibold text-body">Contact us</div>
+        @if (hasHelpline)
+        {
+            <div>Helpline: <a class="text-decoration-none" href="tel:@dialNumber">@company.HelplineNumber</a></div>
+            @if (!string.IsNullOrWhiteSpace(company.HelplineHours))
+            {
+                <div>@company.HelplineHours</div>
+            }
+        }
+        @if (hasAddress)
+        {
+            <div class="mt-2">@company.Address</div>
+        }
+        @if (!hasHelpline && !hasAddress && socialLinks.Count == 0)
+        {
+            <div>Our contact details will be added soon.</div>
+        }
+        @if (socialLinks.Count > 0)
+        {
+            <div class="fw-semibold text-body mt-3 mb-2">Follow us</div>
+            <div class="d-flex gap-2">
+                @foreach (var link in socialLinks)
+                {
+                    <a class="btn btn-outline-secondary rounded-circle d-inline-flex align-items-center justify-content-center p-0"
+                       style="width: 36px; height: 36px;" href="@link.Url" target="_blank" rel="noopener noreferrer"
+                       aria-label="@link.Label" title="@link.Label">
+                        <partial name="_Icon" model="@link.Icon" />
+                    </a>
+                }
+            </div>
+        }
+    </div>
+    @if (hasAddress)
+    {
+        <div class="col-md-8">
+            <iframe class="w-100 border rounded" style="height: 220px;" loading="lazy" title="Our office on the map"
+                    referrerpolicy="no-referrer-when-downgrade"
+                    src="https://maps.google.com/maps?q=@Uri.EscapeDataString(company.Address)&output=embed"></iframe>
+        </div>
+    }
+</div>

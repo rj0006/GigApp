@@ -9,6 +9,25 @@ developer can call the same thing.
 
 ---
 
+## 2026-10-10 — Storefront footer shows contact details, a map and social links
+
+**Asked:** show the company address with a map, a helpline number and social media links on the
+website, like Urban Company's footer, and use the change to confirm that a push reaches the live site.
+
+- The values are configuration, not code: the `Company` section (`CompanyOptions`) holds `Address`,
+  `HelplineNumber`, `HelplineHours` and one URL each for Facebook, Instagram, Twitter, LinkedIn and
+  YouTube. Live values go in the server env file (`Company__Address`, `Company__HelplineNumber`, ...)
+  or in `appsettings.json`. They are public business details, not secrets.
+- A part is shown only when it is filled. With nothing filled, the footer says "Our contact details
+  will be added soon." No placeholder number or address is ever shown.
+- The map is a Google Maps embed built from `Address`. It needs no API key and is shown only when an
+  address exists.
+- A social link is shown only when it is an absolute `http` or `https` URL, so a bad value cannot become
+  a `javascript:` link. Links open in a new tab with `rel="noopener noreferrer"`.
+- The helpline number becomes a `tel:` link with only digits and `+` kept.
+
+---
+
 ## 2026-10-10 — Live deployment: automatic publish, per-environment settings, app downloads
 
 **Asked:** push to GitHub should compile and publish to the live server; local and live databases must
