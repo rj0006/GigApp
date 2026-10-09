@@ -507,15 +507,15 @@ screens use `_AuthLayout`; the logo is the `_Brand` partial. Details are in
 
 ## Deployment
 
-Live at https://gigapp.factualtechnologies.tech/ on a Linux VPS behind nginx. Pushing to `main` does
-nothing on its own — `.github/workflows/deploy-backend.yml` publishes and rsyncs the API, and
-`build-apps.yml` builds both signed release APKs against the live URL and drops them in
-`wwwroot/downloads/`, where the storefront footer links to them (`_AppDownload`, rendered only when the
-file exists). Server setup, the GitHub secrets list, the keystore and the first-deploy checklist are in
+Live at https://gigapp.factualtechnologies.tech/ on a Linux VPS behind a reverse proxy, updated by the
+owner's own publish routine — there are no GitHub Actions workflows in this repository (they were
+removed on 2026-10-10 after a GitHub billing lock; commit `a3e837d` has them). The two test APKs live in
+`wwwroot/downloads/` and the storefront footer links to them (`_AppDownload`, rendered only when the
+file exists). Server setup, the keystore and the first-deploy checklist are in
 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 - **Code never knows which environment it is in.** Database, `Jwt__Key` and `Database__MigrateOnStartup`
-  come from the server's env file; the Flutter live URL comes from `--dart-define=API_BASE_URL` in CI.
+  come from the server's env file; the Flutter live URL comes from `--dart-define=API_BASE_URL` at build time.
   Production secrets are never committed.
 - **Migrations run at startup only when `Database:MigrateOnStartup` is true** (live), never locally.
 - A deploy never overwrites `appsettings.Production.json`, `App_Data/`, `wwwroot/uploads/` or

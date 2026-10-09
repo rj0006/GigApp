@@ -9,6 +9,17 @@ developer can call the same thing.
 
 ---
 
+## 2026-10-10 — The GitHub deployment workflows are removed
+
+**Why:** every run failed with "The job was not started because your account is locked due to a billing
+issue", so the two workflows could never run, and the live site was already being updated another way. They
+only added red marks to the Actions tab. The files are in git history at commit `a3e837d`.
+
+- The test APKs stay in `wwwroot/downloads/` and travel with an ordinary publish.
+- Nothing about the storefront, the footer links or the migration setting changes.
+
+---
+
 ## 2026-10-10 — Banner run times follow the administrator's own clock
 
 **Problem:** the banner form sent "Runs from" and "Runs until" without a time zone, and the server read

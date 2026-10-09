@@ -1,14 +1,12 @@
 # Deployment
 
-Live site: https://gigapp.factualtechnologies.tech/ on a Linux VPS behind nginx.
+Live site: https://gigapp.factualtechnologies.tech/ on a Linux VPS behind a reverse proxy.
 
-Pushing to `main` does nothing by itself. Two GitHub Actions workflows in `.github/workflows/` do the
-work, and they need the secrets listed below before the first run.
-
-| Workflow | Runs when | Does |
-|---|---|---|
-| `deploy-backend.yml` | `GigApp.Api/**` changes on `main`, or manually | Publishes the API, rsyncs it to the server, restarts the service, waits for `/health` |
-| `build-apps.yml` | `customer_app/**` or `provider_app/**` changes on `main`, or manually | Builds both signed release APKs against the live URL and uploads them to `wwwroot/downloads/` on the server |
+The live site is updated by the owner's own publish routine, not by anything in this repository. Two
+GitHub Actions workflows (`deploy-backend.yml` and `build-apps.yml`) were added and then removed on
+2026-10-10, because the GitHub account was locked for billing and no run could start. They are still in
+git history at commit `a3e837d` if they are ever wanted back. Sections below marked "workflow route"
+only matter in that case.
 
 ## Local and live use different settings
 
@@ -60,7 +58,7 @@ ALTER USER gigapp PASSWORD '<new password>';
 
 Then update the env file and restart the service.
 
-## GitHub secrets
+## GitHub secrets (workflow route)
 
 Repository → Settings → Secrets and variables → Actions.
 
@@ -100,17 +98,13 @@ While the apps are only being tested, none of the launch items are needed: the p
 (`com.example.*`), the app labels, a company name or logo, an SMS provider, Firebase and a signing key
 can all wait.
 
-- **Without the `ANDROID_*` secrets** the build workflow still works. It signs with a throwaway debug
-  key, so each new build has a different signature and must be installed after uninstalling the old one.
+- **Test builds are signed with a debug key.** A build made on another machine has a different
+  signature, so it must be installed after uninstalling the old one.
 - **Install from the website:** open the footer link on the phone, download the APK and allow
   "install unknown apps" when Android asks. Play Protect may show a warning for a test app.
 - **Test APKs travel with the code:** `gigapp-customer.apk` and `gigapp-partner.apk` are committed in
   `wwwroot/downloads/`, so an ordinary publish of the API carries them to the server and the footer links
-  appear on their own. Each replacement adds about 110 MB to the git history, so replace them rarely and
-  switch to the build workflow once GitHub Actions is available.
-- **GitHub Actions needs a working billing setup.** If every run fails with "The job was not started
-  because your account is locked due to a billing issue", nothing in the workflows can run until the
-  account's billing is fixed under GitHub → Settings → Billing and plans.
+  appear on their own. Each replacement adds about 110 MB to the git history, so replace them rarely.
 - **OTP has no SMS provider yet.** On the live site the code is not shown on screen. It is written to the
   service log, so read it with `journalctl -u <service> -f | grep OTP`. The other route is password mode:
   open `/admin/settings/auth`, switch the customer and partner login to password, and register accounts
@@ -144,12 +138,11 @@ flutter build apk --release --dart-define=API_BASE_URL=https://gigapp.factualtec
 
 1. Set `Database__MigrateOnStartup=true` in the server env file **before** the first push, so the
    `AddServiceZones` migration and any later ones are applied on restart.
-2. Add every secret above.
-3. Push to `main`, or run both workflows manually from the Actions tab.
-4. Sign in to `/admin`, open `/admin/masters/servicezones`, create at least one zone and tick the
+2. Publish the API the way you normally do.
+3. Sign in to `/admin`, open `/admin/masters/servicezones`, create at least one zone and tick the
    categories it serves. The storefront fails closed, so until this is done customers see nothing.
-5. Add a "Service zones" link under Masters → Menu. The menu seeder runs in Development only.
-6. Open the site footer and confirm both download links appear. They render only when the APK file exists.
+4. Add a "Service zones" link under Masters → Menu. The menu seeder runs in Development only.
+5. Open the site footer and confirm both download links appear. They render only when the APK file exists.
 
 ## Before the apps are shared publicly
 
@@ -160,8 +153,7 @@ flutter build apk --release --dart-define=API_BASE_URL=https://gigapp.factualtec
 
 ## Rollback
 
-Re-run an older successful `deploy-backend.yml` run from the Actions tab. Database migrations are not
-reverted by this. Write a new migration to undo schema changes.
+Publish the previous version of the code again. Database migrations are not reverted by this. Write a new migration to undo schema changes.
 
 ## Never overwritten by a deploy
 
