@@ -103,8 +103,20 @@
         (function () {
             'use strict';
 
+            function pad(number) {
+                return String(number).padStart(2, '0');
+            }
+
             function toLocalInput(isoValue) {
-                return isoValue ? isoValue.slice(0, 16) : '';
+                if (!isoValue) return '';
+
+                var date = new Date(/Z|[+-]\d\d:\d\d$/.test(isoValue) ? isoValue : isoValue + 'Z');
+                return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate())
+                    + 'T' + pad(date.getHours()) + ':' + pad(date.getMinutes());
+            }
+
+            function toUtcValue(localValue) {
+                return localValue ? new Date(localValue).toISOString() : '';
             }
 
             function fillForm(banner) {
@@ -137,7 +149,11 @@
                     event.preventDefault();
                     $('#banner-form-errors').empty();
 
-                    App.api.post('/api/banners', new FormData(form), { silent: true })
+                    var formData = new FormData(form);
+                    formData.set('StartsAt', toUtcValue(formData.get('StartsAt')));
+                    formData.set('EndsAt', toUtcValue(formData.get('EndsAt')));
+
+                    App.api.post('/api/banners', formData, { silent: true })
                         .then(function () {
                             showToast('Success', id ? 'Banner updated.' : 'Banner created.', 'success');
                             window.location.href = '/admin/masters/banners';

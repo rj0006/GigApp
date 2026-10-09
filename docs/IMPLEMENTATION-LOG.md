@@ -9,6 +9,18 @@ developer can call the same thing.
 
 ---
 
+## 2026-10-10 — Banner run times follow the administrator's own clock
+
+**Problem:** the banner form sent "Runs from" and "Runs until" without a time zone, and the server read
+them as UTC. A banner set to start now in India therefore stayed hidden for about five and a half hours.
+
+- The form now converts the typed time to UTC before saving and shows saved times back in the
+  administrator's own time zone. The stored value is still UTC.
+- A banner is shown only inside its window, plus the other rules: active, has an image, and matches the
+  customer's area.
+
+---
+
 ## 2026-10-10 — Banners and individual services can be limited to areas
 
 **Asked:** show only the services and banners that are available in the area the customer has selected.
