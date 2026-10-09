@@ -94,6 +94,25 @@ Company__LinkedInUrl=https://...
 Company__YouTubeUrl=https://...
 ```
 
+## Testing before the real launch
+
+While the apps are only being tested, none of the launch items are needed: the package names
+(`com.example.*`), the app labels, a company name or logo, an SMS provider, Firebase and a signing key
+can all wait.
+
+- **Without the `ANDROID_*` secrets** the build workflow still works. It signs with a throwaway debug
+  key, so each new build has a different signature and must be installed after uninstalling the old one.
+- **Install from the website:** open the footer link on the phone, download the APK and allow
+  "install unknown apps" when Android asks. Play Protect may show a warning for a test app.
+- **Quick manual route:** build the APKs once, name them `gigapp-customer.apk` and `gigapp-partner.apk`
+  and copy both into `wwwroot/downloads/` on the server. The footer links appear on their own.
+- **OTP has no SMS provider yet.** On the live site the code is not shown on screen. It is written to the
+  service log, so read it with `journalctl -u <service> -f | grep OTP`. The other route is password mode:
+  open `/admin/settings/auth`, switch the customer and partner login to password, and register accounts
+  with their own passwords.
+- **The seeder does not run on the live server**, so there are no demo accounts there. An administrator
+  has to exist in the live database before `/admin` can be used.
+
 ## Android signing key
 
 Create it once and **back it up outside this machine and outside git**. An app signed with a different

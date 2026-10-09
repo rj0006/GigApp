@@ -52,7 +52,10 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
-          test -n "$KEYSTORE_BASE64" || { echo "The ANDROID_KEYSTORE_BASE64 secret is missing"; exit 1; }
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "No signing key configured, so this test build uses the debug key"
+            exit 0
+          fi
           printf '%s' "$KEYSTORE_BASE64" | base64 -d > app/release.keystore
           {
             echo "storePassword=$KEYSTORE_PASSWORD"
