@@ -629,13 +629,13 @@ cookie, only the bearer token, so a session-only read always came back empty for
 `CartItems` directly for a signed-in customer and falls back to the session only for a guest — the
 DB was always the correct answer for an authenticated caller, it just was never consulted on read.
 
-**`Admin.formToJson(form)` sends a blank hidden `Id` input as `""`, and `[FromBody]` JSON binding
-does not tolerate that for a nullable numeric property** — `int? Id` throws a hard `400` trying to
-parse `""`, unlike classic form binding, which treats an empty value as absent. This has been
-silently breaking `CommissionPlansController`'s "new plan" flow since it shipped (confirmed live:
-`{"id":""}` returns 400). Any plain-JSON admin form with an optional `Id` must convert it explicitly
-before posting — `payload.id = id ? parseInt(id, 10) : null` — rather than trusting `formToJson`'s
-raw output; `ServiceZoneForm.cshtml` does this correctly and is the reference.
+**A blank hidden `Id` used to break every "new" admin form.** `[FromBody]` JSON binding does not
+tolerate `""` for an `int? Id` the way classic form binding does — it throws a `400`. This silently
+broke the new-plan, new-tax, new-menu-item and new-service-zone forms. `Admin.formToJson` now converts
+a blank `Id` to `null`, so a form posting its own hidden `Id` input needs nothing extra. Never add a
+second, differently-cased `id` key to the payload: JSON binding is case-insensitive and sees two `Id`s.
+Related: `App.api` now shows the first field error from a validation response instead of the generic
+"One or more validation errors occurred." title.
 
 ## Admin portal layout
 

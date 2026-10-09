@@ -638,14 +638,14 @@
 
     function apiErrorMessage(response, body) {
         if (body && typeof body === 'object') {
-            if (body.title) return body.title;
-            if (body.error) return body.error;
-
             if (body.errors) {
                 var firstKey = Object.keys(body.errors)[0];
                 var firstValue = firstKey && body.errors[firstKey];
                 if (Array.isArray(firstValue) && firstValue.length) return firstValue[0];
             }
+
+            if (body.error) return body.error;
+            if (body.title) return body.title;
         }
 
         return response.statusText || 'Something went wrong.';
@@ -724,6 +724,9 @@
         var data = {};
         $(form).serializeArray().forEach(function (field) { data[field.name] = field.value; });
         $(form).find('input[type="checkbox"]').each(function () { data[this.name] = this.checked; });
+        Object.keys(data).forEach(function (key) {
+            if (key.toLowerCase() === 'id' && data[key] === '') data[key] = null;
+        });
         return data;
     };
 

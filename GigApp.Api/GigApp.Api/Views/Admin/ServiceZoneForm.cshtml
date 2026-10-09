@@ -120,7 +120,7 @@
                     $('#zone-form-errors').empty();
 
                     var payload = Admin.formToJson(form);
-                    payload.id = id ? parseInt(id, 10) : null;
+                    payload.Id = id ? parseInt(id, 10) : null;
                     payload.categoryIds = $('#zone-categories input[type="checkbox"]:checked')
                         .map(function () { return parseInt(this.value, 10); }).get();
 
