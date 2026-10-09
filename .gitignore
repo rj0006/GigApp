@@ -56,4 +56,4 @@ appsettings.Production.json
 **/android/key.properties
 *.keystore
 *.jks
-/GigApp.Api/GigApp.Api/wwwroot/downloads/
+!/GigApp.Api/GigApp.Api/wwwroot/downloads/*.apk
