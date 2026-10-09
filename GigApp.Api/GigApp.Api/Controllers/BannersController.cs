@@ -31,6 +31,7 @@ namespace GigApp.Api.Controllers
         {
             var page = await _context.Banners
                 .AsNoTracking()
+                .Include(b => b.Zones)
                 .OrderBy(b => b.Placement).ThenBy(b => b.SortOrder).ThenBy(b => b.Title)
                 .ToPagedResultAsync(paging, ct);
 
@@ -41,7 +42,7 @@ namespace GigApp.Api.Controllers
         [HttpGet("{id:int}")]
         public async Task<ActionResult<BannerDto>> GetById(int id, CancellationToken ct)
         {
-            var banner = await _context.Banners.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id, ct);
+            var banner = await _context.Banners.AsNoTracking().Include(b => b.Zones).FirstOrDefaultAsync(b => b.Id == id, ct);
             if (banner is null) return NotFound();
 
             return Ok(BannerDto.From(banner));
@@ -67,7 +68,7 @@ namespace GigApp.Api.Controllers
 
             if (isEdit)
             {
-                var existing = await _context.Banners.FirstOrDefaultAsync(b => b.Id == request.Id, ct);
+                var existing = await _context.Banners.Include(b => b.Zones).FirstOrDefaultAsync(b => b.Id == request.Id, ct);
                 if (existing is null) return NotFound();
                 banner = existing;
             }
@@ -94,6 +95,11 @@ namespace GigApp.Api.Controllers
             banner.StartsAt = request.StartsAt.ToUtc();
             banner.EndsAt = request.EndsAt.ToUtc();
             if (isEdit) banner.UpdatedAt = DateTime.UtcNow;
+
+            banner.Zones.SyncIds(
+                await _context.ExistingZoneIdsAsync(request.ZoneIds, ct),
+                zone => zone.ServiceZoneId,
+                id => new BannerZone { ServiceZoneId = id });
 
             await _context.SaveChangesAsync(ct);
 

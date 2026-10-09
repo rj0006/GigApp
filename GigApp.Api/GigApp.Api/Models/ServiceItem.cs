@@ -45,5 +45,7 @@ namespace GigApp.Api.Models
         public DateTime? UpdatedAt { get; set; }
 
         public ICollection<GigTask> Tasks { get; set; } = new List<GigTask>();
+
+        public ICollection<ServiceItemZone> Zones { get; set; } = new List<ServiceItemZone>();
     }
 }

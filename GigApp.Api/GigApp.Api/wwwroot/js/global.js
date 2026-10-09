@@ -730,6 +730,26 @@
         return data;
     };
 
+    Admin.loadZoneChecklist = function (containerSelector, selectedIds) {
+        return App.api.get('/api/servicezones/all?pageSize=200').then(function (result) {
+            var html = result.items.map(function (zone) {
+                var checked = selectedIds.indexOf(zone.id) !== -1 ? ' checked' : '';
+                return '<div class="form-check">'
+                    + '<input class="form-check-input" type="checkbox" name="ZoneIds" value="' + zone.id
+                    + '" id="zone-pick-' + zone.id + '"' + checked + '>'
+                    + '<label class="form-check-label" for="zone-pick-' + zone.id + '">'
+                    + Admin.escapeHtml(zone.name) + '</label></div>';
+            }).join('');
+
+            $(containerSelector).html(html || '<span class="text-secondary small">No service zones yet.</span>');
+        });
+    };
+
+    Admin.areasLabel = function (zoneIds) {
+        if (!zoneIds || zoneIds.length === 0) return 'All areas';
+        return zoneIds.length === 1 ? '1 area' : zoneIds.length + ' areas';
+    };
+
     Admin.kycReviewHtml = function (partner) {
         function doc(url, label) {
             return url

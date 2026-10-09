@@ -1,6 +1,7 @@
 using GigApp.Api.Data;
 using GigApp.Api.Dtos;
 using GigApp.Api.Models;
+using GigApp.Api.Services;
 using GigApp.Api.Services.Geo;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -131,15 +132,10 @@ namespace GigApp.Api.Controllers
             zone.IsActive = request.IsActive;
             zone.DisplayOrder = request.DisplayOrder;
 
-            var wanted = request.CategoryIds.Distinct().ToList();
-            foreach (var stale in zone.Categories.Where(c => !wanted.Contains(c.SkillCategoryId)).ToList())
-                zone.Categories.Remove(stale);
-
-            foreach (var categoryId in wanted)
-            {
-                if (zone.Categories.Any(c => c.SkillCategoryId == categoryId)) continue;
-                zone.Categories.Add(new ServiceZoneCategory { SkillCategoryId = categoryId });
-            }
+            zone.Categories.SyncIds(
+                request.CategoryIds,
+                category => category.SkillCategoryId,
+                id => new ServiceZoneCategory { SkillCategoryId = id });
 
             await _context.SaveChangesAsync(ct);
 

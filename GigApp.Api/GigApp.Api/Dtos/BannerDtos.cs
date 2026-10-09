@@ -23,6 +23,8 @@ namespace GigApp.Api.Dtos
         public DateTime? StartsAt { get; set; }
         public DateTime? EndsAt { get; set; }
 
+        public IReadOnlyList<int> ZoneIds { get; set; } = Array.Empty<int>();
+
         public bool IsLive => IsActive
             && (StartsAt is null || StartsAt <= DateTime.UtcNow)
             && (EndsAt is null || EndsAt >= DateTime.UtcNow);
@@ -48,6 +50,7 @@ namespace GigApp.Api.Dtos
             IsActive = banner.IsActive,
             StartsAt = banner.StartsAt,
             EndsAt = banner.EndsAt,
+            ZoneIds = banner.Zones.Select(z => z.ServiceZoneId).ToList(),
         };
     }
 
@@ -91,5 +94,7 @@ namespace GigApp.Api.Dtos
 
         [Display(Name = "Banner image")]
         public IFormFile? Image { get; set; }
+
+        public List<int> ZoneIds { get; set; } = new();
     }
 }

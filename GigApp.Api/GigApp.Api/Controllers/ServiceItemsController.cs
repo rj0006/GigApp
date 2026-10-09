@@ -47,7 +47,8 @@ namespace GigApp.Api.Controllers
             // gating; customer_app always sends it once a zone is picked.
             if (zoneId is not null)
                 query = query.Where(s => _context.ServiceZoneCategories.Any(
-                    zc => zc.ServiceZoneId == zoneId && zc.SkillCategoryId == s.SkillCategoryId));
+                                zc => zc.ServiceZoneId == zoneId && zc.SkillCategoryId == s.SkillCategoryId)
+                         && (!s.Zones.Any() || s.Zones.Any(z => z.ServiceZoneId == zoneId)));
 
             var items = await query
                 .OrderBy(s => s.DisplayOrder).ThenBy(s => s.Name)
@@ -91,6 +92,7 @@ namespace GigApp.Api.Controllers
                     DisplayOrder = s.DisplayOrder,
                     CreatedAt = s.CreatedAt,
                     UpdatedAt = s.UpdatedAt,
+                    ZoneIds = s.Zones.Select(z => z.ServiceZoneId).ToList(),
                     TaskCount = s.Tasks.Count,
                 })
                 .ToPagedResultAsync(paging, ct);
@@ -105,6 +107,7 @@ namespace GigApp.Api.Controllers
         {
             var item = await _context.ServiceItems.AsNoTracking()
                 .Include(s => s.SkillCategory)
+                .Include(s => s.Zones)
                 .FirstOrDefaultAsync(s => s.Id == id, ct);
 
             if (item is null) return NotFound();
@@ -130,7 +133,7 @@ namespace GigApp.Api.Controllers
 
             if (isEdit)
             {
-                var existing = await _context.ServiceItems.FirstOrDefaultAsync(s => s.Id == request.Id, ct);
+                var existing = await _context.ServiceItems.Include(s => s.Zones).FirstOrDefaultAsync(s => s.Id == request.Id, ct);
                 if (existing is null) return NotFound();
                 item = existing;
             }
@@ -153,6 +156,11 @@ namespace GigApp.Api.Controllers
             item.DisplayOrder = request.DisplayOrder;
             if (isEdit) item.UpdatedAt = DateTime.UtcNow;
 
+            item.Zones.SyncIds(
+                await _context.ExistingZoneIdsAsync(request.ZoneIds, ct),
+                zone => zone.ServiceZoneId,
+                id => new ServiceItemZone { ServiceZoneId = id });
+
             await _context.SaveChangesAsync(ct);
 
             _logger.LogInformation(
@@ -174,7 +182,7 @@ namespace GigApp.Api.Controllers
         public async Task<ActionResult<ServiceItemDto>> Toggle(
             int id, [FromBody] ToggleActiveRequest request, CancellationToken ct)
         {
-            var item = await _context.ServiceItems.FirstOrDefaultAsync(s => s.Id == id, ct);
+            var item = await _context.ServiceItems.Include(s => s.Zones).FirstOrDefaultAsync(s => s.Id == id, ct);
             if (item is null) return NotFound();
 
             item.IsActive = request.IsActive;

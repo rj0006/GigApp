@@ -101,7 +101,7 @@ namespace GigApp.Api.Controllers
                 });
             }
 
-            var banners = await LiveBannersAsync(ct);
+            var banners = await LiveBannersAsync(zoneId, ct);
 
             return new StorefrontViewModel
             {
@@ -144,16 +144,18 @@ namespace GigApp.Api.Controllers
             };
         }
 
-        private async Task<IReadOnlyList<BannerDto>> LiveBannersAsync(CancellationToken ct)
+        private async Task<IReadOnlyList<BannerDto>> LiveBannersAsync(int? zoneId, CancellationToken ct)
         {
             var now = DateTime.UtcNow;
 
             var banners = await _context.Banners
                 .AsNoTracking()
+                .Include(b => b.Zones)
                 .Where(b => b.IsActive
                          && b.ImageFileName != null
                          && (b.StartsAt == null || b.StartsAt <= now)
-                         && (b.EndsAt == null || b.EndsAt >= now))
+                         && (b.EndsAt == null || b.EndsAt >= now)
+                         && (!b.Zones.Any() || b.Zones.Any(z => z.ServiceZoneId == zoneId)))
                 .OrderBy(b => b.SortOrder).ThenBy(b => b.Id)
                 .ToListAsync(ct);
 
@@ -299,30 +301,40 @@ namespace GigApp.Api.Controllers
                          && s.BasePayout > 0
                          && zoneId != null
                          && _context.ServiceZoneCategories.Any(
-                                zc => zc.ServiceZoneId == zoneId && zc.SkillCategoryId == s.SkillCategoryId));
+                                zc => zc.ServiceZoneId == zoneId && zc.SkillCategoryId == s.SkillCategoryId)
+                         && (!s.Zones.Any() || s.Zones.Any(z => z.ServiceZoneId == zoneId)));
 
         private async Task<IReadOnlyList<CatalogCategoryViewModel>> BuildCategoriesAsync(
             int? zoneId, CancellationToken ct)
         {
             if (zoneId is null) return Array.Empty<CatalogCategoryViewModel>();
 
-            return await _context.SkillCategories
-                .AsNoTracking()
-                .Where(c => c.IsActive
-                         && c.ServiceItems.Any(s => s.IsActive && s.AllowsInstantBooking && s.BasePayout > 0)
-                         && _context.ServiceZoneCategories.Any(
-                                zc => zc.ServiceZoneId == zoneId && zc.SkillCategoryId == c.Id))
-                .OrderBy(c => c.DisplayOrder).ThenBy(c => c.Name)
-                .Select(c => new CatalogCategoryViewModel
-                {
-                    Category = SkillCategoryDto.From(c),
-                    ServiceCount = c.ServiceItems.Count(
-                        s => s.IsActive && s.AllowsInstantBooking && s.BasePayout > 0),
-                    StartingFrom = c.ServiceItems
-                        .Where(s => s.IsActive && s.AllowsInstantBooking && s.BasePayout > 0)
-                        .Min(s => s.BasePayout),
-                })
+            var offered = await SellableItems(zoneId)
+                .GroupBy(s => s.SkillCategoryId)
+                .Select(g => new { CategoryId = g.Key, Count = g.Count(), StartingFrom = g.Min(s => s.BasePayout) })
                 .ToListAsync(ct);
+
+            var categoryIds = offered.Select(o => o.CategoryId).ToList();
+
+            var categories = await _context.SkillCategories
+                .AsNoTracking()
+                .Where(c => categoryIds.Contains(c.Id))
+                .OrderBy(c => c.DisplayOrder).ThenBy(c => c.Name)
+                .ToListAsync(ct);
+
+            return categories
+                .Select(c =>
+                {
+                    var summary = offered.First(o => o.CategoryId == c.Id);
+
+                    return new CatalogCategoryViewModel
+                    {
+                        Category = SkillCategoryDto.From(c),
+                        ServiceCount = summary.Count,
+                        StartingFrom = summary.StartingFrom,
+                    };
+                })
+                .ToList();
         }
     }
 }

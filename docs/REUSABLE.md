@@ -78,6 +78,8 @@ in a page.
 | `Admin.showImagePreview` | `.showImagePreview(url, fieldName?)` | Points an already-rendered `_ImageUpload` widget at an existing image — call after fetching a record to edit, so the preview shows what's already saved. Omit `fieldName` when the page has exactly one `_ImageUpload`; pass it (the widget's `Name`, e.g. `"Selfie"`) when a page has more than one, so each gets its own image instead of all of them showing the last call's URL. |
 | `Admin.showFormErrors` | `.showFormErrors(containerSelector, message)` | Renders a red inline alert into the given container — the standard "save failed" display under a form's heading. |
 | `Admin.formToJson` | `.formToJson(formEl)` → `object` | Serializes a form to a plain object for `App.api.post`/`.put`, including every checkbox's real `true`/`false` (not just the checked ones `serializeArray` would give you). |
+| `Admin.loadZoneChecklist` | `.loadZoneChecklist(containerSelector, selectedIds)` → promise | Fills a container with one `ZoneIds` checkbox per service zone, ticking `selectedIds`. Pair it with the `_ZoneChecklist` partial. Used by the banner and service forms. |
+| `Admin.areasLabel` | `.areasLabel(zoneIds)` → string | "All areas", "1 area" or "N areas" for a list column. |
 | `Admin.openKycModal` | `.openKycModal(partnerDto, historyEntries[], onDecision)` | Populates and shows `#kyc-modal` (the shared skeleton in `_KycModal.cshtml`) — review tab, history tab, Approve/Reject wiring including the "you rejected this partner before" confirm and the incomplete-KYC-disables-Approve state. `onDecision(approved, reason)` is called when a decision button is clicked; call `PUT api/partners/{id}/verify` from there. Shared by `Partners.cshtml` and `Approvals.cshtml` — the one JS helper big enough that two inline `<script>` blocks would otherwise duplicate real logic. |
 | `Admin.openAccountModal` | `.openAccountModal(userDto, onSaved?)` | Populates and shows `#account-modal` (the shared skeleton in `_AccountModal.cshtml`) — reset-password and activate/deactivate forms, both wired to `POST api/users/{id}/reset-password` / `.../active` internally. Call `onSaved` (usually the page's own `load()`) to refresh the list after a status change. Shared by `Users.cshtml` and `Partners.cshtml`. |
 | `Admin.openAddressModal` | `.openAddressModal(addressDto \| null, onSaved)` | Populates and shows `#address-modal` (the shared skeleton in `_AddAddressModal.cshtml`, wrapping the static `_AddressForm.cshtml`) — pass `null` for "Add address", an `AddressDto` for "Edit". Wires the form's submit to `POST`/`PUT api/addresses` (branching on whether the address has an id) and converts the hidden lat/lng inputs' empty string to `null` before sending. Call `onSaved(saved)` to refresh whatever list or dropdown opened it. Shared by `_ProfileAddresses.cshtml` (My addresses) and `_ProfilePostTask.cshtml` ("Add another address" inline) — the coupling that once made Addresses get deferred past Post-a-task's conversion. |
@@ -389,6 +391,22 @@ Averages live on `User`, not `Partner`, so the same two columns serve both sides
 
 ---
 
+## C# — join rows and area mapping
+
+`JoinRowExtensions` (`Services/JoinRowExtensions.cs`) keeps a many-to-many join collection equal to a list of ids:
+
+```csharp
+banner.Zones.SyncIds(
+    await _context.ExistingZoneIdsAsync(request.ZoneIds, ct),
+    zone => zone.ServiceZoneId,
+    id => new BannerZone { ServiceZoneId = id });
+```
+
+Load the collection with `Include` first. `ExistingZoneIdsAsync` drops ids that are not real zones, so a stale
+form cannot cause a foreign key error. Used for zone categories, banner areas and service areas.
+
+---
+
 ## C# — pagination
 
 Every list is paged **on the server**. Never load a full list and page it in memory.
@@ -646,6 +664,7 @@ Forms carrying a file need `enctype="multipart/form-data"`; API actions need
 | `_AddAddressModal` | — | Static shell (`#address-modal`) wrapping `_AddressForm`. Include it once per page; `Admin.openAddressModal(address, onSaved)` (`global.js`) fills the form and wires its submit. Used by `_ProfileAddresses` and `_ProfilePostTask`. |
 | `_Brand` | — | Logo mark plus wordmark, no wrapping link. Put it inside an `<a class="brand-link">`. Used by every layout. |
 | `_AppDownload` | `AppDownloadLink(FileName, Label)` | Footer link to an APK in `wwwroot/downloads/`. Renders nothing when the file is absent, so the footer never shows a dead link. `<partial name="_AppDownload" model="@(new AppDownloadLink("gigapp-customer.apk", "Download the customer app (Android)"))" />`. CI uploads the files; see `docs/DEPLOYMENT.md`. |
+| `_ZoneChecklist` | `ZoneChecklistModel(ContainerId, Label, Hint)` | Label, empty container and hint for a list of area checkboxes. Call `Admin.loadZoneChecklist('#container-id', ids)` from the form script to fill it. The boxes post as `ZoneIds`. Used by the banner and service forms. |
 | `_ContactUs` | — | Footer block with helpline, address, map and social icons, read from `CompanyOptions` (the `Company` config section). Each part renders only when filled. `<partial name="_ContactUs" />`. Used by `_ShopLayout`. |
 | `_UserMenu` | `UserMenuViewModel` | Navbar avatar with a Profile / Sign out box, plus an optional notification bell. Used by both layouts. |
 | `_Icon` | `string` icon name | Inline SVG icon (`cart`, `user`, `bell`, `log-out`, `lock`, `location`, `facebook`, `instagram`, `twitter`, `linkedin`, `youtube`), `currentColor` stroke, 18×18. Add a `case` in the partial for a new one — do not paste raw `<svg>` markup at a call site. |

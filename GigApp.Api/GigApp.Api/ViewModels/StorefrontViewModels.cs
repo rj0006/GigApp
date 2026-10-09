@@ -4,6 +4,8 @@ namespace GigApp.Api.ViewModels
 {
     public record AppDownloadLink(string FileName, string Label);
 
+    public record ZoneChecklistModel(string ContainerId, string Label, string Hint);
+
     public class QuantityStepperModel
     {
         public int ServiceItemId { get; set; }

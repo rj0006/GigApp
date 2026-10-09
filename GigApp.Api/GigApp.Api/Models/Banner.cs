@@ -28,6 +28,8 @@ namespace GigApp.Api.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
 
+        public ICollection<BannerZone> Zones { get; set; } = new List<BannerZone>();
+
         public bool IsLive(DateTime now) =>
             IsActive && (StartsAt is null || StartsAt <= now) && (EndsAt is null || EndsAt >= now);
     }

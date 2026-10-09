@@ -73,6 +73,13 @@
                 <div class="form-text">Instant booking needs a payout set.</div>
             </div>
 
+            <div class="col-12">
+                <partial name="_ZoneChecklist" model="@(new ZoneChecklistModel(
+                    "service-zones",
+                    "Available only in these areas",
+                    "Leave every area unticked and this service follows its category: it shows wherever the category is switched on."))" />
+            </div>
+
             <div class="col-12 d-flex gap-2 pt-2">
                 <button type="submit" id="service-save" class="btn btn-primary">
                     @(Model.IsEdit ? "Save changes" : "Create service")
@@ -111,7 +118,12 @@
                 var id = $(form).find('input[name="Id"]').val();
 
                 if (id) {
-                    App.api.get('/api/serviceitems/' + id).then(fillForm);
+                    App.api.get('/api/serviceitems/' + id).then(function (item) {
+                        fillForm(item);
+                        return Admin.loadZoneChecklist('#service-zones', item.zoneIds);
+                    });
+                } else {
+                    Admin.loadZoneChecklist('#service-zones', []);
                 }
 
                 $(form).on('submit', function (event) {

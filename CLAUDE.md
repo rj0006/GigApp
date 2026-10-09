@@ -390,7 +390,11 @@ signing in. Web resolves the zone from a `gigapp_zone` cookie its own JS writes
 (`wwwroot/js/global.js`'s `wireZonePicker`); `customer_app` always sends `zoneId` explicitly (no
 cookie jar there) and persists the choice via `ZoneStorage`. Both open the same picker automatically
 the first time and on "change location" — see
-[docs/IMPLEMENTATION-LOG.md](docs/IMPLEMENTATION-LOG.md) for the full shape.
+[docs/IMPLEMENTATION-LOG.md](docs/IMPLEMENTATION-LOG.md) for the full shape. Two optional narrowing
+lists sit on top of the category rule: `ServiceItemZone` limits one service to some zones and
+`BannerZone` limits one banner to some zones. An empty list means no extra restriction, so a service
+follows its category and a banner shows everywhere. `SellableItems` is the single place every
+storefront count and tile is derived from — never re-state its conditions in another query.
 
 **`/services` is the only customer home page; the work lives in the profile.** There is no separate
 `/customer` dashboard — `CustomerController.DashboardPath` overrides the base to `/services`, so login,

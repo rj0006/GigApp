@@ -23,7 +23,7 @@
                 <thead>
                     <tr>
                         <th>Image</th><th>Headline</th><th>Placement</th><th>Links to</th>
-                        <th>Runs</th><th>Order</th><th>Status</th><th class="text-end">Actions</th>
+                        <th>Areas</th><th>Runs</th><th>Order</th><th>Status</th><th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="banner-rows"></tbody>
@@ -68,6 +68,7 @@
                     + '<td><div class="fw-semibold">' + Admin.escapeHtml(banner.title) + '</div>' + subtitle + '</td>'
                     + '<td><span class="badge text-bg-light border">' + Admin.escapeHtml(banner.placementLabel) + '</span></td>'
                     + '<td class="small text-secondary">' + Admin.escapeHtml(banner.linkUrl || '—') + '</td>'
+                    + '<td class="small text-secondary">' + Admin.areasLabel(banner.zoneIds) + '</td>'
                     + '<td class="small text-secondary">' + Admin.escapeHtml(banner.window) + '</td>'
                     + '<td class="small text-secondary">' + banner.sortOrder + '</td>'
                     + '<td>' + statusBadge(banner) + '</td>'

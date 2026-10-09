@@ -46,7 +46,7 @@
                 <thead>
                     <tr>
                         <th>Image</th><th>Category</th><th>Service</th><th>Payout</th>
-                        <th>Instant</th><th>Tasks</th><th>Status</th><th class="text-end">Actions</th>
+                        <th>Instant</th><th>Areas</th><th>Tasks</th><th>Status</th><th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="service-rows"></tbody>
@@ -116,6 +116,7 @@
                     + '<td><div class="fw-semibold">' + Admin.escapeHtml(item.name) + '</div>' + description + '</td>'
                     + '<td>' + payoutCell(item) + '</td>'
                     + '<td>' + instantBadge(item) + '</td>'
+                    + '<td class="small text-secondary">' + Admin.areasLabel(item.zoneIds) + '</td>'
                     + '<td class="small text-secondary">' + item.taskCount + '</td>'
                     + '<td>' + statusBadge(item) + '</td>'
                     + '<td><div class="row-actions justify-end">' + actions + '</div></td>'

@@ -239,6 +239,30 @@ namespace GigApp.Api.Migrations
                         });
                 });
 
+            modelBuilder.Entity("GigApp.Api.Models.BannerZone", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BannerId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ServiceZoneId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceZoneId");
+
+                    b.HasIndex("BannerId", "ServiceZoneId")
+                        .IsUnique();
+
+                    b.ToTable("BannerZones");
+                });
+
             modelBuilder.Entity("GigApp.Api.Models.CartItem", b =>
                 {
                     b.Property<int>("Id")
@@ -1067,6 +1091,30 @@ namespace GigApp.Api.Migrations
                     b.ToTable("ServiceItems");
                 });
 
+            modelBuilder.Entity("GigApp.Api.Models.ServiceItemZone", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ServiceItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ServiceZoneId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceZoneId");
+
+                    b.HasIndex("ServiceItemId", "ServiceZoneId")
+                        .IsUnique();
+
+                    b.ToTable("ServiceItemZones");
+                });
+
             modelBuilder.Entity("GigApp.Api.Models.ServiceZone", b =>
                 {
                     b.Property<int>("Id")
@@ -1656,6 +1704,25 @@ namespace GigApp.Api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("GigApp.Api.Models.BannerZone", b =>
+                {
+                    b.HasOne("GigApp.Api.Models.Banner", "Banner")
+                        .WithMany("Zones")
+                        .HasForeignKey("BannerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GigApp.Api.Models.ServiceZone", "ServiceZone")
+                        .WithMany()
+                        .HasForeignKey("ServiceZoneId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Banner");
+
+                    b.Navigation("ServiceZone");
+                });
+
             modelBuilder.Entity("GigApp.Api.Models.CartItem", b =>
                 {
                     b.HasOne("GigApp.Api.Models.User", "Customer")
@@ -1846,6 +1913,25 @@ namespace GigApp.Api.Migrations
                     b.Navigation("SkillCategory");
                 });
 
+            modelBuilder.Entity("GigApp.Api.Models.ServiceItemZone", b =>
+                {
+                    b.HasOne("GigApp.Api.Models.ServiceItem", "ServiceItem")
+                        .WithMany("Zones")
+                        .HasForeignKey("ServiceItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GigApp.Api.Models.ServiceZone", "ServiceZone")
+                        .WithMany()
+                        .HasForeignKey("ServiceZoneId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ServiceItem");
+
+                    b.Navigation("ServiceZone");
+                });
+
             modelBuilder.Entity("GigApp.Api.Models.ServiceZoneCategory", b =>
                 {
                     b.HasOne("GigApp.Api.Models.ServiceZone", "ServiceZone")
@@ -1972,6 +2058,11 @@ namespace GigApp.Api.Migrations
                     b.Navigation("Tasks");
                 });
 
+            modelBuilder.Entity("GigApp.Api.Models.Banner", b =>
+                {
+                    b.Navigation("Zones");
+                });
+
             modelBuilder.Entity("GigApp.Api.Models.CommissionPlan", b =>
                 {
                     b.Navigation("Subscriptions");
@@ -1996,6 +2087,8 @@ namespace GigApp.Api.Migrations
             modelBuilder.Entity("GigApp.Api.Models.ServiceItem", b =>
                 {
                     b.Navigation("Tasks");
+
+                    b.Navigation("Zones");
                 });
 
             modelBuilder.Entity("GigApp.Api.Models.ServiceZone", b =>

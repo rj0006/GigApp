@@ -24,6 +24,8 @@ namespace GigApp.Api.Dtos
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
 
+        public IReadOnlyList<int> ZoneIds { get; set; } = Array.Empty<int>();
+
         public int TaskCount { get; set; }
         public bool IsInUse => TaskCount > 0;
 
@@ -44,6 +46,7 @@ namespace GigApp.Api.Dtos
             DisplayOrder = item.DisplayOrder,
             CreatedAt = item.CreatedAt,
             UpdatedAt = item.UpdatedAt,
+            ZoneIds = item.Zones.Select(z => z.ServiceZoneId).ToList(),
         };
     }
 
@@ -80,6 +83,8 @@ namespace GigApp.Api.Dtos
 
         [Display(Name = "Service image")]
         public IFormFile? Image { get; set; }
+
+        public List<int> ZoneIds { get; set; } = new();
     }
 
     /// <summary>

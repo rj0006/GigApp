@@ -35,6 +35,8 @@ namespace GigApp.Api.Data
         public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
         public DbSet<ServiceZone> ServiceZones => Set<ServiceZone>();
         public DbSet<ServiceZoneCategory> ServiceZoneCategories => Set<ServiceZoneCategory>();
+        public DbSet<BannerZone> BannerZones => Set<BannerZone>();
+        public DbSet<ServiceItemZone> ServiceItemZones => Set<ServiceItemZone>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -501,6 +503,36 @@ namespace GigApp.Api.Data
                  .OnDelete(DeleteBehavior.Restrict);
 
                 e.HasIndex(z => new { z.ServiceZoneId, z.SkillCategoryId }).IsUnique();
+            });
+
+            modelBuilder.Entity<BannerZone>(e =>
+            {
+                e.HasOne(z => z.Banner)
+                 .WithMany(b => b.Zones)
+                 .HasForeignKey(z => z.BannerId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(z => z.ServiceZone)
+                 .WithMany()
+                 .HasForeignKey(z => z.ServiceZoneId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasIndex(z => new { z.BannerId, z.ServiceZoneId }).IsUnique();
+            });
+
+            modelBuilder.Entity<ServiceItemZone>(e =>
+            {
+                e.HasOne(z => z.ServiceItem)
+                 .WithMany(s => s.Zones)
+                 .HasForeignKey(z => z.ServiceItemId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(z => z.ServiceZone)
+                 .WithMany()
+                 .HasForeignKey(z => z.ServiceZoneId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasIndex(z => new { z.ServiceItemId, z.ServiceZoneId }).IsUnique();
             });
 
             modelBuilder.Entity<OtpChallenge>(e =>

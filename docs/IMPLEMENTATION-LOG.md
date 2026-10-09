@@ -9,6 +9,28 @@ developer can call the same thing.
 
 ---
 
+## 2026-10-10 — Banners and individual services can be limited to areas
+
+**Asked:** show only the services and banners that are available in the area the customer has selected.
+
+- **Three levels now decide what a customer sees in a zone.** Category: the zone switches a category on
+  (`ServiceZoneCategory`, unchanged). Service: an optional list of areas on the service
+  (`ServiceItemZone`). Banner: an optional list of areas on the banner (`BannerZone`).
+- **No areas ticked means no extra restriction.** A service with none follows its category: it shows
+  wherever the category is on. A banner with none shows in every area. Ticking areas on a service can only
+  narrow it; the category must still be switched on in that zone.
+- **The storefront still fails closed.** With no zone picked, no service or category is shown. Banners
+  that have no area list are still returned, but the web page hides them when there are no categories.
+- The category tiles, their service counts and the "from" price are now computed from the same list of
+  sellable services, so a tile never counts a service the customer cannot buy there.
+- `GET api/serviceitems/bookable?categoryId=&zoneId=` applies the same service-level rule.
+- Admin sets this in the banner form ("Show in these areas") and the service form ("Available only in
+  these areas"). Both lists have an Areas column.
+- Mobile needs no change: `customer_app` already sends `zoneId` on every storefront call.
+- Not covered: an item already in a cart is not removed if its area list changes afterwards.
+
+---
+
 ## 2026-10-10 — Storefront footer shows contact details, a map and social links
 
 **Asked:** show the company address with a map, a helpline number and social media links on the

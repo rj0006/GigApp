@@ -74,6 +74,13 @@
             </div>
 
             <div class="col-12">
+                <partial name="_ZoneChecklist" model="@(new ZoneChecklistModel(
+                    "banner-zones",
+                    "Show in these areas",
+                    "Leave every area unticked to show this banner in all areas."))" />
+            </div>
+
+            <div class="col-12">
                 <div class="form-check">
                     <input id="banner-active" name="IsActive" class="form-check-input"
                            type="checkbox" value="true" checked />
@@ -118,7 +125,12 @@
                 var id = $(form).find('input[name="Id"]').val();
 
                 if (id) {
-                    App.api.get('/api/banners/' + id).then(fillForm);
+                    App.api.get('/api/banners/' + id).then(function (banner) {
+                        fillForm(banner);
+                        return Admin.loadZoneChecklist('#banner-zones', banner.zoneIds);
+                    });
+                } else {
+                    Admin.loadZoneChecklist('#banner-zones', []);
                 }
 
                 $(form).on('submit', function (event) {
