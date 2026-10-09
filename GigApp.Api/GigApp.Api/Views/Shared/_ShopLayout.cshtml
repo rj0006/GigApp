@@ -29,10 +29,12 @@
                 <div class="fw-semibold text-body">For customers</div>
                 <a class="d-block text-decoration-none" href="/services">Browse services</a>
                 <a class="d-block text-decoration-none" href="/customer/login">Sign in</a>
+                <partial name="_AppDownload" model="@(new AppDownloadLink("gigapp-customer.apk", "Download the customer app (Android)"))" />
             </div>
             <div class="col-md-4">
                 <div class="fw-semibold text-body">For professionals</div>
                 <a class="d-block text-decoration-none" href="/provider/login">Become a partner / sign in</a>
+                <partial name="_AppDownload" model="@(new AppDownloadLink("gigapp-partner.apk", "Download the partner app (Android)"))" />
             </div>
         </div>
     </footer>

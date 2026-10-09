@@ -9,6 +9,30 @@ developer can call the same thing.
 
 ---
 
+## 2026-10-10 — Live deployment: automatic publish, per-environment settings, app downloads
+
+**Asked:** push to GitHub should compile and publish to the live server; local and live databases must
+differ; the website must offer the partner and customer APKs; the Flutter apps must use the local API
+in development and the live API in release builds.
+
+- Deployment is two GitHub Actions workflows, not a side effect of pushing. The full setup is in
+  [DEPLOYMENT.md](DEPLOYMENT.md).
+- Environment differences come from configuration only. A new migration is applied on the live server
+  at startup when `Database:MigrateOnStartup` is true; it is false by default, so local runs never
+  migrate on their own.
+- `GET /health` is anonymous and returns `200 ok` only when the database is reachable. The deploy
+  workflow waits on it before reporting success.
+- The storefront footer shows "Download the customer app (Android)" and "Download the partner app
+  (Android)" only when `gigapp-customer.apk` and `gigapp-partner.apk` exist in `wwwroot/downloads/`.
+  `.apk` is served as `application/vnd.android.package-archive`.
+- Mobile: the API base URL is `--dart-define=API_BASE_URL`; the default stays `http://localhost:5245`.
+  Release builds are signed with the keystore restored from GitHub secrets, and the build number is the
+  workflow run number, so each APK can update the previous one.
+- Behind nginx the API trusts `X-Forwarded-For` and `X-Forwarded-Proto` from loopback, so rate limits
+  apply per client and not to all users together.
+
+---
+
 ## 2026-09-27 — The storefront becomes area-gated, on web and mobile alike
 
 **Asked:** limit which services show by the customer's own area — some services cannot be delivered

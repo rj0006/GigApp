@@ -48,3 +48,12 @@ Thumbs.db
 /verify*.png
 /scratch_*.json
 /ui*.xml
+
+# ----------------------------------------------------- deployment and signing
+# Production settings and the Android signing key live on the server and in
+# GitHub secrets only — losing the keystore means no app can ever be updated.
+appsettings.Production.json
+**/android/key.properties
+*.keystore
+*.jks
+/GigApp.Api/GigApp.Api/wwwroot/downloads/

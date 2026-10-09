@@ -1,0 +1,81 @@
+name: Deploy backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - GigApp.Api/**
+      - .github/workflows/deploy-backend.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+env:
+  SITE_URL: https://gigapp.factualtechnologies.tech
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Publish
+        run: dotnet publish GigApp.Api/GigApp.Api/GigApp.Api.csproj -c Release -o publish
+
+      - name: Keep development settings off the server
+        run: rm -f publish/appsettings.Development.json
+
+      - name: Prepare SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Upload
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          rsync -az --delete \
+            --exclude 'appsettings.Production.json' \
+            --exclude 'App_Data/' \
+            --exclude 'wwwroot/uploads/' \
+            --exclude 'wwwroot/downloads/' \
+            -e "ssh -i ~/.ssh/deploy_key -p ${DEPLOY_PORT:-22}" \
+            publish/ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
+
+      - name: Restart the service
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SERVICE: ${{ secrets.DEPLOY_SERVICE }}
+        run: ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" "sudo systemctl restart ${DEPLOY_SERVICE}"
+
+      - name: Wait for the site
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl -fsS -o /dev/null "${SITE_URL}/health"; then
+              echo "Site is healthy"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Site did not become healthy after the deploy"
+          exit 1

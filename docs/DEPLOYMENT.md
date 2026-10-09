@@ -1,0 +1,129 @@
+# Deployment
+
+Live site: https://gigapp.factualtechnologies.tech/ on a Linux VPS behind nginx.
+
+Pushing to `main` does nothing by itself. Two GitHub Actions workflows in `.github/workflows/` do the
+work, and they need the secrets listed below before the first run.
+
+| Workflow | Runs when | Does |
+|---|---|---|
+| `deploy-backend.yml` | `GigApp.Api/**` changes on `main`, or manually | Publishes the API, rsyncs it to the server, restarts the service, waits for `/health` |
+| `build-apps.yml` | `customer_app/**` or `provider_app/**` changes on `main`, or manually | Builds both signed release APKs against the live URL and uploads them to `wwwroot/downloads/` on the server |
+
+## Local and live use different settings
+
+Nothing in the code branches on the environment name. The same build reads its settings in this order,
+and the later source wins: `appsettings.json` → `appsettings.{Environment}.json` → environment variables.
+
+| Setting | Local | Live |
+|---|---|---|
+| Environment | `Development` | `Production` (`ASPNETCORE_ENVIRONMENT`) |
+| Database | `appsettings.json` (local Postgres) | `ConnectionStrings__DefaultConnection` in the server env file |
+| JWT signing key | `appsettings.Development.json` | `Jwt__Key` in the server env file |
+| Run migrations at startup | off | `Database__MigrateOnStartup=true` |
+| `DbSeeder`, Swagger | on | off (Development only) |
+| Flutter API URL | `http://localhost:5245` (default in `lib/core/config/env.dart`) | `--dart-define=API_BASE_URL=...` in `build-apps.yml` |
+
+Production secrets live only in the server env file and in GitHub secrets. Never put them in a file
+that is committed. `appsettings.Production.json` is git-ignored and is excluded from the rsync, so a
+deploy can neither overwrite nor delete it.
+
+## Server setup
+
+Done once, by hand.
+
+1. A service user and a deploy directory, for example `/var/www/gigapp`, owned by the deploy user.
+2. A root-only env file, for example `/etc/gigapp/gigapp.env` (`chmod 600`):
+
+   ```
+   ASPNETCORE_ENVIRONMENT=Production
+   ConnectionStrings__DefaultConnection=Host=localhost;Port=5432;Database=gigapp;Username=gigapp;Password=<server password>
+   Jwt__Key=<long random string, at least 32 characters>
+   Database__MigrateOnStartup=true
+   ```
+
+3. A systemd unit that runs `dotnet GigApp.Api.dll` from the deploy directory with
+   `EnvironmentFile=/etc/gigapp/gigapp.env` and `Restart=always`.
+4. A sudoers rule so the deploy user may restart only that service, without a password:
+   `deploy ALL=(root) NOPASSWD: /bin/systemctl restart gigapp`.
+5. nginx in front of Kestrel, passing `X-Forwarded-For` and `X-Forwarded-Proto`, with WebSocket upgrade
+   headers for `/hubs/` (SignalR). The app already calls `UseForwardedHeaders` for the loopback proxy.
+6. `rsync` installed on the server.
+7. A dedicated SSH key pair for GitHub Actions. The public key goes in the deploy user's
+   `authorized_keys`. The private key goes in the `DEPLOY_SSH_KEY` secret.
+
+Rotate the database password if it has ever been pasted into a chat, an email or a ticket:
+
+```sql
+ALTER USER gigapp PASSWORD '<new password>';
+```
+
+Then update the env file and restart the service.
+
+## GitHub secrets
+
+Repository → Settings → Secrets and variables → Actions.
+
+| Secret | Value |
+|---|---|
+| `DEPLOY_HOST` | Server hostname or IP |
+| `DEPLOY_USER` | Deploy user |
+| `DEPLOY_PATH` | Deploy directory, for example `/var/www/gigapp` |
+| `DEPLOY_PORT` | SSH port. Optional, defaults to 22 |
+| `DEPLOY_SERVICE` | systemd service name, for example `gigapp` |
+| `DEPLOY_SSH_KEY` | Private key of the Actions key pair |
+| `DEPLOY_KNOWN_HOSTS` | Output of `ssh-keyscan -p <port> <host>` |
+| `ANDROID_KEYSTORE_BASE64` | The release keystore, base64 encoded |
+| `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
+| `ANDROID_KEY_PASSWORD` | Key password |
+| `ANDROID_KEY_ALIAS` | Key alias |
+
+## Android signing key
+
+Create it once and **back it up outside this machine and outside git**. An app signed with a different
+key cannot be installed over the old one, so losing the keystore means every user has to uninstall first.
+
+```bash
+keytool -genkeypair -v -keystore gigapp-release.keystore -alias gigapp -keyalg RSA -keysize 2048 -validity 10000
+base64 -w0 gigapp-release.keystore
+```
+
+Paste the base64 output into `ANDROID_KEYSTORE_BASE64`. Both apps use the same keystore.
+
+For a local release build, create `android/key.properties` in the app (git-ignored) with `storePassword`,
+`keyPassword`, `keyAlias` and `storeFile`. Without it the release build falls back to the debug key,
+which is fine for testing and wrong for sharing.
+
+```bash
+flutter build apk --release --dart-define=API_BASE_URL=https://gigapp.factualtechnologies.tech
+```
+
+`--build-number` must go up with every release or Android refuses the update. CI uses the run number.
+
+## First deploy checklist
+
+1. Set `Database__MigrateOnStartup=true` in the server env file **before** the first push, so the
+   `AddServiceZones` migration and any later ones are applied on restart.
+2. Add every secret above.
+3. Push to `main`, or run both workflows manually from the Actions tab.
+4. Sign in to `/admin`, open `/admin/masters/servicezones`, create at least one zone and tick the
+   categories it serves. The storefront fails closed, so until this is done customers see nothing.
+5. Add a "Service zones" link under Masters → Menu. The menu seeder runs in Development only.
+6. Open the site footer and confirm both download links appear. They render only when the APK file exists.
+
+## Before the apps are shared publicly
+
+- Change `applicationId` from `com.example.customer_app` and `com.example.provider_app`, and the app
+  labels. The id cannot change after users have installed the app.
+- Users must allow installs from unknown sources, and Play Protect may warn about an app that is not
+  from the Play Store.
+
+## Rollback
+
+Re-run an older successful `deploy-backend.yml` run from the Actions tab. Database migrations are not
+reverted by this. Write a new migration to undo schema changes.
+
+## Never overwritten by a deploy
+
+`appsettings.Production.json`, `App_Data/` (KYC documents), `wwwroot/uploads/` and
+`wwwroot/downloads/` are excluded from the rsync `--delete`.

@@ -1,0 +1,8 @@
+@using Microsoft.AspNetCore.Hosting
+@model AppDownloadLink
+@inject IWebHostEnvironment WebEnv
+
+@if (System.IO.File.Exists(System.IO.Path.Combine(WebEnv.WebRootPath, "downloads", Model.FileName)))
+{
+    <a class="d-block text-decoration-none" href="/downloads/@Model.FileName" download>@Model.Label</a>
+}

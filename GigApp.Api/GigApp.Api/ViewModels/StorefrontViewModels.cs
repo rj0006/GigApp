@@ -2,6 +2,8 @@ using GigApp.Api.Dtos;
 
 namespace GigApp.Api.ViewModels
 {
+    public record AppDownloadLink(string FileName, string Label);
+
     public class QuantityStepperModel
     {
         public int ServiceItemId { get; set; }

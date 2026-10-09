@@ -487,6 +487,22 @@ on purpose; never reintroduce one.
   client actually wants: only `IsActive` items in that category, never trusting a client-supplied
   `showInactive` the way the admin list does.
 
+## Deployment
+
+Live at https://gigapp.factualtechnologies.tech/ on a Linux VPS behind nginx. Pushing to `main` does
+nothing on its own — `.github/workflows/deploy-backend.yml` publishes and rsyncs the API, and
+`build-apps.yml` builds both signed release APKs against the live URL and drops them in
+`wwwroot/downloads/`, where the storefront footer links to them (`_AppDownload`, rendered only when the
+file exists). Server setup, the GitHub secrets list, the keystore and the first-deploy checklist are in
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+- **Code never knows which environment it is in.** Database, `Jwt__Key` and `Database__MigrateOnStartup`
+  come from the server's env file; the Flutter live URL comes from `--dart-define=API_BASE_URL` in CI.
+  Production secrets are never committed.
+- **Migrations run at startup only when `Database:MigrateOnStartup` is true** (live), never locally.
+- A deploy never overwrites `appsettings.Production.json`, `App_Data/`, `wwwroot/uploads/` or
+  `wwwroot/downloads/`.
+
 ## Commands
 
 Run from the repo root.
@@ -562,6 +578,14 @@ expressed as a separate property.
 **Npgsql rejects non-UTC `DateTime` on `timestamp with time zone`.** JSON without an offset deserializes
 as `Unspecified` and throws at save time. Run every client-supplied timestamp through
 `DateTimeExtensions.ToUtc()`. Use `DateTime.UtcNow`, never `DateTime.Now`.
+
+**Behind nginx, `app.UseForwardedHeaders()` is mandatory.** Without it `RemoteIpAddress` is the proxy
+(127.0.0.1), so the IP-keyed rate limiter puts every user in one bucket, and `Request.IsHttps` is false,
+so auth cookies are not marked Secure. Verified: the same forwarded IP is throttled on the fourth OTP
+request while a different one is not.
+
+**A release APK needs `INTERNET` in the main `AndroidManifest.xml`.** Flutter adds it to the debug and
+profile manifests only, so a release build installs fine and then cannot reach the API.
 
 **Swagger only documents `api/*`.** A `DocInclusionPredicate` in `Program.cs` excludes the Razor
 portals — Swashbuckle throws on any action without an explicit HTTP verb. Give every MVC action one anyway.
