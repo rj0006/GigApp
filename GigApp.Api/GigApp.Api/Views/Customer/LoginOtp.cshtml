@@ -1,6 +1,14 @@
 @model OtpAuthViewModel
 @{
+    Layout = "_AuthLayout";
     ViewData["Portal"] = "Customer";
+    ViewData["AuthTagline"] = "Trusted home services, booked in minutes.";
+    ViewData["AuthPoints"] = new[]
+    {
+        "Fixed prices with no haggling",
+        "KYC-verified professionals",
+        "The nearest available partner is sent to you",
+    };
 }
 
 <partial name="_OtpAuthForm" model="Model" />

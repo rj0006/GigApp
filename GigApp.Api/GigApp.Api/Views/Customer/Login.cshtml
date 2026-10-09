@@ -1,6 +1,14 @@
 @model LoginViewModel
 @{
+    Layout = "_AuthLayout";
     ViewData["Portal"] = "Customer";
+    ViewData["AuthTagline"] = "Trusted home services, booked in minutes.";
+    ViewData["AuthPoints"] = new[]
+    {
+        "Fixed prices with no haggling",
+        "KYC-verified professionals",
+        "The nearest available partner is sent to you",
+    };
     ViewData["LoginHeading"] = "Customer sign in";
     ViewData["LoginSubtitle"] = "Use the mobile number or email on your account.";
     ViewData["LoginFooter"] = "New here? <a href=\"/customer/register\">Create a customer account</a>";

@@ -50,6 +50,12 @@ How the user wants help delivered on this project. These override default respon
    into a reusable function, partial or utility instead of copy-pasting. Record every new helper in
    [docs/REUSABLE.md](docs/REUSABLE.md) with its signature and a usage snippet, so next time it can be
    called directly without reading the implementation again.
+10. **New UI follows the existing design system, always.** Every new page, form, table, modal or
+    component must look and behave like the current ones: tokens and classes from
+    `wwwroot/css/theme.css`, the shared layouts and partials, and the standard `.gig-form` format in
+    [docs/REUSABLE.md](docs/REUSABLE.md). No one-off styles, no hard-coded colours. A new look-and-feel
+    need becomes a token or a class in `theme.css`, documented in REUSABLE.md. Flutter screens use the
+    same palette and spacing.
 
 ## Structure
 
@@ -486,6 +492,14 @@ on purpose; never reintroduce one.
   `PartnersController` already used. `GET api/serviceitems/bookable?categoryId=` is the read a mobile
   client actually wants: only `IsActive` items in that category, never trusting a client-supplied
   `showInactive` the way the admin list does.
+
+## Look and feel
+
+One design system for the storefront, the sign-in screens and the admin portal: `wwwroot/css/theme.css`,
+loaded last by every layout, holds the tokens and re-skins Bootstrap. Change colour, radius or fonts
+there and nowhere else. Fonts are vendored in `wwwroot/lib/fonts/`, never loaded from a CDN. Sign-in
+screens use `_AuthLayout`; the logo is the `_Brand` partial. Details are in
+[docs/REUSABLE.md](docs/REUSABLE.md) under "Layouts and CSS".
 
 ## Deployment
 

@@ -1,6 +1,15 @@
 @model LoginViewModel
 @{
+    Layout = "_AuthLayout";
     ViewData["Portal"] = "Admin";
+    ViewData["BackHref"] = "/admin";
+    ViewData["AuthTagline"] = "The GigApp control room.";
+    ViewData["AuthPoints"] = new[]
+    {
+        "Approve partners and manage services",
+        "Track every task and payout",
+        "Restricted to platform administrators",
+    };
     ViewData["LoginHeading"] = "Admin sign in";
     ViewData["LoginSubtitle"] = "Restricted to platform administrators.";
     @* No registration link — admin accounts are seeded or promoted, never self-served. *@

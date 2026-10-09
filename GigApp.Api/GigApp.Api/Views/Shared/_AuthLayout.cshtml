@@ -1,0 +1,57 @@
+@{
+    var portal = ViewData["Portal"] as string;
+    var tagline = ViewData["AuthTagline"] as string ?? "Home services, done right.";
+    var points = ViewData["AuthPoints"] as string[] ?? Array.Empty<string>();
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] · GigApp</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/customer-ui.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/theme.css" asp-append-version="true" />
+</head>
+<body class="auth-body">
+    <div class="auth-shell">
+        <aside class="auth-aside">
+            <a class="brand-link brand-link-light" href="@(ViewData["BackHref"] as string ?? "/services")">
+                <partial name="_Brand" />
+            </a>
+
+            <div class="auth-aside-copy">
+                @if (portal is not null)
+                {
+                    <span class="portal-tag portal-tag-light">@portal</span>
+                }
+                <h2 class="auth-tagline">@tagline</h2>
+                <ul class="auth-points">
+                    @foreach (var point in points)
+                    {
+                        <li><span class="auth-point-icon">&#10003;</span>@point</li>
+                    }
+                </ul>
+            </div>
+
+            <div class="auth-aside-foot">&copy; @DateTime.UtcNow.Year GigApp</div>
+        </aside>
+
+        <main class="auth-main">
+            <div class="auth-panel">
+                <partial name="_Flash" />
+                @RenderBody()
+            </div>
+        </main>
+    </div>
+
+    <script src="~/lib/jquery/jquery.min.js"></script>
+    <script src="~/lib/jquery-ui/jquery-ui.min.js"></script>
+    <script src="~/lib/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="~/lib/sweetalert2/sweetalert2.all.min.js"></script>
+    <script src="~/lib/signalr/signalr.min.js"></script>
+    <script src="~/js/global.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

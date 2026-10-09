@@ -1,6 +1,14 @@
 @model OtpAuthViewModel
 @{
+    Layout = "_AuthLayout";
     ViewData["Portal"] = "Partner";
+    ViewData["AuthTagline"] = "Grow your service business with GigApp.";
+    ViewData["AuthPoints"] = new[]
+    {
+        "Jobs matched to your skill and your area",
+        "A clear earnings ledger for every job",
+        "Go on duty only when you want to work",
+    };
 }
 
 <partial name="_OtpAuthForm" model="Model" />

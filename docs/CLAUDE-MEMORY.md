@@ -98,3 +98,21 @@ which is a refinement of this memory's original framing that "the `/customer` an
 portals are temporary harnesses." Only the **partner** portal remains replaceable by the app. Treat
 `CLAUDE.md`'s current wording as authoritative; this entry is kept for the original decision date and
 reasoning.
+
+---
+
+## UI design system
+
+All new UI work follows the design system approved on 2026-10-10: forms, tables, cards, buttons, modals,
+sign-in screens, storefront and admin pages must look and behave like the existing ones. Reuse the tokens
+and classes in `wwwroot/css/theme.css`, the layouts (`_ShopLayout`, `_AdminLayout`, `_Layout`,
+`_AuthLayout`), the `_Brand` partial and the standard `.gig-form` form format. Never add a one-off style,
+a hard-coded hex colour or a new look for a single page.
+
+**Why:** The user liked the redesign and asked, strongly, that future development keeps the same pattern,
+including the form format, so the product stays visually consistent.
+
+**How to apply:** Before building any page or component, read "Layouts and CSS" and "Standard form format"
+in `docs/REUSABLE.md` and reuse what exists. A new look-and-feel need becomes a token or a class in
+`theme.css`, documented in REUSABLE.md. Flutter screens follow the same palette and spacing. Also
+`CLAUDE.md` working-agreement rule 10.

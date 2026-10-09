@@ -1,6 +1,14 @@
 @model LoginViewModel
 @{
+    Layout = "_AuthLayout";
     ViewData["Portal"] = "Partner";
+    ViewData["AuthTagline"] = "Grow your service business with GigApp.";
+    ViewData["AuthPoints"] = new[]
+    {
+        "Jobs matched to your skill and your area",
+        "A clear earnings ledger for every job",
+        "Go on duty only when you want to work",
+    };
     ViewData["LoginHeading"] = "Partner sign in";
     ViewData["LoginSubtitle"] = "Use the mobile number or email on your account.";
     ViewData["LoginFooter"] = "Want to offer services? <a href=\"/provider/register\">Join as a partner</a>";

@@ -644,6 +644,7 @@ Forms carrying a file need `enctype="multipart/form-data"`; API actions need
 | `_AccountModal` | — | Static, id-based super-admin account modal (password reset, activate/deactivate). Include it once per page, guarded by `@if (ViewData["IsSuperAdmin"] is true)`; `Admin.openAccountModal(user, onSaved)` (`global.js`) fills it in and wires both forms. Used by `Users.cshtml` and `Partners.cshtml`. |
 | `_AddressForm` | — | Static, fixed-id address form (`#address-form` and friends). No `@model` — embed once via `<partial name="_AddressForm" />` inside `_AddAddressModal`, never standalone. |
 | `_AddAddressModal` | — | Static shell (`#address-modal`) wrapping `_AddressForm`. Include it once per page; `Admin.openAddressModal(address, onSaved)` (`global.js`) fills the form and wires its submit. Used by `_ProfileAddresses` and `_ProfilePostTask`. |
+| `_Brand` | — | Logo mark plus wordmark, no wrapping link. Put it inside an `<a class="brand-link">`. Used by every layout. |
 | `_AppDownload` | `AppDownloadLink(FileName, Label)` | Footer link to an APK in `wwwroot/downloads/`. Renders nothing when the file is absent, so the footer never shows a dead link. `<partial name="_AppDownload" model="@(new AppDownloadLink("gigapp-customer.apk", "Download the customer app (Android)"))" />`. CI uploads the files; see `docs/DEPLOYMENT.md`. |
 | `_ContactUs` | — | Footer block with helpline, address, map and social icons, read from `CompanyOptions` (the `Company` config section). Each part renders only when filled. `<partial name="_ContactUs" />`. Used by `_ShopLayout`. |
 | `_UserMenu` | `UserMenuViewModel` | Navbar avatar with a Profile / Sign out box, plus an optional notification bell. Used by both layouts. |
@@ -879,12 +880,31 @@ label for the red star · wrap in `.form-card` (720px) or `.form-card-narrow` (4
 
 | File | When to use |
 |---|---|
-| `_Layout.cshtml` | Public, customer and provider pages. Top navbar. |
-| `_AdminLayout.cshtml` | `/admin` only. Sidebar shell, active state from the path, pending-KYC badge. |
+| `_Layout.cshtml` | Customer and provider pages after sign-in, and the partner registration form. Sticky top navbar. |
+| `_AdminLayout.cshtml` | `/admin` only. Dark sidebar shell, active state from the path, pending-KYC badge. |
+| `_ShopLayout.cshtml` | The public storefront. Header, dark footer with contact details. |
+| `_AuthLayout.cshtml` | Every sign-in screen (customer, partner, admin). Split screen: brand panel on the left, form on the right. A view sets `ViewData["Portal"]`, `["AuthTagline"]` and `["AuthPoints"]` (a `string[]`); `["BackHref"]` is optional. |
 
-Bootstrap 5.3 is vendored locally in `wwwroot/lib/` (no CDN, so it works offline).
-`site.css` is only a thin layer: the sidebar, making the jQuery UI autocomplete look like a Bootstrap
-dropdown, and the `.badge-<status>` colours. **Look for a Bootstrap utility first** before writing CSS.
+Bootstrap 5.3 is vendored locally in `wwwroot/lib/` (no CDN, so it works offline), and so are the
+fonts in `wwwroot/lib/fonts/` (Inter for text, Plus Jakarta Sans for headings and the brand).
+
+**The look lives in `wwwroot/css/theme.css`, loaded last by every layout.** It sets the design tokens
+(`--gig-ink`, `--gig-accent`, `--gig-canvas`, `--gig-radius`, `--gig-shadow-*`, `--gig-font-*`) and
+re-skins Bootstrap's own variables, so buttons, cards, forms, tables, modals, dropdowns, badges,
+pagination and SweetAlert2 change in one place without touching any view. To change the colour or
+the corner radius of the whole product, edit the tokens at the top of that file. Do not hard-code a
+hex colour in a view or in `site.css`.
+
+`site.css` is only a thin layer: the admin shell structure, making the jQuery UI autocomplete look like a
+Bootstrap dropdown, and component layout. **Look for a Bootstrap utility first** before writing CSS.
+
+| Class | Use |
+|---|---|
+| `.brand-link` + `<partial name="_Brand" />` | The logo mark and wordmark. Add `.brand-link-light` on a dark background. Never type the wordmark by hand. |
+| `.portal-tag` (`.portal-tag-light`) | Small pill naming the portal beside the logo. |
+| `.text-gradient` | Accent gradient on a key word in a heading. |
+| `.hero-eyebrow`, `.hero-title`, `.hero-lead`, `.hero-chips` / `.hero-chip` | Storefront hero pieces. |
+| `.site-footer` | Dark footer. Text colours inside it are re-mapped, so the usual `.text-body` and `.text-secondary` still read well. |
 
 Responsive: below 992px the sidebar becomes a drawer (CSS-only checkbox, no JavaScript).
 Always wrap tables in `.table-responsive`.

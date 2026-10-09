@@ -31,6 +31,7 @@
     <title>@ViewData["Title"] · GigApp Admin</title>
     <link rel="stylesheet" href="~/lib/bootstrap/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/theme.css" asp-append-version="true" />
 </head>
 <body class="bg-body-tertiary">
     <input type="checkbox" id="sidebar-toggle" class="sidebar-toggle" />
@@ -38,9 +39,10 @@
     <div class="admin-shell">
         <aside class="sidebar">
             <div class="sidebar-brand d-flex align-items-center gap-2 flex-wrap">
-                <a href="@(ViewData["PortalHome"] as string ?? "/admin")"
-                   class="fw-bold text-decoration-none text-body">Gig<span class="text-primary">App</span></a>
-                <span class="badge text-bg-primary-subtle text-primary-emphasis">Admin</span>
+                <a href="@(ViewData["PortalHome"] as string ?? "/admin")" class="brand-link brand-link-light">
+                    <partial name="_Brand" />
+                </a>
+                <span class="portal-tag portal-tag-light">Admin</span>
             </div>
 
             <nav class="nav flex-column pb-4">
