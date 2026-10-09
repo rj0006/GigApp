@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../common/widgets/inline_error.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../providers.dart';
-import '../../../core/theme/app_colors.dart';
 
 Future<bool> showChangePasswordDialog(BuildContext context) async {
   final result = await showDialog<bool>(
@@ -44,10 +44,10 @@ class _ChangePasswordDialogState extends ConsumerState<_ChangePasswordDialog> {
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          spacing: 14,
           children: [
             if (_error != null) ...[
-              Text(_error!, style: const TextStyle(color: AppColors.dangerText)),
-              const SizedBox(height: 8),
+              InlineError(message: _error!),
             ],
             TextFormField(
               controller: _currentCtrl,

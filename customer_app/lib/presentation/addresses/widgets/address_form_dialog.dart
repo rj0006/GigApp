@@ -68,7 +68,7 @@ class _AddressFormSheetState extends ConsumerState<_AddressFormSheet> {
               const SizedBox(height: 16),
               if (_error != null) ...[
                 Text(_error!, style: const TextStyle(color: AppColors.dangerText)),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
               ],
               Wrap(
                 spacing: 8,
@@ -85,34 +85,34 @@ class _AddressFormSheetState extends ConsumerState<_AddressFormSheet> {
                 controller: _houseController,
                 decoration: const InputDecoration(labelText: 'Flat / house number (optional)'),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _line1Controller,
                 decoration: const InputDecoration(labelText: 'Address'),
                 validator: (v) => (v == null || v.trim().length < 3) ? 'Enter the address' : null,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _line2Controller,
                 decoration: const InputDecoration(labelText: 'Area / street (optional)'),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _landmarkController,
                 decoration: const InputDecoration(labelText: 'Landmark (optional)'),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _cityController,
                 decoration: const InputDecoration(labelText: 'City'),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter the city' : null,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _stateController,
                 decoration: const InputDecoration(labelText: 'State (optional)'),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _pincodeController,
                 decoration: const InputDecoration(labelText: 'Pincode'),
@@ -121,7 +121,7 @@ class _AddressFormSheetState extends ConsumerState<_AddressFormSheet> {
                 validator: (v) =>
                     (v == null || !RegExp(r'^[1-9]\d{5}$').hasMatch(v.trim())) ? 'Enter a valid 6-digit pincode' : null,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(

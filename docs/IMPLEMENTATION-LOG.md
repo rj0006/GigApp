@@ -9,6 +9,24 @@ developer can call the same thing.
 
 ---
 
+## 2026-10-10 — The customer app can be browsed without signing in
+
+**Asked:** a visitor should see the services in the customer app without signing in, as on the website. The
+app used to open on the sign-in screen only.
+
+- The app opens on the area picker and then the storefront. Home, search and category pages work for a guest,
+  filtered by the chosen area exactly as for a signed-in customer.
+- A guest is asked to sign in when they add a service to the cart, open the cart, open Orders or Profile, or
+  post a custom task. The sign-in screen opens over the storefront with a close button, and closing it leaves
+  the guest where they were.
+- After signing in the customer returns to the storefront as themselves. Signing out returns to guest
+  browsing, not to the sign-in screen.
+- There is no guest cart in the app. The website keeps its session cart, but the app has no session cookie, so
+  adding to the cart needs an account.
+- Form dialogs (bank account, edit profile, change password) now space their fields apart.
+
+---
+
 ## 2026-10-10 — The mobile apps take the website's design, logo and a working name
 
 **Asked:** bring the new look to the Flutter apps, use the website logo as the app icon, and name the

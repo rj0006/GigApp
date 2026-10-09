@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/entities/gig_task.dart';
 import '../../domain/entities/storefront_home.dart';
+import '../auth/open_login.dart';
 import '../booking/post_task_screen.dart';
 import '../catalogue/category_screen.dart';
 import '../catalogue/search_screen.dart';
@@ -18,17 +19,17 @@ import '../providers.dart';
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key, required this.user, required this.onSeeOrders});
 
-  final AppUser user;
+  final AppUser? user;
   final VoidCallback onSeeOrders;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tasks = ref.watch(myTasksProvider);
+    final tasks = user == null ? const AsyncData<List<GigTask>>([]) : ref.watch(myTasksProvider);
     final home = ref.watch(storefrontHomeProvider);
 
     return RefreshIndicator(
       onRefresh: () async {
-        ref.invalidate(myTasksProvider);
+        if (user != null) ref.invalidate(myTasksProvider);
         ref.invalidate(storefrontHomeProvider);
       },
       child: ListView(
@@ -54,9 +55,9 @@ class HomeScreen extends ConsumerWidget {
             data: (value) => _StorefrontBody(home: value),
           ),
           const SizedBox(height: 28),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: _PostTaskCard(),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _PostTaskCard(isGuest: user == null),
           ),
         ],
       ),
@@ -67,7 +68,7 @@ class HomeScreen extends ConsumerWidget {
 class _Header extends StatelessWidget {
   const _Header({required this.user, required this.onSearch});
 
-  final AppUser user;
+  final AppUser? user;
   final VoidCallback onSearch;
 
   @override
@@ -84,7 +85,7 @@ class _Header extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Hello, ${user.name}', style: Theme.of(context).textTheme.headlineSmall),
+          Text(user == null ? 'Welcome to GigApp' : 'Hello, ${user!.name}', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 6),
           const _DeliveringToRow(),
           const SizedBox(height: 16),
@@ -322,13 +323,17 @@ class _Stat extends StatelessWidget {
 }
 
 class _PostTaskCard extends StatelessWidget {
-  const _PostTaskCard();
+  const _PostTaskCard({required this.isGuest});
+
+  final bool isGuest;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(22),
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PostTaskScreen())),
+      onTap: () => isGuest
+          ? openLogin(context)
+          : Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PostTaskScreen())),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(

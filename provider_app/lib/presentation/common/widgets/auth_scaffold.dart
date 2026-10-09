@@ -110,6 +110,19 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
+          if (Navigator.of(context).canPop())
+            Positioned(
+              top: 0,
+              right: 4,
+              child: SafeArea(
+                bottom: false,
+                child: IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Colors.white),
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ),
         ],
       ),
     );

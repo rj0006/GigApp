@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../common/widgets/auth_scaffold.dart';
+import '../session_controller.dart';
 import '../login_flow_controller.dart';
 import '../login_flow_state.dart';
 import '../widgets/code_step.dart';
@@ -14,6 +15,12 @@ class LoginScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(loginFlowControllerProvider);
+
+    ref.listen(sessionControllerProvider, (previous, next) {
+      if (next.valueOrNull != null && Navigator.of(context).canPop()) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    });
 
     return AuthScaffold(
       portalLabel: 'Customer',

@@ -717,6 +717,8 @@ button name and value forward so multi-button forms still work.
   [docs/IMPLEMENTATION-LOG.md](docs/IMPLEMENTATION-LOG.md) for why that's an OS constraint the app
   can't route around) — see [docs/REUSABLE.md](docs/REUSABLE.md) for the pattern the next slice
   follows.
+- **`customer_app` can be browsed as a guest** (area picker, then the storefront); sign-in is asked for only on
+  add-to-cart, cart, Orders, Profile and custom tasks, and sign-out returns to guest browsing.
 - **`customer_app` now covers the full booking loop**, same clean-architecture shape as
   `provider_app`: sign-in (OTP with inline name for a new account, password fallback, session
   restore), a three-tab Active/Completed/Cancelled order history with rate-partner, raise-help and

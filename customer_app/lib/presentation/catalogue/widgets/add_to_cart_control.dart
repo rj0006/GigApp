@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../auth/open_login.dart';
+import '../../auth/session_controller.dart';
 import '../../providers.dart';
 
 class AddToCartControl extends ConsumerStatefulWidget {
@@ -35,15 +37,18 @@ class _AddToCartControlState extends ConsumerState<AddToCartControl> {
 
   @override
   Widget build(BuildContext context) {
+    final isGuest = ref.watch(sessionControllerProvider).valueOrNull == null;
     final cart = ref.watch(cartControllerProvider);
     final quantity = cart.valueOrNull?.quantityOf(widget.serviceItemId) ?? 0;
     final controller = ref.read(cartControllerProvider.notifier);
 
-    if (quantity == 0) {
+    if (quantity == 0 || isGuest) {
       return SizedBox(
         height: 34,
         child: TextButton(
-          onPressed: _busy ? null : () => _run(() => controller.add(widget.serviceItemId)),
+          onPressed: _busy
+              ? null
+              : () => isGuest ? openLogin(context) : _run(() => controller.add(widget.serviceItemId)),
           style: TextButton.styleFrom(
             minimumSize: const Size(64, 34),
             padding: const EdgeInsets.symmetric(horizontal: 16),

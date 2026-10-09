@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/app_user.dart';
+import '../auth/open_login.dart';
 import '../cart/widgets/cart_button.dart';
+import '../common/widgets/guest_prompt.dart';
 import '../home/home_screen.dart';
 import '../notifications/widgets/notification_bell.dart';
 import '../orders/orders_screen.dart';
@@ -14,24 +16,26 @@ const _titles = ['Home', 'Orders', 'Profile'];
 final shellSectionProvider = StateProvider.autoDispose<int>((ref) => 0);
 
 class AppShell extends ConsumerStatefulWidget {
-  const AppShell({super.key, required this.user});
+  const AppShell({super.key, this.user});
 
-  final AppUser user;
+  final AppUser? user;
 
   @override
   ConsumerState<AppShell> createState() => _AppShellState();
 }
 
 class _AppShellState extends ConsumerState<AppShell> {
+  bool get _isGuest => widget.user == null;
+
   @override
   void initState() {
     super.initState();
-    ref.read(realtimeClientProvider).connect();
+    if (!_isGuest) ref.read(realtimeClientProvider).connect();
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(realtimeClientProvider);
+    if (!_isGuest) ref.watch(realtimeClientProvider);
     ref.listen(notificationToastProvider, (previous, next) {
       if (next == null) return;
       ScaffoldMessenger.of(context)
@@ -40,21 +44,39 @@ class _AppShellState extends ConsumerState<AppShell> {
     });
 
     final section = ref.watch(shellSectionProvider);
+    final user = widget.user;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(_titles[section]),
-        actions: const [CartButton(), NotificationBell()],
+        actions: _isGuest
+            ? [
+                TextButton(onPressed: () => openLogin(context), child: const Text('Sign in')),
+                const SizedBox(width: 8),
+              ]
+            : const [CartButton(), NotificationBell()],
       ),
       body: IndexedStack(
         index: section,
         children: [
           HomeScreen(
-            user: widget.user,
+            user: user,
             onSeeOrders: () => ref.read(shellSectionProvider.notifier).state = 1,
           ),
-          const OrdersScreen(),
-          ProfileScreen(user: widget.user),
+          user == null
+              ? const GuestPrompt(
+                  icon: Icons.assignment_outlined,
+                  title: 'Sign in to see your orders',
+                  message: 'Book a service and track every order here.',
+                )
+              : const OrdersScreen(),
+          user == null
+              ? const GuestPrompt(
+                  icon: Icons.person_outline_rounded,
+                  title: 'Sign in to your account',
+                  message: 'Manage your addresses, bank details and devices.',
+                )
+              : ProfileScreen(user: user),
         ],
       ),
       bottomNavigationBar: NavigationBar(

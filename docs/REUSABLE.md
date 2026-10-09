@@ -946,6 +946,7 @@ changes, change both.
 | `.../section_header.dart` | `SectionHeader(title:, onAction:)` — a heading with an optional "See all" pill. |
 | `.../status_chip.dart` | `StatusChip(label:, tone:)`, and `StatusChip.toneForTask(status)` for task statuses. |
 | `.../inline_error.dart` | `InlineError(message:)` — the red message box for a failed action. |
+| `.../guest_prompt.dart` (customer_app) | `GuestPrompt(icon:, title:, message:)` — what a guest sees on a tab that needs an account. `openLogin(context)` (`presentation/auth/open_login.dart`) pushes the sign-in screen over the current page; it closes itself once the session exists. Use it for any action that needs an account. |
 
 The launcher icon comes from `assets/icon/` through `flutter_launcher_icons`; run `dart run flutter_launcher_icons`
 in the app after changing those images. The app names ("Gig Customer", "Gig Partner") are the Android
