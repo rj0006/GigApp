@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../common/widgets/inline_error.dart';
 
 import '../../common/widgets/primary_button.dart';
 import '../login_flow_controller.dart';
@@ -32,15 +34,15 @@ class _PasswordStepState extends ConsumerState<PasswordStep> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Enter your password', style: Theme.of(context).textTheme.headlineSmall),
+        Text('Enter your password', style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 6),
         Wrap(
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Text('Signing in as +91 ${widget.state.phone}. ', style: TextStyle(color: Colors.grey.shade600)),
+            Text('Signing in as +91 ${widget.state.phone}. ', style: const TextStyle(color: AppColors.muted)),
             GestureDetector(
               onTap: controller.useCodeInstead,
-              child: const Text('Use a code instead', style: TextStyle(decoration: TextDecoration.underline)),
+              child: const Text('Use a code instead', style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w700)),
             ),
           ],
         ),
@@ -51,14 +53,14 @@ class _PasswordStepState extends ConsumerState<PasswordStep> {
           decoration: InputDecoration(
             labelText: 'Password',
             suffixIcon: IconButton(
-              icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
+              icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined),
               onPressed: () => setState(() => _obscure = !_obscure),
             ),
           ),
         ),
         if (widget.state.error != null) ...[
           const SizedBox(height: 8),
-          Text(widget.state.error!, style: const TextStyle(color: Colors.red)),
+          InlineError(message: widget.state.error!),
         ],
         const SizedBox(height: 16),
         PrimaryButton(

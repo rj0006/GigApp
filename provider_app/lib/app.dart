@@ -15,7 +15,7 @@ class ProviderApp extends ConsumerWidget {
     final session = ref.watch(sessionControllerProvider);
 
     return MaterialApp(
-      title: 'GigApp Partner',
+      title: 'Gig Partner',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       home: session.when(

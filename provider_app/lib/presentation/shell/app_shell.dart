@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../splash/splash_screen.dart';
 
 import '../../domain/entities/app_user.dart';
 import '../home/home_screen.dart';
@@ -39,13 +40,13 @@ class _AppShellState extends ConsumerState<AppShell> {
       if (next == null) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(next), backgroundColor: const Color(0xFF4F46E5)));
+        ..showSnackBar(SnackBar(content: Text(next)));
     });
 
     final dashboard = ref.watch(dashboardProvider);
 
     return dashboard.when(
-      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      loading: () => const SplashScreen(),
       error: (error, _) => Scaffold(
         appBar: AppBar(title: const Text('GigApp Partner')),
         body: Center(child: Text('Could not load your account.\n$error', textAlign: TextAlign.center)),
@@ -102,10 +103,10 @@ class _VerifiedShell extends ConsumerWidget {
         selectedIndex: section < 2 ? section : 0,
         onDestinationSelected: (index) => ref.read(shellSectionProvider.notifier).state = index,
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
+          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Home'),
           NavigationDestination(
             icon: Icon(Icons.assignment_outlined),
-            selectedIcon: Icon(Icons.assignment),
+            selectedIcon: Icon(Icons.assignment_rounded),
             label: 'Orders',
           ),
         ],

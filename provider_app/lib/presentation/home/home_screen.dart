@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/entities/provider_dashboard.dart';
 import '../../domain/entities/wallet_summary.dart';
+import '../common/widgets/status_chip.dart';
 import '../dashboard/dashboard_actions_controller.dart';
 import '../providers.dart';
 import 'widgets/offer_banner.dart';
@@ -24,7 +26,7 @@ class HomeScreen extends ConsumerWidget {
       if (error != null) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(error), backgroundColor: Colors.red));
+          ..showSnackBar(SnackBar(content: Text(error), backgroundColor: AppColors.dangerText));
       }
     });
 
@@ -75,10 +77,12 @@ class _HomeBody extends ConsumerWidget {
     final openJobs = data.myJobs.where((j) => ['pending', 'accepted', 'in_progress'].contains(j.status)).toList();
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
       children: [
         Text('Hello, ${user.name}', style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: 16),
+        const SizedBox(height: 4),
+        Text(profile.skillCategoryName, style: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 18),
         if (data.offer != null && data.offer!.isLive) ...[
           OfferBanner(offer: data.offer!),
           const SizedBox(height: 16),
@@ -88,19 +92,19 @@ class _HomeBody extends ConsumerWidget {
           isBusy: isBusy,
           onTap: () => actions.run(() => ref.read(partnerRepositoryProvider).setAvailability(!profile.isAvailable)),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         Row(
           children: [
-            Expanded(child: _StatCard(label: 'Active jobs', value: '${openJobs.length}', icon: Icons.work_outline)),
-            const SizedBox(width: 10),
+            Expanded(child: _StatCard(label: 'Active jobs', value: '${openJobs.length}', icon: Icons.work_outline_rounded)),
+            const SizedBox(width: 12),
             Expanded(
               child: wallet.when(
-                loading: () => const _StatCard(label: 'This month', value: '…', icon: Icons.currency_rupee),
-                error: (_, _) => const _StatCard(label: 'This month', value: '—', icon: Icons.currency_rupee),
+                loading: () => const _StatCard(label: 'This month', value: '…', icon: Icons.currency_rupee_rounded),
+                error: (_, _) => const _StatCard(label: 'This month', value: '—', icon: Icons.currency_rupee_rounded),
                 data: (w) => _StatCard(
                   label: 'This month',
                   value: '₹${w.earnedThisMonth.round()}',
-                  icon: Icons.currency_rupee,
+                  icon: Icons.currency_rupee_rounded,
                 ),
               ),
             ),
@@ -113,19 +117,24 @@ class _HomeBody extends ConsumerWidget {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
+                  StatusChip(
+                    label: profile.kycStatus == 'rejected' ? 'KYC rejected' : 'KYC pending',
+                    tone: profile.kycStatus == 'rejected' ? StatusTone.danger : StatusTone.warning,
+                  ),
+                  const SizedBox(height: 12),
                   Text(
                     profile.kycStatus == 'rejected'
                         ? 'Your KYC was rejected'
                         : profile.kycStatus == 'pending'
                             ? 'Your documents are under review'
                             : 'Your KYC is incomplete',
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                    style: Theme.of(context).textTheme.titleMedium,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
-                  Text(
+                  const Text(
                     'An administrator checks your KYC before you can see and bid on work.',
-                    style: TextStyle(color: Colors.grey.shade600),
+                    style: TextStyle(color: AppColors.muted),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -133,31 +142,46 @@ class _HomeBody extends ConsumerWidget {
             ),
           )
         else
-          Card(
-            child: InkWell(
-              onTap: onSeeAvailableWork,
-              borderRadius: BorderRadius.circular(14),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    const Icon(Icons.search, color: Color(0xFF4F46E5)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${data.availableTasks.length} jobs available in ${profile.skillCategoryName}',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          Text('Tap to browse and bid', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                        ],
-                      ),
+          InkWell(
+            onTap: onSeeAvailableWork,
+            borderRadius: BorderRadius.circular(22),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: AppColors.brandGradient,
+                borderRadius: BorderRadius.circular(22),
+                boxShadow: AppColors.accentGlow,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    const Icon(Icons.chevron_right),
-                  ],
-                ),
+                    child: const Icon(Icons.search_rounded, color: Colors.white),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${data.availableTasks.length} job${data.availableTasks.length == 1 ? '' : 's'} available',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 17),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'In ${profile.skillCategoryName}. Tap to browse and bid',
+                          style: const TextStyle(color: Color(0xCCFFFFFF), fontSize: 12.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_rounded, color: Colors.white),
+                ],
               ),
             ),
           ),
@@ -175,22 +199,28 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            Icon(icon, color: const Color(0xFF4F46E5)),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-              ],
-            ),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.line),
+        boxShadow: AppColors.softShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(12)),
+            child: Icon(icon, color: AppColors.accent, size: 20),
+          ),
+          const SizedBox(height: 12),
+          Text(value, style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 2),
+          Text(label, style: const TextStyle(fontSize: 12.5, color: AppColors.muted, fontWeight: FontWeight.w500)),
+        ],
       ),
     );
   }
@@ -205,30 +235,59 @@ class _DutyToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isAvailable ? Colors.green : Colors.grey;
-
-    return Card(
-      child: InkWell(
-        onTap: isBusy ? null : onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-                child: Text(
-                  isAvailable ? 'On duty' : 'Off duty',
-                  style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12),
-                ),
+    return InkWell(
+      onTap: isBusy ? null : onTap,
+      borderRadius: BorderRadius.circular(22),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(18, 14, 12, 14),
+        decoration: BoxDecoration(
+          color: isAvailable ? AppColors.ink : AppColors.surface,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: isAvailable ? AppColors.ink : AppColors.line),
+          boxShadow: isAvailable ? AppColors.liftedShadow : AppColors.softShadow,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isAvailable ? const Color(0xFF34D399) : AppColors.faint,
+                boxShadow: isAvailable
+                    ? [BoxShadow(color: const Color(0xFF34D399).withValues(alpha: 0.6), blurRadius: 10)]
+                    : null,
               ),
-              const SizedBox(width: 10),
-              Text('Availability — tap to change', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-              const Spacer(),
-              if (isBusy) const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2)),
-            ],
-          ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isAvailable ? 'You are on duty' : 'You are off duty',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: isAvailable ? Colors.white : AppColors.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    isAvailable ? 'New jobs can be offered to you' : 'Switch on to receive new jobs',
+                    style: TextStyle(fontSize: 12.5, color: isAvailable ? const Color(0xB3FFFFFF) : AppColors.muted),
+                  ),
+                ],
+              ),
+            ),
+            if (isBusy)
+              const Padding(
+                padding: EdgeInsets.only(right: 12),
+                child: SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+              )
+            else
+              Switch(value: isAvailable, onChanged: (_) => onTap()),
+          ],
         ),
       ),
     );

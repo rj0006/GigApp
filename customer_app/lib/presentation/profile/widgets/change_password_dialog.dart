@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../providers.dart';
+import '../../../core/theme/app_colors.dart';
 
 Future<bool> showChangePasswordDialog(BuildContext context) async {
   final result = await showDialog<bool>(
@@ -45,7 +46,7 @@ class _ChangePasswordDialogState extends ConsumerState<_ChangePasswordDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (_error != null) ...[
-              Text(_error!, style: const TextStyle(color: Colors.red)),
+              Text(_error!, style: const TextStyle(color: AppColors.dangerText)),
               const SizedBox(height: 8),
             ],
             TextFormField(

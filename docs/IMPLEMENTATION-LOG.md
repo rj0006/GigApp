@@ -9,6 +9,23 @@ developer can call the same thing.
 
 ---
 
+## 2026-10-10 — The mobile apps take the website's design, logo and a working name
+
+**Asked:** bring the new look to the Flutter apps, use the website logo as the app icon, and name the
+installed apps "Gig Customer" and "Gig Partner" until the company name is decided.
+
+- Both apps share the website's tokens: indigo accent, ink and soft-grey neutrals, Inter for text and Plus
+  Jakarta Sans for headings, rounded cards with soft shadows, and gradient call-to-action buttons.
+- Sign-in, the location picker and the splash screen use a dark brand header with a white sheet. Customer
+  Home gets a greeting block, a search card, larger banners and category tiles. Partner Home gets a duty
+  card with a switch, stat cards and a gradient jobs card, and the drawer and wallet follow the same look.
+- The launcher icon is the website's "G" mark on the indigo gradient, generated with
+  `flutter_launcher_icons` from `assets/icon/`. iOS icons are not generated yet.
+- The installed names are "Gig Customer" and "Gig Partner". The package ids are unchanged, so an APK built
+  with the new name installs over the old one.
+
+---
+
 ## 2026-10-10 — The GitHub deployment workflows are removed
 
 **Why:** every run failed with "The job was not started because your account is locked due to a billing

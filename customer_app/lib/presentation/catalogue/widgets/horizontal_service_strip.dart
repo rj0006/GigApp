@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../domain/entities/service_item.dart';
+import '../../common/widgets/section_header.dart';
 import 'service_card.dart';
 
 class HorizontalServiceStrip extends StatelessWidget {
@@ -15,27 +16,23 @@ class HorizontalServiceStrip extends StatelessWidget {
     if (items.isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.only(top: 20),
+      padding: const EdgeInsets.only(top: 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Text(title, style: Theme.of(context).textTheme.titleMedium),
-                const Spacer(),
-                if (onSeeAll != null) TextButton(onPressed: onSeeAll, child: const Text('See all')),
-              ],
-            ),
+            child: SectionHeader(title: title, onAction: onSeeAll),
           ),
+          const SizedBox(height: 12),
           SizedBox(
-            height: 250,
+            height: 246,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              clipBehavior: Clip.none,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
               itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (_, index) => ServiceCard(item: items[index]),
             ),
           ),

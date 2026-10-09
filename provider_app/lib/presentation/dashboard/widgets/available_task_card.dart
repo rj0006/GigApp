@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../domain/entities/gig_task.dart';
+import '../../../core/theme/app_colors.dart';
 
 class AvailableTaskCard extends StatelessWidget {
   const AvailableTaskCard({super.key, required this.task, required this.onAct});
@@ -12,7 +13,7 @@ class AvailableTaskCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      color: task.isUrgent ? const Color(0xFFFDEDED) : null,
+      color: task.isUrgent ? AppColors.dangerSoft : null,
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -35,21 +36,21 @@ class AvailableTaskCard extends StatelessWidget {
                     ),
                     child: const Text(
                       'Fixed price',
-                      style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: AppColors.successText, fontSize: 11, fontWeight: FontWeight.w600),
                     ),
                   ),
               ],
             ),
             const SizedBox(height: 4),
-            Text(task.description, style: TextStyle(color: Colors.grey.shade700)),
+            Text(task.description, style: TextStyle(color: AppColors.muted)),
             const SizedBox(height: 4),
             Row(
               children: [
                 Expanded(
-                  child: Text(task.address, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                  child: Text(task.address, style: TextStyle(color: AppColors.muted, fontSize: 12)),
                 ),
                 if (task.distanceLabel != null)
-                  Text(task.distanceLabel!, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                  Text(task.distanceLabel!, style: TextStyle(color: AppColors.muted, fontSize: 12)),
               ],
             ),
             const SizedBox(height: 10),
@@ -62,13 +63,13 @@ class AvailableTaskCard extends StatelessWidget {
                     Text('₹${task.effectiveAmount.round()}', style: const TextStyle(fontWeight: FontWeight.w700)),
                     Text(
                       task.isInstant ? 'fixed' : 'budget',
-                      style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                      style: TextStyle(color: AppColors.muted, fontSize: 11),
                     ),
                   ],
                 ),
                 FilledButton(
                   style: task.isInstant
-                      ? FilledButton.styleFrom(backgroundColor: Colors.green)
+                      ? FilledButton.styleFrom(backgroundColor: AppColors.successText)
                       : null,
                   onPressed: onAct,
                   child: Text(task.isInstant ? 'Accept at ₹${task.effectiveAmount.round()}' : 'Place bid'),

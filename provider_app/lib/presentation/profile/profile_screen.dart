@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/theme/app_theme.dart';
 
 import '../../domain/entities/app_user.dart';
 import '../../domain/entities/provider_dashboard.dart';
@@ -11,6 +12,7 @@ import '../settings/service_area_screen.dart';
 import 'widgets/bank_account_dialog.dart';
 import 'widgets/change_password_dialog.dart';
 import 'widgets/edit_profile_dialog.dart';
+import '../../core/theme/app_colors.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key, required this.user});
@@ -107,8 +109,8 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const Divider(height: 1),
                 ListTile(
-                  leading: const Icon(Icons.logout, color: Colors.red),
-                  title: const Text('Sign out', style: TextStyle(color: Colors.red)),
+                  leading: const Icon(Icons.logout, color: AppColors.dangerText),
+                  title: const Text('Sign out', style: TextStyle(color: AppColors.dangerText)),
                   onTap: () async {
                     final confirmed = await showConfirmDialog(
                       context,
@@ -137,33 +139,63 @@ class _ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Align(
-              alignment: Alignment.topRight,
-              child: IconButton(
-                icon: const Icon(Icons.edit_outlined),
-                tooltip: 'Edit profile',
-                onPressed: onEdit,
-              ),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 8, 8, 22),
+      decoration: BoxDecoration(
+        gradient: AppColors.brandGradient,
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: AppColors.accentGlow,
+      ),
+      child: Column(
+        children: [
+          Align(
+            alignment: Alignment.topRight,
+            child: IconButton(
+              icon: const Icon(Icons.edit_outlined, color: Colors.white),
+              tooltip: 'Edit profile',
+              onPressed: onEdit,
             ),
-            CircleAvatar(
-              radius: 32,
-              backgroundColor: const Color(0xFF4F46E5).withValues(alpha: 0.12),
+          ),
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.35)),
+            child: CircleAvatar(
+              radius: 34,
+              backgroundColor: Colors.white,
               child: Text(
                 user.name.isEmpty ? '?' : user.name[0].toUpperCase(),
-                style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF4F46E5)),
+                style: const TextStyle(
+                  fontFamily: AppTheme.displayFont,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.accent,
+                ),
               ),
             ),
-            const SizedBox(height: 12),
-            Text(user.name, style: Theme.of(context).textTheme.titleLarge),
-            Text(user.phone, style: TextStyle(color: Colors.grey.shade600)),
-            if (user.email != null) Text(user.email!, style: TextStyle(color: Colors.grey.shade600)),
-            const SizedBox(height: 16),
-            Row(
+          ),
+          const SizedBox(height: 14),
+          Text(
+            user.name,
+            style: const TextStyle(
+              fontFamily: AppTheme.displayFont,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.4,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(user.phone, style: const TextStyle(color: Color(0xDBFFFFFF), fontWeight: FontWeight.w500)),
+          if (user.email != null) Text(user.email!, style: const TextStyle(color: Color(0xB8FFFFFF), fontSize: 13)),
+          const SizedBox(height: 18),
+          Container(
+            margin: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
               children: [
                 Expanded(child: _statTile('Skill', profile.skillCategoryName)),
                 Expanded(
@@ -172,27 +204,21 @@ class _ProfileHeader extends StatelessWidget {
                     profile.averageRating == null ? '—' : '${profile.averageRating!.toStringAsFixed(1)} ★',
                   ),
                 ),
-                Expanded(
-                  child: _statTile(
-                    'KYC',
-                    profile.kycLabel,
-                    color: profile.isVerified ? Colors.green : Colors.orange,
-                  ),
-                ),
+                Expanded(child: _statTile('KYC', profile.kycLabel)),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _statTile(String label, String value, {Color? color}) {
+  Widget _statTile(String label, String value) {
     return Column(
       children: [
-        Text(value, style: TextStyle(fontWeight: FontWeight.w700, color: color)),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
         const SizedBox(height: 2),
-        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+        Text(label, style: const TextStyle(fontSize: 11, color: Color(0xCCFFFFFF))),
       ],
     );
   }

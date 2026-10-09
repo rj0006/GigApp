@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../core/theme/app_colors.dart';
 
 enum ImageTileShape { circle, square }
 
@@ -62,14 +63,14 @@ class ImagePickerTile extends StatelessWidget {
             decoration: BoxDecoration(
               shape: isCircle ? BoxShape.circle : BoxShape.rectangle,
               borderRadius: isCircle ? null : BorderRadius.circular(10),
-              color: const Color(0xFFF1F1F7),
-              border: Border.all(color: const Color(0xFFD9DBE3)),
+              color: AppColors.tint,
+              border: Border.all(color: AppColors.lineStrong),
               image: file != null
                   ? DecorationImage(image: FileImage(file!), fit: BoxFit.cover)
                   : null,
             ),
             child: file == null
-                ? const Icon(Icons.add_a_photo_outlined, color: Colors.grey)
+                ? const Icon(Icons.add_a_photo_outlined, color: AppColors.muted)
                 : null,
           ),
         ),

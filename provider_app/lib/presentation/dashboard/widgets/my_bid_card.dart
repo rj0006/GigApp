@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../domain/entities/bid.dart';
+import '../../../core/theme/app_colors.dart';
 
 class MyBidCard extends StatelessWidget {
   const MyBidCard({
@@ -17,11 +18,11 @@ class MyBidCard extends StatelessWidget {
   final VoidCallback onWithdraw;
 
   Color get _statusColor => switch (bid.status) {
-        'accepted' => Colors.green,
-        'countered' => Colors.orange,
-        'rejected' => Colors.red,
-        'withdrawn' => Colors.grey,
-        _ => Colors.blue,
+        'accepted' => AppColors.successText,
+        'countered' => AppColors.warningText,
+        'rejected' => AppColors.dangerText,
+        'withdrawn' => AppColors.muted,
+        _ => AppColors.accent,
       };
 
   @override
@@ -58,12 +59,12 @@ class MyBidCard extends StatelessWidget {
             ),
             if (bid.taskDescription != null) ...[
               const SizedBox(height: 4),
-              Text(bid.taskDescription!, style: TextStyle(color: Colors.grey.shade700)),
+              Text(bid.taskDescription!, style: TextStyle(color: AppColors.muted)),
             ],
             const SizedBox(height: 8),
             Row(
               children: [
-                Text('Budget ₹${bid.taskBudget?.round() ?? 0}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                Text('Budget ₹${bid.taskBudget?.round() ?? 0}', style: TextStyle(color: AppColors.muted, fontSize: 12)),
                 const SizedBox(width: 12),
                 Text('Your bid ₹${bid.amount.round()}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
               ],
@@ -72,12 +73,12 @@ class MyBidCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 'Countered at ₹${bid.counterAmount!.round()}',
-                style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.w600, fontSize: 12),
+                style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w600, fontSize: 12),
               ),
               if (bid.counterNote != null && bid.counterNote!.isNotEmpty)
                 Text(
                   bid.counterNote!,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontStyle: FontStyle.italic),
+                  style: TextStyle(color: AppColors.muted, fontSize: 12, fontStyle: FontStyle.italic),
                 ),
             ],
             if (bid.awaitingPartner || bid.isOpen) ...[
@@ -87,14 +88,14 @@ class MyBidCard extends StatelessWidget {
                 children: [
                   if (bid.awaitingPartner)
                     FilledButton(
-                      style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                      style: FilledButton.styleFrom(backgroundColor: AppColors.successText),
                       onPressed: onAcceptCounter,
                       child: Text('Accept ₹${bid.currentAmount.round()}'),
                     ),
                   if (bid.isOpen) ...[
                     OutlinedButton(onPressed: onChangeBid, child: const Text('Change bid')),
                     OutlinedButton(
-                      style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                      style: OutlinedButton.styleFrom(foregroundColor: AppColors.dangerText),
                       onPressed: onWithdraw,
                       child: const Text('Withdraw'),
                     ),

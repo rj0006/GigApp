@@ -6,6 +6,7 @@ import '../../domain/entities/address.dart';
 import '../common/widgets/confirm_dialog.dart';
 import '../providers.dart';
 import 'widgets/address_form_dialog.dart';
+import '../../core/theme/app_colors.dart';
 
 class AddressesScreen extends ConsumerWidget {
   const AddressesScreen({super.key});
@@ -40,7 +41,7 @@ class AddressesScreen extends ConsumerWidget {
                   children: [
                     const SizedBox(height: 80),
                     Center(
-                      child: Text('No addresses saved yet.', style: TextStyle(color: Colors.grey.shade600)),
+                      child: Text('No addresses saved yet.', style: TextStyle(color: AppColors.muted)),
                     ),
                   ],
                 )
@@ -70,7 +71,7 @@ class _AddressTile extends ConsumerWidget {
               : address.label == 'Office'
                   ? Icons.business_outlined
                   : Icons.place_outlined,
-          color: address.isDefault ? const Color(0xFF4F46E5) : Colors.grey,
+          color: address.isDefault ? AppColors.accent : AppColors.muted,
         ),
         title: Row(
           children: [
@@ -80,10 +81,10 @@ class _AddressTile extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4F46E5).withValues(alpha: 0.12),
+                  color: AppColors.accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Text('Default', style: TextStyle(fontSize: 11, color: Color(0xFF4F46E5))),
+                child: const Text('Default', style: TextStyle(fontSize: 11, color: AppColors.accent)),
               ),
             ],
           ],
@@ -101,7 +102,7 @@ class _AddressTile extends ConsumerWidget {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context)
                     ..hideCurrentSnackBar()
-                    ..showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.red));
+                    ..showSnackBar(SnackBar(content: Text(e.message), backgroundColor: AppColors.dangerText));
                 }
               }
             } else if (value == 'delete') {
@@ -114,7 +115,7 @@ class _AddressTile extends ConsumerWidget {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context)
                     ..hideCurrentSnackBar()
-                    ..showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.red));
+                    ..showSnackBar(SnackBar(content: Text(e.message), backgroundColor: AppColors.dangerText));
                 }
               }
             }

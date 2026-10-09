@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../common/widgets/inline_error.dart';
+import '../common/widgets/primary_button.dart';
 
 import '../../core/network/api_exception.dart';
 import '../../domain/entities/address.dart';
 import '../addresses/widgets/address_form_dialog.dart';
 import '../providers.dart';
+import '../../core/theme/app_colors.dart';
 
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key});
@@ -36,7 +39,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           if (_error != null) ...[
-            Text(_error!, style: const TextStyle(color: Colors.red)),
+            InlineError(message: _error!),
             const SizedBox(height: 12),
           ],
           Card(
@@ -44,12 +47,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               padding: const EdgeInsets.all(14),
               child: Row(
                 children: [
-                  const Icon(Icons.shopping_bag_outlined, color: Color(0xFF4F46E5)),
+                  const Icon(Icons.shopping_bag_outlined, color: AppColors.accent),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       '${cart.valueOrNull?.itemCount ?? 0} item(s) · ₹${(cart.valueOrNull?.total ?? 0).round()}',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.ink),
                     ),
                   ),
                 ],
@@ -92,19 +95,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             maxLines: 2,
             decoration: const InputDecoration(
               hintText: 'Anything the partner should know before they arrive',
-              border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: _isSubmitting ? null : _submit,
-              child: _isSubmitting
-                  ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Place order'),
-            ),
-          ),
+          PrimaryButton(label: 'Place order', isLoading: _isSubmitting, onPressed: _submit),
         ],
       ),
     );
@@ -135,7 +129,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           ..hideCurrentSnackBar()
           ..showSnackBar(const SnackBar(
             content: Text('Booked. We are finding you the nearest partner now.'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.successText,
           ));
       }
     } on ApiException catch (e) {

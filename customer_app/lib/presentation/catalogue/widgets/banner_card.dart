@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/catalog_banner.dart';
 
 class BannerCard extends StatelessWidget {
-  const BannerCard({super.key, required this.banner, this.width, this.height = 130});
+  const BannerCard({super.key, required this.banner, this.width, this.height = 150});
 
   final CatalogBanner banner;
   final double? width;
@@ -15,8 +17,9 @@ class BannerCard extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: const Color(0xFF4F46E5),
+        borderRadius: BorderRadius.circular(22),
+        color: AppColors.ink,
+        boxShadow: AppColors.softShadow,
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
@@ -26,12 +29,22 @@ class BannerCard extends StatelessWidget {
             Image.network(
               banner.imageUrl!,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
             ),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [Color(0xDB0A0E16), Color(0x2E0A0E16), Color(0x000A0E16)],
+                stops: [0.0, 0.62, 1.0],
+              ),
+            ),
+          ),
           Positioned(
-            left: 14,
-            right: 14,
-            bottom: 12,
+            left: 16,
+            right: 16,
+            bottom: 14,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -41,23 +54,23 @@ class BannerCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
+                    fontFamily: AppTheme.displayFont,
                     color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    shadows: [Shadow(blurRadius: 6, color: Colors.black87)],
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    height: 1.2,
+                    letterSpacing: -0.3,
                   ),
                 ),
-                if (banner.subtitle != null)
+                if (banner.subtitle != null) ...[
+                  const SizedBox(height: 2),
                   Text(
                     banner.subtitle!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11,
-                      shadows: [Shadow(blurRadius: 6, color: Colors.black87)],
-                    ),
+                    style: const TextStyle(color: Color(0xE6FFFFFF), fontSize: 12, fontWeight: FontWeight.w500),
                   ),
+                ],
               ],
             ),
           ),

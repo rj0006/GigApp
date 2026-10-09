@@ -5,6 +5,7 @@ import '../../domain/entities/cart.dart';
 import '../catalogue/widgets/add_to_cart_control.dart';
 import '../providers.dart';
 import 'checkout_screen.dart';
+import '../../core/theme/app_colors.dart';
 
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
@@ -33,9 +34,16 @@ class _EmptyCart extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.shopping_cart_outlined, size: 56, color: Colors.grey.shade400),
-          const SizedBox(height: 12),
-          Text('Your cart is empty', style: TextStyle(color: Colors.grey.shade600)),
+          Container(
+            width: 96,
+            height: 96,
+            decoration: const BoxDecoration(color: AppColors.accentSoft, shape: BoxShape.circle),
+            child: const Icon(Icons.shopping_bag_outlined, size: 44, color: AppColors.accent),
+          ),
+          const SizedBox(height: 18),
+          Text('Your cart is empty', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 4),
+          const Text('Add a service to get started.', style: TextStyle(color: AppColors.muted)),
         ],
       ),
     );
@@ -55,15 +63,16 @@ class _CartBody extends StatelessWidget {
           child: ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: cart.lines.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
             itemBuilder: (_, index) => _CartLineTile(line: cart.lines[index]),
           ),
         ),
         Container(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
           decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, -2))],
+            color: AppColors.surface,
+            border: const Border(top: BorderSide(color: AppColors.line)),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 16, offset: const Offset(0, -4))],
           ),
           child: SafeArea(
             top: false,
@@ -72,8 +81,8 @@ class _CartBody extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Total', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                    Text('₹${cart.total.round()}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+                    Text('Total', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                    Text('₹${cart.total.round()}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 22, color: AppColors.ink)),
                   ],
                 ),
                 const Spacer(),
@@ -104,17 +113,17 @@ class _CartLineTile extends StatelessWidget {
         child: Row(
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(14),
               child: SizedBox(
-                width: 56,
-                height: 56,
+                width: 64,
+                height: 64,
                 child: line.imageUrl == null
-                    ? Container(color: Colors.grey.shade100, child: const Icon(Icons.build_outlined, color: Colors.grey))
+                    ? Container(color: AppColors.tint, child: const Icon(Icons.build_outlined, color: AppColors.muted))
                     : Image.network(
                         line.imageUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            Container(color: Colors.grey.shade100, child: const Icon(Icons.build_outlined, color: Colors.grey)),
+                        errorBuilder: (_, _, _) =>
+                            Container(color: AppColors.tint, child: const Icon(Icons.build_outlined, color: AppColors.muted)),
                       ),
               ),
             ),
@@ -123,11 +132,11 @@ class _CartLineTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(line.serviceItemName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text(line.serviceItemName, style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.ink)),
                   const SizedBox(height: 2),
-                  Text('₹${line.unitPrice.round()} each', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                  Text('₹${line.unitPrice.round()} each', style: TextStyle(color: AppColors.muted, fontSize: 12)),
                   const SizedBox(height: 6),
-                  Text('₹${line.lineTotal.round()}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                  Text('₹${line.lineTotal.round()}', style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink)),
                 ],
               ),
             ),

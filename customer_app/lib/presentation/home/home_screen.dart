@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/entities/gig_task.dart';
 import '../../domain/entities/storefront_home.dart';
@@ -10,6 +11,8 @@ import '../catalogue/search_screen.dart';
 import '../catalogue/widgets/banner_card.dart';
 import '../catalogue/widgets/category_tile.dart';
 import '../catalogue/widgets/horizontal_service_strip.dart';
+import '../common/widgets/section_header.dart';
+import '../common/widgets/status_chip.dart';
 import '../providers.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -29,44 +32,63 @@ class HomeScreen extends ConsumerWidget {
         ref.invalidate(storefrontHomeProvider);
       },
       child: ListView(
-        padding: const EdgeInsets.only(bottom: 24),
+        padding: const EdgeInsets.only(bottom: 32),
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: Text('Hello, ${user.name}', style: Theme.of(context).textTheme.headlineSmall),
+          _Header(
+            user: user,
+            onSearch: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SearchScreen())),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-            child: _DeliveringToRow(),
-          ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _SearchBar(
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SearchScreen())),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
             child: _ActiveOrdersPreview(tasks: tasks, onSeeOrders: onSeeOrders),
           ),
           home.when(
             loading: () => const Padding(
-              padding: EdgeInsets.symmetric(vertical: 40),
+              padding: EdgeInsets.symmetric(vertical: 48),
               child: Center(child: CircularProgressIndicator()),
             ),
             error: (error, _) => Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(24),
               child: Text('Could not load services.\n$error', textAlign: TextAlign.center),
             ),
             data: (value) => _StorefrontBody(home: value),
           ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+          const SizedBox(height: 28),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
             child: _PostTaskCard(),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  const _Header({required this.user, required this.onSearch});
+
+  final AppUser user;
+  final VoidCallback onSearch;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [AppColors.accentSoft, AppColors.canvas],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Hello, ${user.name}', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 6),
+          const _DeliveringToRow(),
+          const SizedBox(height: 16),
+          _SearchBar(onTap: onSearch),
         ],
       ),
     );
@@ -82,19 +104,24 @@ class _SearchBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        height: 52,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(10),
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.line),
+          boxShadow: AppColors.softShadow,
         ),
-        child: Row(
+        child: const Row(
           children: [
-            Icon(Icons.search, color: Colors.grey.shade600),
-            const SizedBox(width: 10),
-            Text('Search for a service', style: TextStyle(color: Colors.grey.shade600)),
+            Icon(Icons.search_rounded, color: AppColors.accent),
+            SizedBox(width: 10),
+            Text(
+              'Search for a service, like AC repair',
+              style: TextStyle(color: AppColors.faint, fontWeight: FontWeight.w500),
+            ),
           ],
         ),
       ),
@@ -112,7 +139,7 @@ class _ActiveOrdersPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return tasks.when(
       loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
       data: (list) {
         final active = list.where((t) => ['pending', 'accepted', 'in_progress'].contains(t.status)).toList();
         if (active.isEmpty) return const SizedBox.shrink();
@@ -120,21 +147,52 @@ class _ActiveOrdersPreview extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Text('Active orders', style: Theme.of(context).textTheme.titleMedium),
-                const Spacer(),
-                TextButton(onPressed: onSeeOrders, child: const Text('See all')),
-              ],
-            ),
-            ...active.take(2).map((t) => Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    title: Text(t.serviceItemName ?? t.categoryName),
-                    subtitle: Text(t.statusLabel),
-                    trailing: Text('₹${t.effectiveAmount.round()}', style: const TextStyle(fontWeight: FontWeight.w700)),
+            SectionHeader(title: 'Active orders', onAction: onSeeOrders),
+            const SizedBox(height: 12),
+            ...active.take(2).map(
+                  (t) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: AppColors.line),
+                        boxShadow: AppColors.softShadow,
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(14)),
+                            child: const Icon(Icons.handyman_outlined, color: AppColors.accent),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  t.serviceItemName ?? t.categoryName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5, color: AppColors.ink),
+                                ),
+                                const SizedBox(height: 4),
+                                StatusChip(label: t.statusLabel, tone: StatusChip.toneForTask(t.status)),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            '₹${t.effectiveAmount.round()}',
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.ink),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                )),
+                ),
           ],
         );
       },
@@ -153,27 +211,32 @@ class _StorefrontBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (home.spotlight.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 24),
           SizedBox(
-            height: 130,
+            height: 150,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: home.spotlight.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (_, index) => BannerCard(banner: home.spotlight[index], width: 260),
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (_, index) => BannerCard(banner: home.spotlight[index], width: 290),
             ),
           ),
         ],
         if (home.categories.isNotEmpty) ...[
-          const SizedBox(height: 20),
+          const SizedBox(height: 28),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: SectionHeader(title: 'Browse by category'),
+          ),
+          const SizedBox(height: 14),
           SizedBox(
-            height: 96,
+            height: 114,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: home.categories.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 14),
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (_, index) {
                 final category = home.categories[index];
                 return CategoryTile(
@@ -201,7 +264,7 @@ class _StorefrontBody extends StatelessWidget {
                 : null,
           ),
         if (home.stats.isWorthShowing) ...[
-          const SizedBox(height: 20),
+          const SizedBox(height: 28),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: _StatsStrip(home: home),
@@ -220,8 +283,13 @@ class _StatsStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.line),
+        boxShadow: AppColors.softShadow,
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
@@ -245,39 +313,51 @@ class _Stat extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-        Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
+        Text(value, style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 12, fontWeight: FontWeight.w500)),
       ],
     );
   }
 }
 
 class _PostTaskCard extends StatelessWidget {
+  const _PostTaskCard();
+
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: const Color(0xFF4F46E5),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PostTaskScreen())),
-        child: const Padding(
-          padding: EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Icon(Icons.add_circle_outline, color: Colors.white, size: 32),
-              SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Need something else?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
-                    Text('Post a custom task and get bids from partners', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                  ],
-                ),
+    return InkWell(
+      borderRadius: BorderRadius.circular(22),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PostTaskScreen())),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: AppColors.brandGradient,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: AppColors.accentGlow,
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.add_circle_outline_rounded, color: Colors.white, size: 34),
+            SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Need something else?',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Post a custom task and get bids from partners',
+                    style: TextStyle(color: Color(0xCCFFFFFF), fontSize: 12.5),
+                  ),
+                ],
               ),
-              Icon(Icons.chevron_right, color: Colors.white),
-            ],
-          ),
+            ),
+            Icon(Icons.arrow_forward_rounded, color: Colors.white),
+          ],
         ),
       ),
     );
@@ -285,22 +365,35 @@ class _PostTaskCard extends StatelessWidget {
 }
 
 class _DeliveringToRow extends ConsumerWidget {
+  const _DeliveringToRow();
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final zoneName = ref.watch(zoneControllerProvider).valueOrNull?.name ?? '';
 
     return InkWell(
       onTap: () => ref.read(zoneControllerProvider.notifier).change(),
-      borderRadius: BorderRadius.circular(6),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.place, size: 15, color: Color(0xFF4F46E5)),
-          const SizedBox(width: 4),
-          Text('Delivering to $zoneName', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF4F46E5))),
-          const SizedBox(width: 2),
-          const Icon(Icons.keyboard_arrow_down, size: 15, color: Color(0xFF4F46E5)),
-        ],
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: AppColors.line),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.place_rounded, size: 15, color: AppColors.accent),
+            const SizedBox(width: 4),
+            Text(
+              'Delivering to $zoneName',
+              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.inkSoft),
+            ),
+            const SizedBox(width: 2),
+            const Icon(Icons.keyboard_arrow_down_rounded, size: 17, color: AppColors.muted),
+          ],
+        ),
       ),
     );
   }

@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../core/network/api_exception.dart';
 import '../../domain/entities/service_area.dart';
 import '../providers.dart';
+import '../../core/theme/app_colors.dart';
 
 class ServiceAreaScreen extends ConsumerWidget {
   const ServiceAreaScreen({super.key});
@@ -57,7 +58,7 @@ class _ServiceAreaFormState extends ConsumerState<_ServiceAreaForm> {
       children: [
         if (widget.initial.openTasksInRange > 0)
           Card(
-            color: const Color(0xFFE7F5EC),
+            color: AppColors.successSoft,
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Text('${widget.initial.openTasksInRange} open job(s) in your current range right now.'),
@@ -68,7 +69,7 @@ class _ServiceAreaFormState extends ConsumerState<_ServiceAreaForm> {
         const SizedBox(height: 4),
         Text(
           'Work near this point reaches you first. Set it to where you usually start your day.',
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+          style: TextStyle(color: AppColors.muted, fontSize: 12),
         ),
         const SizedBox(height: 12),
         Card(
@@ -79,7 +80,7 @@ class _ServiceAreaFormState extends ConsumerState<_ServiceAreaForm> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.location_on, color: _lat != null ? const Color(0xFF4F46E5) : Colors.grey),
+                    Icon(Icons.location_on, color: _lat != null ? AppColors.accent : AppColors.muted),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -129,7 +130,7 @@ class _ServiceAreaFormState extends ConsumerState<_ServiceAreaForm> {
         ),
         const SizedBox(height: 20),
         if (_error != null) ...[
-          Text(_error!, style: const TextStyle(color: Colors.red)),
+          Text(_error!, style: const TextStyle(color: AppColors.dangerText)),
           const SizedBox(height: 12),
         ],
         SizedBox(
@@ -204,7 +205,7 @@ class _ServiceAreaFormState extends ConsumerState<_ServiceAreaForm> {
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(const SnackBar(content: Text('Service area saved.'), backgroundColor: Colors.green));
+          ..showSnackBar(const SnackBar(content: Text('Service area saved.'), backgroundColor: AppColors.successText));
       }
     } on ApiException catch (e) {
       setState(() {

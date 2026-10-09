@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../domain/entities/task_offer.dart';
 import '../../providers.dart';
+import '../../../core/theme/app_colors.dart';
 
 class OfferBanner extends ConsumerStatefulWidget {
   const OfferBanner({super.key, required this.offer});
@@ -49,8 +50,12 @@ class _OfferBannerState extends ConsumerState<OfferBanner> {
     final minutes = _secondsLeft ~/ 60;
     final seconds = _secondsLeft % 60;
 
-    return Card(
-      color: const Color(0xFFFFF3CD),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.warningSoft,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFF3D9A4)),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -58,17 +63,17 @@ class _OfferBannerState extends ConsumerState<OfferBanner> {
           children: [
             Row(
               children: [
-                const Icon(Icons.bolt, color: Colors.orange),
+                const Icon(Icons.bolt, color: AppColors.warningText),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'New job offered to you — ₹${task.effectiveAmount.round()}',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink),
                   ),
                 ),
                 Text(
                   '$minutes:${seconds.toString().padLeft(2, '0')}',
-                  style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.deepOrange),
+                  style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.warningText),
                 ),
               ],
             ),
@@ -110,7 +115,7 @@ class _OfferBannerState extends ConsumerState<OfferBanner> {
           ..hideCurrentSnackBar()
           ..showSnackBar(SnackBar(
             content: Text(accepted ? 'Job accepted — check My jobs.' : 'Passed. It will move to the next partner.'),
-            backgroundColor: accepted ? Colors.green : null,
+            backgroundColor: accepted ? AppColors.successText : null,
           ));
       }
     } on ApiException catch (e) {
@@ -118,7 +123,7 @@ class _OfferBannerState extends ConsumerState<OfferBanner> {
         setState(() => _isResponding = false);
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.red));
+          ..showSnackBar(SnackBar(content: Text(e.message), backgroundColor: AppColors.dangerText));
       }
     }
   }

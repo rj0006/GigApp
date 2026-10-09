@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../common/widgets/inline_error.dart';
 
 import '../../common/widgets/primary_button.dart';
 import '../login_flow_controller.dart';
@@ -29,11 +31,11 @@ class _PhoneStepState extends ConsumerState<PhoneStep> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Partner sign in', style: Theme.of(context).textTheme.headlineSmall),
+        Text('Partner sign in', style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 6),
         Text(
           'We will send you a text with a verification code.',
-          style: TextStyle(color: Colors.grey.shade600),
+          style: const TextStyle(color: AppColors.muted),
         ),
         const SizedBox(height: 20),
         TextField(
@@ -47,8 +49,8 @@ class _PhoneStepState extends ConsumerState<PhoneStep> {
           ),
         ),
         if (widget.state.error != null) ...[
-          const SizedBox(height: 8),
-          Text(widget.state.error!, style: const TextStyle(color: Colors.red)),
+          const SizedBox(height: 12),
+          InlineError(message: widget.state.error!),
         ],
         const SizedBox(height: 16),
         PrimaryButton(
@@ -60,6 +62,11 @@ class _PhoneStepState extends ConsumerState<PhoneStep> {
               ref.read(loginFlowControllerProvider.notifier).requestOtp(phone);
             }
           },
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'New partner? Enter your number above — you will finish your KYC right after.',
+          style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
         ),
       ],
     );

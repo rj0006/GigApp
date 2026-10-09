@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/theme/app_theme.dart';
 
 import '../../domain/entities/ledger_entry.dart';
 import '../../domain/entities/wallet_summary.dart';
 import '../providers.dart';
+import '../../core/theme/app_colors.dart';
 
 class WalletScreen extends ConsumerWidget {
   const WalletScreen({super.key});
@@ -32,9 +34,9 @@ class WalletScreen extends ConsumerWidget {
             ),
             data: (data) => _SummaryCard(summary: data),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
           Text('Transaction history', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           if (ledger.items.isEmpty && ledger.isLoading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 30),
@@ -51,7 +53,7 @@ class WalletScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: Center(
-                child: Text('No transactions yet.', style: TextStyle(color: Colors.grey.shade600)),
+                child: Text('No transactions yet.', style: TextStyle(color: AppColors.muted)),
               ),
             )
           else
@@ -81,18 +83,22 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: const Color(0xFF4F46E5),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: AppColors.brandGradient,
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: AppColors.accentGlow,
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(22),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Balance', style: TextStyle(color: Colors.white70, fontSize: 13)),
+            const Text('Balance', style: TextStyle(color: Color(0xCCFFFFFF), fontSize: 13, fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
             Text(
               '₹${summary.balance.round()}',
-              style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontFamily: AppTheme.displayFont, color: Colors.white, fontSize: 36, fontWeight: FontWeight.w800, letterSpacing: -1),
             ),
             const SizedBox(height: 20),
             Row(
@@ -115,14 +121,14 @@ class _SummaryCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(10),
+          color: Colors.white.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
           children: [
             Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
             const SizedBox(height: 2),
-            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+            Text(label, style: const TextStyle(color: Color(0xCCFFFFFF), fontSize: 10.5)),
           ],
         ),
       ),
@@ -137,7 +143,7 @@ class _LedgerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = entry.isCredit ? Colors.green : Colors.red;
+    final color = entry.isCredit ? AppColors.successText : AppColors.dangerText;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -153,7 +159,7 @@ class _LedgerTile extends StatelessWidget {
             if (entry.customerName != null) entry.customerName,
             _formatDate(entry.createdAt),
           ].whereType<String>().join(' · '),
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 12, color: AppColors.muted),
         ),
         trailing: Text(
           '${entry.isCredit ? '+' : '-'}₹${entry.amount.round()}',

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../common/widgets/auth_scaffold.dart';
 import '../login_flow_controller.dart';
 import '../login_flow_state.dart';
 import '../widgets/code_step.dart';
@@ -14,20 +15,13 @@ class LoginScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(loginFlowControllerProvider);
 
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: _stepWidget(state),
-              ),
-            ),
-          ),
-        ),
+    return AuthScaffold(
+      portalLabel: 'Customer',
+      tagline: 'Trusted home services, booked in minutes.',
+      points: const ['Fixed prices', 'Verified professionals', 'Nearest partner'],
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        child: _stepWidget(state),
       ),
     );
   }

@@ -503,7 +503,11 @@ One design system for the storefront, the sign-in screens and the admin portal: 
 loaded last by every layout, holds the tokens and re-skins Bootstrap. Change colour, radius or fonts
 there and nowhere else. Fonts are vendored in `wwwroot/lib/fonts/`, never loaded from a CDN. Sign-in
 screens use `_AuthLayout`; the logo is the `_Brand` partial. Details are in
-[docs/REUSABLE.md](docs/REUSABLE.md) under "Layouts and CSS".
+[docs/REUSABLE.md](docs/REUSABLE.md) under "Layouts and CSS". The two Flutter apps carry matching copies of
+the same system (`core/theme/app_colors.dart`, `app_theme.dart` and the shared widgets, see "Flutter — the
+design system" in REUSABLE.md): use the `AppColors` tokens, never a raw colour. Until a company name is
+decided the apps are named "Gig Customer" and "Gig Partner" (Android label, iOS display name, web title) and keep
+the `com.example.*` ids.
 
 ## Deployment
 

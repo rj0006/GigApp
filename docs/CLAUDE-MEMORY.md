@@ -114,5 +114,6 @@ including the form format, so the product stays visually consistent.
 
 **How to apply:** Before building any page or component, read "Layouts and CSS" and "Standard form format"
 in `docs/REUSABLE.md` and reuse what exists. A new look-and-feel need becomes a token or a class in
-`theme.css`, documented in REUSABLE.md. Flutter screens follow the same palette and spacing. Also
-`CLAUDE.md` working-agreement rule 10.
+`theme.css`, documented in REUSABLE.md. Flutter screens use `AppColors` and the shared widgets (see
+"Flutter — the design system" in REUSABLE.md), never a raw colour. The apps are named "Gig Customer" and
+"Gig Partner" as placeholders until the company name is decided. Also `CLAUDE.md` working-agreement rule 10.

@@ -930,6 +930,29 @@ Always wrap tables in `.table-responsive`.
 
 ---
 
+## Flutter — the design system (both apps)
+
+`customer_app` and `provider_app` carry identical copies of the same design files, so the apps look like
+one product and like the website. Colours, radii and shadows mirror `wwwroot/css/theme.css`; when one
+changes, change both.
+
+| File | What it gives you |
+|---|---|
+| `core/theme/app_colors.dart` | `AppColors` tokens (`ink`, `text`, `muted`, `line`, `canvas`, `accent`, `accentSoft`, status soft and text pairs), `brandGradient`, `softShadow`, `liftedShadow`, `accentGlow`. **Never write a `Color(0x...)` or `Colors.red/grey/green` in a screen.** |
+| `core/theme/app_theme.dart` | The whole `ThemeData`: fonts (Inter for text, Plus Jakarta Sans for headings, bundled in `assets/fonts`), buttons, inputs, cards, chips, navigation bar, tabs, dialogs, bottom sheets, snackbars, drawer. A plain `ElevatedButton`, `TextField` or `Card` is already on-brand. |
+| `presentation/common/widgets/primary_button.dart` | `PrimaryButton(label:, onPressed:, isLoading:)` — the gradient call-to-action. |
+| `.../brand_mark.dart` | `BrandMark(size:, light:)` — the logo mark and wordmark. |
+| `.../auth_scaffold.dart` | `AuthScaffold(portalLabel:, tagline:, points:, child:)` — dark brand header with a white sheet for the form. Used by sign-in and the location picker. |
+| `.../section_header.dart` | `SectionHeader(title:, onAction:)` — a heading with an optional "See all" pill. |
+| `.../status_chip.dart` | `StatusChip(label:, tone:)`, and `StatusChip.toneForTask(status)` for task statuses. |
+| `.../inline_error.dart` | `InlineError(message:)` — the red message box for a failed action. |
+
+The launcher icon comes from `assets/icon/` through `flutter_launcher_icons`; run `dart run flutter_launcher_icons`
+in the app after changing those images. The app names ("Gig Customer", "Gig Partner") are the Android
+`android:label`, the iOS display name, the web title and the `MaterialApp` title.
+
+---
+
 ## Flutter — `provider_app`'s clean architecture, copy its shape
 
 `provider_app/lib` is layered `core / domain / data / presentation`, state managed with Riverpod,

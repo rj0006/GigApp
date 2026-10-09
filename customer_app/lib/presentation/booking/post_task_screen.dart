@@ -7,6 +7,7 @@ import '../../domain/entities/service_item.dart';
 import '../../domain/entities/skill_category.dart';
 import '../addresses/widgets/address_form_dialog.dart';
 import '../providers.dart';
+import '../../core/theme/app_colors.dart';
 
 class PostTaskScreen extends ConsumerStatefulWidget {
   const PostTaskScreen({super.key});
@@ -43,7 +44,7 @@ class _PostTaskScreenState extends ConsumerState<PostTaskScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           if (_error != null) ...[
-            Text(_error!, style: const TextStyle(color: Colors.red)),
+            Text(_error!, style: const TextStyle(color: AppColors.dangerText)),
             const SizedBox(height: 12),
           ],
           Text('What do you need?', style: Theme.of(context).textTheme.titleMedium),
@@ -72,7 +73,7 @@ class _PostTaskScreenState extends ConsumerState<PostTaskScreen> {
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (error, _) => Text('Could not load services.\n$error'),
                   data: (list) => list.isEmpty
-                      ? Text('No services available in this category yet.', style: TextStyle(color: Colors.grey.shade600))
+                      ? Text('No services available in this category yet.', style: TextStyle(color: AppColors.muted))
                       : Column(
                           children: list.map((item) => _ServiceItemTile(
                                 item: item,
@@ -234,16 +235,16 @@ class _ServiceItemTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      color: selected ? const Color(0xFF4F46E5).withValues(alpha: 0.06) : null,
+      color: selected ? AppColors.accent.withValues(alpha: 0.06) : null,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: selected ? const Color(0xFF4F46E5) : Colors.transparent),
+        side: BorderSide(color: selected ? AppColors.accent : Colors.transparent),
       ),
       child: ListTile(
         onTap: onTap,
         leading: Icon(
           selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-          color: selected ? const Color(0xFF4F46E5) : Colors.grey,
+          color: selected ? AppColors.accent : AppColors.muted,
         ),
         title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: item.description == null ? null : Text(item.description!),
@@ -252,10 +253,10 @@ class _ServiceItemTile extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text('₹${item.basePayout!.round()}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                  const Text('Fixed price', style: TextStyle(fontSize: 10, color: Colors.green)),
+                  const Text('Fixed price', style: TextStyle(fontSize: 10, color: AppColors.successText)),
                 ],
               )
-            : const Text('Bidding', style: TextStyle(fontSize: 12, color: Colors.orange)),
+            : const Text('Bidding', style: TextStyle(fontSize: 12, color: AppColors.warningText)),
       ),
     );
   }

@@ -10,6 +10,7 @@ import '../auth/session_controller.dart';
 import '../common/widgets/confirm_dialog.dart';
 import '../providers.dart';
 import '../registration/widgets/image_picker_tile.dart';
+import '../../core/theme/app_colors.dart';
 
 class KycStatusScreen extends ConsumerWidget {
   const KycStatusScreen({super.key, required this.user, required this.profile});
@@ -64,7 +65,7 @@ class _StatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isRejected = profile.kycStatus == 'rejected';
     final isPending = profile.kycStatus == 'pending';
-    final color = isRejected ? Colors.red : (isPending ? Colors.orange : Colors.grey);
+    final color = isRejected ? AppColors.dangerText : (isPending ? AppColors.warningText : AppColors.muted);
 
     return Card(
       child: Padding(
@@ -86,17 +87,17 @@ class _StatusCard extends StatelessWidget {
                       ? 'Your documents are under review. An administrator checks your KYC before you can see and bid on work.'
                       : 'Submit your documents below to get started.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade600),
+              style: TextStyle(color: AppColors.muted),
             ),
             if (isRejected && profile.kycRejectionReason != null) ...[
               const SizedBox(height: 12),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(color: AppColors.dangerSoft, borderRadius: BorderRadius.circular(10)),
                 child: Text(
                   profile.kycRejectionReason!,
-                  style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+                  style: TextStyle(color: AppColors.dangerText, fontSize: 13),
                 ),
               ),
             ],
@@ -148,11 +149,11 @@ class _ResubmitFormState extends ConsumerState<_ResubmitForm> {
             const SizedBox(height: 4),
             Text(
               'Replace only what needs fixing — anything left blank stays as it is.',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              style: TextStyle(color: AppColors.muted, fontSize: 12),
             ),
             const SizedBox(height: 16),
             if (_error != null) ...[
-              Text(_error!, style: const TextStyle(color: Colors.red)),
+              Text(_error!, style: const TextStyle(color: AppColors.dangerText)),
               const SizedBox(height: 12),
             ],
             Row(
@@ -229,7 +230,7 @@ class _ResubmitFormState extends ConsumerState<_ResubmitForm> {
           ..hideCurrentSnackBar()
           ..showSnackBar(const SnackBar(
             content: Text('Submitted for review.'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.successText,
           ));
       }
     } on ApiException catch (e) {

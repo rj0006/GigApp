@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 Future<String?> showCancelJobDialog(
   BuildContext context, {
@@ -17,7 +18,7 @@ Future<String?> showCancelJobDialog(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(summary, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+              Text(summary, style: TextStyle(color: AppColors.muted, fontSize: 13)),
               const SizedBox(height: 16),
               TextField(
                 controller: reasonController,
@@ -32,7 +33,7 @@ Future<String?> showCancelJobDialog(
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Back')),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.dangerText),
             onPressed: () => Navigator.of(context).pop(reasonController.text.trim()),
             child: const Text('Yes, cancel this job'),
           ),

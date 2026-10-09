@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../common/widgets/status_chip.dart';
 
 import '../../core/network/api_exception.dart';
 import '../../domain/entities/gig_task.dart';
@@ -7,6 +8,7 @@ import '../common/widgets/confirm_dialog.dart';
 import '../providers.dart';
 import 'widgets/raise_help_dialog.dart';
 import 'widgets/rate_partner_dialog.dart';
+import '../../core/theme/app_colors.dart';
 
 const _activeStatuses = ['pending', 'accepted', 'in_progress'];
 
@@ -32,7 +34,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Orders'),
+        toolbarHeight: 0,
         bottom: TabBar(
           controller: _tabController,
           tabs: const [Tab(text: 'Active'), Tab(text: 'Completed'), Tab(text: 'Cancelled')],
@@ -94,8 +96,10 @@ class _OrderList extends ConsumerWidget {
           : orders.isEmpty
               ? ListView(
                   children: [
-                    const SizedBox(height: 100),
-                    Center(child: Text(emptyText, style: TextStyle(color: Colors.grey.shade600))),
+                    const SizedBox(height: 96),
+                    const Icon(Icons.inbox_outlined, size: 52, color: AppColors.faint),
+                    const SizedBox(height: 12),
+                    Center(child: Text(emptyText, style: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w500))),
                   ],
                 )
               : ListView(
@@ -128,18 +132,10 @@ class _OrderCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final color = switch (order.status) {
-      'completed' => Colors.green,
-      'cancelled' => Colors.red,
-      'in_progress' => Colors.blue,
-      'accepted' => const Color(0xFF4F46E5),
-      _ => Colors.orange,
-    };
-
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -148,27 +144,23 @@ class _OrderCard extends ConsumerWidget {
                 Expanded(
                   child: Text(
                     order.serviceItemName ?? order.categoryName,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.ink),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-                  child: Text(order.statusLabel, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
-                ),
+                StatusChip(label: order.statusLabel, tone: StatusChip.toneForTask(order.status)),
               ],
             ),
             const SizedBox(height: 4),
-            Text(order.description, style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
+            Text(order.description, style: TextStyle(color: AppColors.muted, fontSize: 13)),
             const SizedBox(height: 4),
-            Text(order.address, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+            Text(order.address, style: TextStyle(color: AppColors.muted, fontSize: 12)),
             const SizedBox(height: 6),
             Row(
               children: [
-                Text('₹${order.effectiveAmount.round()}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                Text('₹${order.effectiveAmount.round()}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.ink)),
                 if (order.partnerName != null) ...[
                   const SizedBox(width: 10),
-                  Text('· ${order.partnerName}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                  Text('· ${order.partnerName}', style: TextStyle(color: AppColors.muted, fontSize: 12)),
                 ],
               ],
             ),
@@ -179,7 +171,7 @@ class _OrderCard extends ConsumerWidget {
                   if (_activeStatuses.contains(order.status))
                     TextButton(
                       onPressed: () => _cancel(context, ref),
-                      child: const Text('Cancel', style: TextStyle(color: Colors.red)),
+                      child: const Text('Cancel', style: TextStyle(color: AppColors.dangerText)),
                     ),
                   if (order.status == 'completed' && order.partnerName != null && ratedByMe == null)
                     TextButton(
@@ -192,7 +184,7 @@ class _OrderCard extends ConsumerWidget {
                       child: Row(
                         children: [
                           const Icon(Icons.star, color: Colors.amber, size: 16),
-                          Text(' ${ratedByMe.stars}/5 rated', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                          Text(' ${ratedByMe.stars}/5 rated', style: TextStyle(color: AppColors.muted, fontSize: 12)),
                         ],
                       ),
                     ),
@@ -227,7 +219,7 @@ class _OrderCard extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.red));
+          ..showSnackBar(SnackBar(content: Text(e.message), backgroundColor: AppColors.dangerText));
       }
     }
   }
@@ -242,13 +234,13 @@ class _OrderCard extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(const SnackBar(content: Text('Thanks for rating.'), backgroundColor: Colors.green));
+          ..showSnackBar(const SnackBar(content: Text('Thanks for rating.'), backgroundColor: AppColors.successText));
       }
     } on ApiException catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.red));
+          ..showSnackBar(SnackBar(content: Text(e.message), backgroundColor: AppColors.dangerText));
       }
     }
   }
@@ -263,13 +255,13 @@ class _OrderCard extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(const SnackBar(content: Text('We got your message. Our team will follow up.'), backgroundColor: Colors.green));
+          ..showSnackBar(const SnackBar(content: Text('We got your message. Our team will follow up.'), backgroundColor: AppColors.successText));
       }
     } on ApiException catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.red));
+          ..showSnackBar(SnackBar(content: Text(e.message), backgroundColor: AppColors.dangerText));
       }
     }
   }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../cart/widgets/cart_button.dart';
 import '../providers.dart';
 import 'widgets/service_card.dart';
+import '../../core/theme/app_colors.dart';
 
 class CategoryScreen extends ConsumerWidget {
   const CategoryScreen({super.key, required this.categoryId, required this.fallbackTitle});
@@ -24,7 +25,7 @@ class CategoryScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(child: Text('Could not load this category.\n$error', textAlign: TextAlign.center)),
         data: (value) => value.services.isEmpty
-            ? Center(child: Text('No services available here yet.', style: TextStyle(color: Colors.grey.shade600)))
+            ? Center(child: Text('No services available here yet.', style: TextStyle(color: AppColors.muted)))
             : GridView.builder(
                 padding: const EdgeInsets.all(16),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(

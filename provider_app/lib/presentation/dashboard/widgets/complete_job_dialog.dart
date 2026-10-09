@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 class CompleteJobResult {
   const CompleteJobResult(this.stars, this.feedback);
@@ -27,7 +28,7 @@ Future<CompleteJobResult?> showCompleteJobDialog(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(summary, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                  Text(summary, style: TextStyle(color: AppColors.muted, fontSize: 13)),
                   const SizedBox(height: 16),
                   Text('How was $customerName?', style: const TextStyle(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 6),
@@ -48,7 +49,7 @@ Future<CompleteJobResult?> showCompleteJobDialog(
                   ),
                   Text(
                     'Your rating is required to close the job. It is not shown to the customer.',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                    style: TextStyle(color: AppColors.muted, fontSize: 12),
                   ),
                   const SizedBox(height: 12),
                   TextField(

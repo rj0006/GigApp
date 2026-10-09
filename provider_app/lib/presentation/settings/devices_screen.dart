@@ -5,6 +5,7 @@ import '../../core/network/api_exception.dart';
 import '../../domain/entities/device_session.dart';
 import '../common/widgets/confirm_dialog.dart';
 import '../providers.dart';
+import '../../core/theme/app_colors.dart';
 
 class DevicesScreen extends ConsumerWidget {
   const DevicesScreen({super.key});
@@ -34,7 +35,7 @@ class DevicesScreen extends ConsumerWidget {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context)
                     ..hideCurrentSnackBar()
-                    ..showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.red));
+                    ..showSnackBar(SnackBar(content: Text(e.message), backgroundColor: AppColors.dangerText));
                 }
               }
             },
@@ -74,7 +75,7 @@ class _DeviceTile extends ConsumerWidget {
       child: ListTile(
         leading: Icon(
           device.isCurrent ? Icons.smartphone : Icons.devices_other,
-          color: device.isCurrent ? const Color(0xFF4F46E5) : Colors.grey,
+          color: device.isCurrent ? AppColors.accent : AppColors.muted,
         ),
         title: Row(
           children: [
@@ -84,10 +85,10 @@ class _DeviceTile extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4F46E5).withValues(alpha: 0.12),
+                  color: AppColors.accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Text('This device', style: TextStyle(fontSize: 11, color: Color(0xFF4F46E5))),
+                child: const Text('This device', style: TextStyle(fontSize: 11, color: AppColors.accent)),
               ),
             ],
           ],
@@ -97,12 +98,12 @@ class _DeviceTile extends ConsumerWidget {
             if (device.ipAddress != null) device.ipAddress,
             device.lastUsedAt != null ? 'Last used ${_formatDate(device.lastUsedAt!)}' : 'Signed in ${_formatDate(device.createdAt)}',
           ].whereType<String>().join(' · '),
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 12, color: AppColors.muted),
         ),
         trailing: device.isCurrent
             ? null
             : IconButton(
-                icon: const Icon(Icons.close, color: Colors.red),
+                icon: const Icon(Icons.close, color: AppColors.dangerText),
                 tooltip: 'Sign out this device',
                 onPressed: () async {
                   final confirmed = await showConfirmDialog(
@@ -118,7 +119,7 @@ class _DeviceTile extends ConsumerWidget {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context)
                         ..hideCurrentSnackBar()
-                        ..showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.red));
+                        ..showSnackBar(SnackBar(content: Text(e.message), backgroundColor: AppColors.dangerText));
                     }
                   }
                 },

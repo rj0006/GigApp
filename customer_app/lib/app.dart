@@ -18,7 +18,7 @@ class CustomerApp extends ConsumerWidget {
     final session = ref.watch(sessionControllerProvider);
 
     return MaterialApp(
-      title: 'GigApp',
+      title: 'Gig Customer',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       home: session.when(

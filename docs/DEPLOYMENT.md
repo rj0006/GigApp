@@ -146,8 +146,9 @@ flutter build apk --release --dart-define=API_BASE_URL=https://gigapp.factualtec
 
 ## Before the apps are shared publicly
 
-- Change `applicationId` from `com.example.customer_app` and `com.example.provider_app`, and the app
-  labels. The id cannot change after users have installed the app.
+- The apps are named "Gig Customer" and "Gig Partner" for now. When the company name and logo are decided,
+  change the labels, the images in `assets/icon/` and `applicationId` from `com.example.customer_app` and
+  `com.example.provider_app`. The id cannot change after users have installed the app.
 - Users must allow installs from unknown sources, and Play Protect may warn about an app that is not
   from the Play Store.
 

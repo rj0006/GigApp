@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 class BidDialogResult {
   const BidDialogResult(this.amount, this.note);
@@ -29,7 +30,7 @@ Future<BidDialogResult?> showBidDialog(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(summary, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+              Text(summary, style: TextStyle(color: AppColors.muted, fontSize: 13)),
               const SizedBox(height: 16),
               TextField(
                 controller: amountController,
@@ -40,7 +41,7 @@ Future<BidDialogResult?> showBidDialog(
               const SizedBox(height: 4),
               Text(
                 'You can ask for more or less than the budget.',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                style: TextStyle(color: AppColors.muted, fontSize: 12),
               ),
               const SizedBox(height: 12),
               TextField(

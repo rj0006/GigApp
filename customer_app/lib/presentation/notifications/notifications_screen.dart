@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/app_notification.dart';
 import '../providers.dart';
+import '../../core/theme/app_colors.dart';
 
 class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
@@ -53,7 +54,7 @@ class NotificationsScreen extends ConsumerWidget {
                   Center(
                     child: Text(
                       'Nothing yet. We will tell you when a job moves.',
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: AppColors.muted),
                     ),
                   ),
                 ],
@@ -94,9 +95,9 @@ class _NotificationTile extends ConsumerWidget {
     return ListTile(
       tileColor: notification.isRead
           ? null
-          : const Color(0xFF4F46E5).withValues(alpha: 0.05),
+          : AppColors.accent.withValues(alpha: 0.05),
       leading: CircleAvatar(
-        backgroundColor: const Color(0xFF4F46E5).withValues(alpha: 0.12),
+        backgroundColor: AppColors.accent.withValues(alpha: 0.12),
         child: Text(notification.icon),
       ),
       title: Text(
@@ -106,7 +107,7 @@ class _NotificationTile extends ConsumerWidget {
       subtitle: Text(notification.body),
       trailing: Text(
         notification.age,
-        style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+        style: TextStyle(fontSize: 11, color: AppColors.muted),
       ),
       onTap: notification.isRead
           ? null

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../providers.dart';
 
 class AddToCartControl extends ConsumerStatefulWidget {
@@ -25,7 +26,7 @@ class _AddToCartControlState extends ConsumerState<AddToCartControl> {
       if (mounted) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.red));
+          ..showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -40,13 +41,15 @@ class _AddToCartControlState extends ConsumerState<AddToCartControl> {
 
     if (quantity == 0) {
       return SizedBox(
-        height: 32,
-        child: OutlinedButton(
+        height: 34,
+        child: TextButton(
           onPressed: _busy ? null : () => _run(() => controller.add(widget.serviceItemId)),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            foregroundColor: const Color(0xFF4F46E5),
-            side: const BorderSide(color: Color(0xFF4F46E5)),
+          style: TextButton.styleFrom(
+            minimumSize: const Size(64, 34),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            backgroundColor: AppColors.accentSoft,
+            foregroundColor: AppColors.accent,
+            shape: const StadiumBorder(),
           ),
           child: _busy
               ? const SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2))
@@ -56,10 +59,11 @@ class _AddToCartControlState extends ConsumerState<AddToCartControl> {
     }
 
     return Container(
-      height: 32,
+      height: 34,
       decoration: BoxDecoration(
-        color: const Color(0xFF4F46E5),
-        borderRadius: BorderRadius.circular(8),
+        gradient: AppColors.brandGradient,
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: AppColors.accentGlow,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -70,7 +74,11 @@ class _AddToCartControlState extends ConsumerState<AddToCartControl> {
           ),
           SizedBox(
             width: 22,
-            child: Text('$quantity', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+            child: Text(
+              '$quantity',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+            ),
           ),
           _StepButton(
             icon: Icons.add,
@@ -92,7 +100,8 @@ class _StepButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      child: SizedBox(width: 28, height: 32, child: Icon(icon, color: Colors.white, size: 16)),
+      customBorder: const CircleBorder(),
+      child: SizedBox(width: 30, height: 34, child: Icon(icon, color: Colors.white, size: 16)),
     );
   }
 }

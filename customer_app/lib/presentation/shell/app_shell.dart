@@ -36,7 +36,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       if (next == null) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(next), backgroundColor: const Color(0xFF4F46E5)));
+        ..showSnackBar(SnackBar(content: Text(next)));
     });
 
     final section = ref.watch(shellSectionProvider);
@@ -61,13 +61,13 @@ class _AppShellState extends ConsumerState<AppShell> {
         selectedIndex: section,
         onDestinationSelected: (index) => ref.read(shellSectionProvider.notifier).state = index,
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
+          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Home'),
           NavigationDestination(
             icon: Icon(Icons.assignment_outlined),
-            selectedIcon: Icon(Icons.assignment),
+            selectedIcon: Icon(Icons.assignment_rounded),
             label: 'Orders',
           ),
-          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profile'),
+          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person_rounded), label: 'Profile'),
         ],
       ),
     );

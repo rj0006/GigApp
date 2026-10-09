@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers.dart';
 import 'widgets/service_card.dart';
+import '../../core/theme/app_colors.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -49,7 +50,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ),
       ),
       body: _term.isEmpty
-          ? Center(child: Text('Search for a service, like "tap repair"', style: TextStyle(color: Colors.grey.shade600)))
+          ? Center(child: Text('Search for a service, like "tap repair"', style: TextStyle(color: AppColors.muted)))
           : Consumer(
               builder: (context, ref, _) {
                 final results = ref.watch(searchResultsProvider(_term));
@@ -57,7 +58,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (error, _) => Center(child: Text('Search failed.\n$error', textAlign: TextAlign.center)),
                   data: (items) => items.isEmpty
-                      ? Center(child: Text('No services matched "$_term".', style: TextStyle(color: Colors.grey.shade600)))
+                      ? Center(child: Text('No services matched "$_term".', style: TextStyle(color: AppColors.muted)))
                       : GridView.builder(
                           padding: const EdgeInsets.all(16),
                           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(

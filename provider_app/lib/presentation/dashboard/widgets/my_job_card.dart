@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../domain/entities/gig_task.dart';
+import '../../../core/theme/app_colors.dart';
 
 class MyJobCard extends StatelessWidget {
   const MyJobCard({
@@ -17,11 +18,11 @@ class MyJobCard extends StatelessWidget {
   final VoidCallback onCancel;
 
   Color get _statusColor => switch (job.status) {
-        'completed' => Colors.green,
-        'cancelled' => Colors.red,
-        'in_progress' => Colors.blue,
-        'accepted' => Colors.indigo,
-        _ => Colors.orange,
+        'completed' => AppColors.successText,
+        'cancelled' => AppColors.dangerText,
+        'in_progress' => AppColors.accent,
+        'accepted' => AppColors.accent,
+        _ => AppColors.warningText,
       };
 
   @override
@@ -56,12 +57,12 @@ class MyJobCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 4),
-            Text(job.address, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+            Text(job.address, style: TextStyle(color: AppColors.muted, fontSize: 12)),
             if (job.wasAssignedBySupport) ...[
               const SizedBox(height: 4),
               Text(
                 'Given to you by support: ${job.assignmentNote ?? ''}',
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                style: TextStyle(color: AppColors.muted, fontSize: 11),
               ),
             ],
             const SizedBox(height: 8),
@@ -69,7 +70,7 @@ class MyJobCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('₹${job.effectiveAmount.round()}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                Text(job.customerName ?? '—', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                Text(job.customerName ?? '—', style: TextStyle(color: AppColors.muted, fontSize: 12)),
               ],
             ),
             if (canStart || canComplete || canCancel) ...[
@@ -80,13 +81,13 @@ class MyJobCard extends StatelessWidget {
                   if (canStart) FilledButton(onPressed: onStart, child: const Text('Start')),
                   if (canComplete)
                     FilledButton(
-                      style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                      style: FilledButton.styleFrom(backgroundColor: AppColors.successText),
                       onPressed: onComplete,
                       child: const Text('Complete'),
                     ),
                   if (canCancel)
                     OutlinedButton(
-                      style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                      style: OutlinedButton.styleFrom(foregroundColor: AppColors.dangerText),
                       onPressed: onCancel,
                       child: const Text('Cancel'),
                     ),

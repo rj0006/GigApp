@@ -13,6 +13,7 @@ import '../dashboard/widgets/complete_job_dialog.dart';
 import '../dashboard/widgets/my_bid_card.dart';
 import '../dashboard/widgets/my_job_card.dart';
 import '../providers.dart';
+import '../../core/theme/app_colors.dart';
 
 class OrdersScreen extends ConsumerStatefulWidget {
   const OrdersScreen({super.key, this.initialTab = 0});
@@ -42,7 +43,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
       if (error != null) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(error), backgroundColor: Colors.red));
+          ..showSnackBar(SnackBar(content: Text(error), backgroundColor: AppColors.dangerText));
       }
     });
 
@@ -50,8 +51,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
       children: [
         TabBar(
           controller: _tabController,
-          labelColor: const Color(0xFF4F46E5),
-          unselectedLabelColor: Colors.grey,
+          labelColor: AppColors.accent,
+          unselectedLabelColor: AppColors.muted,
           tabs: const [
             Tab(text: 'Available'),
             Tab(text: 'My bids'),
@@ -365,12 +366,12 @@ class _FilterChip extends StatelessWidget {
       label: Text(label),
       selected: selected,
       onSelected: (_) => onTap(),
-      selectedColor: const Color(0xFF4F46E5).withValues(alpha: 0.15),
+      selectedColor: AppColors.accent.withValues(alpha: 0.15),
       labelStyle: TextStyle(
-        color: selected ? const Color(0xFF4F46E5) : Colors.grey.shade700,
+        color: selected ? AppColors.accent : AppColors.muted,
         fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
       ),
-      side: BorderSide(color: selected ? const Color(0xFF4F46E5) : Colors.grey.shade300),
+      side: BorderSide(color: selected ? AppColors.accent : AppColors.lineStrong),
     );
   }
 }
@@ -378,12 +379,12 @@ class _FilterChip extends StatelessWidget {
 Widget _emptyHint(String text) {
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-    child: Center(child: Text(text, style: TextStyle(color: Colors.grey.shade600), textAlign: TextAlign.center)),
+    child: Center(child: Text(text, style: TextStyle(color: AppColors.muted), textAlign: TextAlign.center)),
   );
 }
 
 void _toast(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.green));
+    ..showSnackBar(SnackBar(content: Text(message), backgroundColor: AppColors.successText));
 }

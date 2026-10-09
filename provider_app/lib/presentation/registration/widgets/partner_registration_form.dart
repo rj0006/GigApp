@@ -7,6 +7,7 @@ import '../../common/widgets/primary_button.dart';
 import '../../providers.dart';
 import '../partner_registration_controller.dart';
 import 'image_picker_tile.dart';
+import '../../../core/theme/app_colors.dart';
 
 class PartnerRegistrationForm extends ConsumerStatefulWidget {
   const PartnerRegistrationForm({super.key, required this.phone});
@@ -44,7 +45,7 @@ class _PartnerRegistrationFormState extends ConsumerState<PartnerRegistrationFor
         const SizedBox(height: 6),
         Text(
           '+91 ${widget.phone} is verified. An administrator checks your KYC before you can accept work.',
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+          style: TextStyle(color: AppColors.muted, fontSize: 13),
         ),
         const SizedBox(height: 16),
 
@@ -71,7 +72,7 @@ class _PartnerRegistrationFormState extends ConsumerState<PartnerRegistrationFor
           ),
           error: (error, _) => Text(
             'Could not load skill categories. Pull to retry.',
-            style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+            style: TextStyle(color: AppColors.dangerText, fontSize: 13),
           ),
           data: (list) => DropdownButtonFormField<int>(
             initialValue: state.skillCategoryId,
@@ -90,7 +91,7 @@ class _PartnerRegistrationFormState extends ConsumerState<PartnerRegistrationFor
         const SizedBox(height: 4),
         Text(
           'An administrator checks these against each other before approving your account.',
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+          style: TextStyle(color: AppColors.muted, fontSize: 12),
         ),
         const SizedBox(height: 12),
 
@@ -129,7 +130,7 @@ class _PartnerRegistrationFormState extends ConsumerState<PartnerRegistrationFor
 
         if (state.error != null) ...[
           const SizedBox(height: 8),
-          Text(state.error!, style: const TextStyle(color: Colors.red)),
+          Text(state.error!, style: const TextStyle(color: AppColors.dangerText)),
         ],
         const SizedBox(height: 16),
 

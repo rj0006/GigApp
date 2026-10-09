@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../domain/entities/address.dart';
 import '../../providers.dart';
+import '../../../core/theme/app_colors.dart';
 
 Future<Address?> showAddressFormDialog(BuildContext context, {Address? current}) async {
   return showModalBottomSheet<Address>(
@@ -66,7 +67,7 @@ class _AddressFormSheetState extends ConsumerState<_AddressFormSheet> {
               ),
               const SizedBox(height: 16),
               if (_error != null) ...[
-                Text(_error!, style: const TextStyle(color: Colors.red)),
+                Text(_error!, style: const TextStyle(color: AppColors.dangerText)),
                 const SizedBox(height: 8),
               ],
               Wrap(
