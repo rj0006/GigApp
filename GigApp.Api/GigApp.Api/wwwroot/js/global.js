@@ -1090,6 +1090,10 @@
                     $card.find('[data-otp-phone-label]').text(phone);
                     $card.find('[data-otp-phone-field]').val(phone);
 
+                    var $nameGroup = $card.find('[data-otp-name-group]');
+                    $nameGroup.prop('hidden', !body.isNewAccount);
+                    $nameGroup.find('input').prop('required', !!body.isNewAccount).val('');
+
                     var $dev = $card.find('[data-otp-dev-code]');
                     if (body.devCode) {
                         $dev.text('No SMS provider is set up yet — for now, the code is ' + body.devCode + '.')

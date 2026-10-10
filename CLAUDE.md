@@ -117,7 +117,8 @@ provider and its credentials admin-configurable — rather than one fixed config
 scoped work, not a small addition.
 
 - **There is exactly one entry point per portal, never a separate "register" link.** A known number
-  signs in; an unknown customer number is asked for a name on the same screen and goes through the
+  signs in with the code alone; the code request returns `isNewAccount`, and only for an unknown customer number
+  does the screen then ask for a name, which goes through the
   ordinary `AuthService.RegisterCustomerAsync` with a random password the user never sees; an
   unknown partner number is sent into the existing `/provider/register` KYC form with phone
   pre-filled and locked and the password fields hidden (still generated and posted, so that form's

@@ -82,7 +82,7 @@ namespace GigApp.Api.Controllers
             if (!result.Succeeded)
                 return BadRequest(new ProblemDetails { Title = result.Error ?? "Could not send the code.", Status = 400 });
 
-            return Ok(new { devCode = result.DevCode });
+            return Ok(new { devCode = result.DevCode, isNewAccount = result.IsNewAccount });
         }
 
         [HttpPost("otp/verify")]

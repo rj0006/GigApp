@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../core/network/api_endpoints.dart';
 import '../../core/network/api_exception.dart';
+import '../../domain/entities/otp_request_outcome.dart';
 import '../models/app_user_model.dart';
 import '../models/auth_response_model.dart';
 
@@ -10,13 +11,16 @@ class AuthRemoteDataSource {
 
   final Dio _dio;
 
-  Future<String?> requestOtp(String phone, String role) async {
+  Future<OtpRequestOutcome> requestOtp(String phone, String role) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         ApiEndpoints.otpRequest,
         data: {'phone': phone, 'role': role},
       );
-      return response.data?['devCode'] as String?;
+      return OtpRequestOutcome(
+        devCode: response.data?['devCode'] as String?,
+        isNewAccount: response.data?['isNewAccount'] as bool? ?? false,
+      );
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }

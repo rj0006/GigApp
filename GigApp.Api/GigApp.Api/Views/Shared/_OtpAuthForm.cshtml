@@ -48,11 +48,14 @@
                            maxlength="6" autocomplete="one-time-code" required />
                 </div>
 
-                <div class="col-12">
-                    <label for="otp-name" class="form-label">Your name</label>
-                    <input id="otp-name" name="Name" class="form-control" />
-                    <div class="form-text">Only needed the first time, to set up a new account.</div>
-                </div>
+                @if (Model.PortalSlug == "customer")
+                {
+                    <div class="col-12" data-otp-name-group hidden>
+                        <label for="otp-name" class="form-label required">Your name</label>
+                        <input id="otp-name" name="Name" class="form-control" autocomplete="name" />
+                        <div class="form-text">This number has no account yet. We need your name to set one up.</div>
+                    </div>
+                }
 
                 <div class="col-12">
                     <button type="submit" class="btn btn-uc-primary w-100">Verify &amp; continue</button>

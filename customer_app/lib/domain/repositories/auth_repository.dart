@@ -1,7 +1,8 @@
 import '../entities/app_user.dart';
+import '../entities/otp_request_outcome.dart';
 
 abstract class AuthRepository {
-  Future<String?> requestOtp(String phone);
+  Future<OtpRequestOutcome> requestOtp(String phone);
 
   Future<AppUser> verifyOtp(String phone, String code, {String? name});
 

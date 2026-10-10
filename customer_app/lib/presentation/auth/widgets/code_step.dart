@@ -71,17 +71,19 @@ class _CodeStepState extends ConsumerState<CodeStep> {
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: 8),
           decoration: const InputDecoration(labelText: '6-digit code', counterText: ''),
         ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _nameController,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(labelText: 'Your name'),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Only needed the first time, to set up a new account.',
-          style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
-        ),
+        if (widget.state.isNewAccount) ...[
+          const SizedBox(height: 12),
+          TextField(
+            controller: _nameController,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(labelText: 'Your name'),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'This number has no account yet. We need your name to set one up.',
+            style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+          ),
+        ],
         if (widget.state.error != null) ...[
           const SizedBox(height: 8),
           InlineError(message: widget.state.error!),
@@ -92,9 +94,9 @@ class _CodeStepState extends ConsumerState<CodeStep> {
           isLoading: widget.state.isLoading,
           onPressed: () {
             final code = _codeController.text.trim();
-            if (code.length == 6) {
-              controller.verifyOtp(code, name: _nameController.text.trim());
-            }
+            if (code.length != 6) return;
+            final name = _nameController.text.trim();
+            controller.verifyOtp(code, name: name.isEmpty ? null : name);
           },
         ),
         const SizedBox(height: 8),

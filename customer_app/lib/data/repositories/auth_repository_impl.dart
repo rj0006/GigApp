@@ -1,6 +1,7 @@
 import '../../core/config/env.dart';
 import '../../core/storage/token_storage.dart';
 import '../../domain/entities/app_user.dart';
+import '../../domain/entities/otp_request_outcome.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_data_source.dart';
 
@@ -11,7 +12,7 @@ class AuthRepositoryImpl implements AuthRepository {
   final TokenStorage _tokenStorage;
 
   @override
-  Future<String?> requestOtp(String phone) => _remote.requestOtp(phone, Env.role);
+  Future<OtpRequestOutcome> requestOtp(String phone) => _remote.requestOtp(phone, Env.role);
 
   @override
   Future<AppUser> verifyOtp(String phone, String code, {String? name}) async {

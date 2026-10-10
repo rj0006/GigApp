@@ -14,12 +14,13 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
     state = state.copyWith(isLoading: true, clearError: true, phone: phone);
 
     try {
-      final devCode = await _ref.read(authRepositoryProvider).requestOtp(phone);
+      final outcome = await _ref.read(authRepositoryProvider).requestOtp(phone);
       state = state.copyWith(
         isLoading: false,
         step: LoginStep.code,
-        devCodeHint: devCode,
-        clearDevCodeHint: devCode == null,
+        devCodeHint: outcome.devCode,
+        clearDevCodeHint: outcome.devCode == null,
+        isNewAccount: outcome.isNewAccount,
       );
     } on ApiException catch (e) {
       state = state.copyWith(isLoading: false, error: e.message);

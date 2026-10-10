@@ -5,10 +5,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GigApp.Api.Services.Otp
 {
-    public record OtpRequestResult(bool Succeeded, string? Error, string? DevCode)
+    public record OtpRequestResult(bool Succeeded, string? Error, string? DevCode, bool IsNewAccount)
     {
-        public static OtpRequestResult Ok(string? devCode) => new(true, null, devCode);
-        public static OtpRequestResult Fail(string error) => new(false, error, null);
+        public static OtpRequestResult Ok(string? devCode, bool isNewAccount) => new(true, null, devCode, isNewAccount);
+        public static OtpRequestResult Fail(string error) => new(false, error, null, false);
     }
 
     public record OtpVerifyResult(bool Succeeded, string? Error, AuthResult? Auth, bool RequiresPartnerRegistration)
@@ -78,7 +78,9 @@ namespace GigApp.Api.Services.Otp
 
             _logger.LogInformation("OTP requested for {Phone} ({Role})", phone, role);
 
-            return OtpRequestResult.Ok(_environment.IsDevelopment() ? code : null);
+            var isNewAccount = !await _context.Users.AnyAsync(u => u.Phone == phone && u.Role == role, ct);
+
+            return OtpRequestResult.Ok(_environment.IsDevelopment() ? code : null, isNewAccount);
         }
 
         public async Task<OtpVerifyResult> VerifyAsync(

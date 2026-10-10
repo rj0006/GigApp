@@ -67,6 +67,24 @@ them as UTC. A banner set to start now in India therefore stayed hidden for abou
 
 ---
 
+## 2026-10-11 — The name is asked only when the number has no account
+
+**Asked:** signing in with a code must not ask for a name every time. A known number goes straight in once
+the code is right. A name is asked only when the number is new.
+
+- The code request now says whether the number is new. `POST {portal}/otp/request` and
+  `POST api/auth/otp/request` return `{ devCode, isNewAccount }`, where `isNewAccount` is true when no
+  account with that phone and role exists.
+- Web and the customer app show the name field only when `isNewAccount` is true, and ask for it then. With a
+  name the customer account is created and signed in; without one the server refuses with "Enter your name
+  to create your account."
+- The partner screens never ask for a name. A new partner number goes to the KYC registration form after
+  the code, as before.
+- Anyone can learn whether a number has an account by requesting a code for it. This is the usual trade-off
+  for code sign-in, and the code request is rate limited (3 per 5 minutes per client).
+
+---
+
 ## 2026-10-11 — The admin, customer and partner portals keep separate browser sessions
 
 **Problem:** the three portals shared one pair of cookies, so signing in to one portal in a browser signed the
