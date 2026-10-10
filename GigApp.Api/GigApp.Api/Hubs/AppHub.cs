@@ -16,7 +16,7 @@ namespace GigApp.Api.Hubs
 
     // One hub for the whole app — a connection joins whichever groups its own
     // role and identity qualify for, then just listens. The web portals carry
-    // the JWT in the gigapp_token cookie the same way every other request
+    // the JWT in the portal's own token cookie the same way every other request
     // does; a mobile client authenticates the same hub with nothing extra
     // beyond sending its access token the way the SignalR client always does
     // (Program.cs reads it from the query string for this path, since a

@@ -97,7 +97,9 @@ builder.Services
                     context.Token = accessToken;
                 }
                 else if (string.IsNullOrEmpty(context.Token) &&
-                    context.Request.Cookies.TryGetValue(AuthCookie.Name, out var cookieToken))
+                    !context.Request.Headers.ContainsKey("Authorization") &&
+                    AuthCookie.PortalFor(context.Request) is { } portal &&
+                    context.Request.Cookies.TryGetValue(AuthCookie.TokenName(portal), out var cookieToken))
                 {
                     context.Token = cookieToken;
                 }
@@ -418,8 +420,32 @@ public static class RateLimiterPolicies
 
 public static class AuthCookie
 {
-    public const string Name = "gigapp_token";
-    public const string RefreshName = "gigapp_refresh";
+    public const string PortalHeader = "X-Portal";
+
+    private static readonly string[] Portals = { "admin", "customer", "provider" };
+
+    public static string TokenName(string portal) => "gigapp_token_" + portal;
+
+    public static string RefreshName(string portal) => "gigapp_refresh_" + portal;
+
+    public static string? PortalFor(HttpRequest request)
+    {
+        if (!request.Path.StartsWithSegments("/api") && !request.Path.StartsWithSegments("/hubs"))
+            return FromPath(request.Path);
+
+        var named = request.Headers[PortalHeader].ToString();
+        if (string.IsNullOrEmpty(named)) named = request.Query["portal"].ToString();
+        if (Portals.Contains(named)) return named;
+
+        return Uri.TryCreate(request.Headers.Referer.ToString(), UriKind.Absolute, out var referer)
+            ? FromPath(referer.AbsolutePath)
+            : null;
+    }
+
+    private static string FromPath(PathString path) =>
+        path.StartsWithSegments("/admin") ? "admin"
+        : path.StartsWithSegments("/provider") ? "provider"
+        : "customer";
 }
 
 public static class PortalRedirects

@@ -67,6 +67,21 @@ them as UTC. A banner set to start now in India therefore stayed hidden for abou
 
 ---
 
+## 2026-10-11 — The admin, customer and partner portals keep separate browser sessions
+
+**Problem:** the three portals shared one pair of cookies, so signing in to one portal in a browser signed the
+person out of another.
+
+- Each portal now has its own token and refresh cookie, named after the portal. An administrator, a customer
+  and a partner can be signed in together in one browser, and signing out of one leaves the others alone.
+- The portal is read from the path for pages (the public storefront belongs to the customer portal) and from
+  the `X-Portal` header or the `portal` query value for API and live-update calls. Mobile apps are unaffected:
+  they send a bearer token and no cookies.
+- **Everyone signed in on the web must sign in once more after this release**, because the old shared cookies
+  are no longer read.
+
+---
+
 ## 2026-10-10 — Banners and individual services can be limited to areas
 
 **Asked:** show only the services and banners that are available in the area the customer has selected.

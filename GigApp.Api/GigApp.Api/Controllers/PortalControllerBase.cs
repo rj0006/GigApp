@@ -266,7 +266,7 @@ namespace GigApp.Api.Controllers
 
         protected void IssueAuthCookie(AuthResponse auth)
         {
-            Response.Cookies.Append(AuthCookie.Name, auth.Token, new CookieOptions
+            Response.Cookies.Append(AuthCookie.TokenName(PortalSlug), auth.Token, new CookieOptions
             {
                 HttpOnly = true,                       // script must never read the token
                 Secure = Request.IsHttps,              // dev runs plain HTTP; do not drop the cookie there
@@ -275,7 +275,7 @@ namespace GigApp.Api.Controllers
                 Path = "/",
             });
 
-            Response.Cookies.Append(AuthCookie.RefreshName, auth.RefreshToken, new CookieOptions
+            Response.Cookies.Append(AuthCookie.RefreshName(PortalSlug), auth.RefreshToken, new CookieOptions
             {
                 HttpOnly = true,
                 Secure = Request.IsHttps,
@@ -290,11 +290,11 @@ namespace GigApp.Api.Controllers
         // owner signs out, not linger until it happens to expire.
         protected async Task ClearAuthCookieAsync(CancellationToken ct)
         {
-            Request.Cookies.TryGetValue(AuthCookie.RefreshName, out var refreshToken);
+            Request.Cookies.TryGetValue(AuthCookie.RefreshName(PortalSlug), out var refreshToken);
             await RefreshTokens.RevokeByRawTokenAsync(refreshToken, ct);
 
-            Response.Cookies.Delete(AuthCookie.Name);
-            Response.Cookies.Delete(AuthCookie.RefreshName);
+            Response.Cookies.Delete(AuthCookie.TokenName(PortalSlug));
+            Response.Cookies.Delete(AuthCookie.RefreshName(PortalSlug));
         }
 
         // Silent re-auth for the browser: called periodically by global.js so a
@@ -306,7 +306,7 @@ namespace GigApp.Api.Controllers
         [SkipTracking]
         public async Task<IActionResult> RefreshSession(CancellationToken ct)
         {
-            if (!Request.Cookies.TryGetValue(AuthCookie.RefreshName, out var refreshToken)
+            if (!Request.Cookies.TryGetValue(AuthCookie.RefreshName(PortalSlug), out var refreshToken)
                 || string.IsNullOrEmpty(refreshToken))
                 return Unauthorized();
 
@@ -317,8 +317,8 @@ namespace GigApp.Api.Controllers
 
             if (!result.Succeeded || result.Response is null)
             {
-                Response.Cookies.Delete(AuthCookie.Name);
-                Response.Cookies.Delete(AuthCookie.RefreshName);
+                Response.Cookies.Delete(AuthCookie.TokenName(PortalSlug));
+                Response.Cookies.Delete(AuthCookie.RefreshName(PortalSlug));
                 return Unauthorized();
             }
 

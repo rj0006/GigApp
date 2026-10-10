@@ -42,12 +42,15 @@ namespace GigApp.Api.Controllers
             return NoContent();
         }
 
-        // The web portals carry the refresh token in the gigapp_refresh cookie; mobile has no
+        // The web portals carry the refresh token in their own per-portal refresh cookie; mobile has no
         // cookie jar, so it sends the same raw token it already holds via this header instead —
         // this is the only way either client can be told apart from "some other device" here.
         private string? CurrentRefreshToken(string? mobileRefreshToken)
         {
-            Request.Cookies.TryGetValue(AuthCookie.RefreshName, out var cookieToken);
+            string? cookieToken = null;
+            if (AuthCookie.PortalFor(Request) is { } portal)
+                Request.Cookies.TryGetValue(AuthCookie.RefreshName(portal), out cookieToken);
+
             return cookieToken ?? mobileRefreshToken;
         }
     }

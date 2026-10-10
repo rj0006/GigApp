@@ -636,6 +636,10 @@
         });
     }
 
+    function portalFromPath() {
+        return (location.pathname.match(/^\/(customer|provider|admin)(\/|$)/) || [])[1];
+    }
+
     function apiErrorMessage(response, body) {
         if (body && typeof body === 'object') {
             if (body.errors) {
@@ -657,7 +661,7 @@
         var options = {
             method: method,
             credentials: 'same-origin',
-            headers: { Accept: 'application/json' },
+            headers: { Accept: 'application/json', 'X-Portal': portalFromPath() || 'customer' },
         };
 
         if (data instanceof FormData) {
@@ -979,7 +983,7 @@
     // failure here is silent — the user only notices at the point the access
     // token actually expires and the normal login redirect takes over.
     function wireSessionRefresh() {
-        var portal = (location.pathname.match(/^\/(customer|provider|admin)(\/|$)/) || [])[1];
+        var portal = portalFromPath();
         if (!portal) return;
 
         setInterval(function () {
@@ -1037,11 +1041,11 @@
     // authenticated — the hub itself requires that, so an anonymous visitor's
     // connection simply never completes, harmlessly.
     function wireRealtime() {
-        var portal = (location.pathname.match(/^\/(customer|provider|admin)(\/|$)/) || [])[1];
+        var portal = portalFromPath();
         if (!portal || typeof signalR === 'undefined') return;
 
         var connection = new signalR.HubConnectionBuilder()
-            .withUrl('/hubs/app')
+            .withUrl('/hubs/app?portal=' + portal)
             .withAutomaticReconnect()
             .build();
 

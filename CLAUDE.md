@@ -149,7 +149,11 @@ scoped work, not a small addition.
 
 **JWT is the single source of truth for auth.** One `AuthService` issues tokens for every client.
 Mobile apps send `Authorization: Bearer`; the Razor portals park the same JWT in an HttpOnly cookie
-(`gigapp_token`) that `JwtBearerEvents.OnMessageReceived` reads. There is deliberately **no separate
+that `JwtBearerEvents.OnMessageReceived` reads. **Each portal has its own pair of cookies**
+(`gigapp_token_admin|customer|provider`, `gigapp_refresh_...`), so one browser can hold an admin, a
+customer and a partner session at once; `AuthCookie.PortalFor(request)` picks the pair — from the path
+for pages (the storefront counts as `customer`), from the `X-Portal` header or the `portal` query value
+for `/api` and `/hubs` calls, and from the `Referer` as a last resort. `App.api` sends `X-Portal` on every call. There is deliberately **no separate
 cookie/session auth scheme** — do not add ASP.NET Identity or `AddCookie` alongside this.
 
 **The JWT is short-lived; a rotating refresh token is what keeps anyone signed in past that.**
@@ -160,7 +164,7 @@ single-use**: `RedeemAsync` revokes the token it was given and issues a brand ne
 call, so a captured-and-replayed old token stops working the instant the real device redeems its own
 copy — there is no window where both the original and a thief's copy are simultaneously valid.
 Mobile clients call `POST api/auth/refresh` themselves; the Razor portals never see either token
-value — `gigapp_token` and a second cookie, `gigapp_refresh`, are both HttpOnly, and `global.js`'s
+value — the token cookie and the refresh cookie are both HttpOnly, and `global.js`'s
 `wireSessionRefresh` silently calls the shared `POST /{portal}/refresh-session` every 20 minutes to
 renew both before the short-lived one expires. **Signing out revokes the refresh token itself**,
 not just the two cookies — `PortalControllerBase.ClearAuthCookieAsync` reads the raw refresh cookie
