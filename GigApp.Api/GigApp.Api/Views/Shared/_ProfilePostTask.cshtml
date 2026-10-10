@@ -4,8 +4,8 @@
     <div class="card-body">
         <h2 class="h6 mb-1">Post a task</h2>
         <p class="text-secondary small">
-            Tell us what needs doing and where. A fixed-price service is booked at the listed rate;
-            everything else goes out for partner quotes.
+            Tell us what needs doing and where. A fixed-price service is booked at the listed rate, and you
+            can change the amount to ask partners for quotes instead. Everything else goes out for quotes.
         </p>
 
         <form id="post-task-form" class="gig-form row g-3">
@@ -22,7 +22,8 @@
                        data-master="service-item" data-target="ServiceItemId"
                        data-parent="CategoryId" data-alert="service"
                        data-price-field="Budget" data-price-note="budget-note"
-                       data-price-fixed-note="Fixed price for this service. The first available partner takes it, so there is no bidding." />
+                       data-price-fixed-note="Fixed price for this service. The first available partner takes it. Change the amount to ask for quotes instead."
+                       data-price-changed-note="You changed the price, so partners will bid on this task at your amount." />
                 <input type="hidden" id="ServiceItemId" name="ServiceItemId" value="" />
             </div>
 

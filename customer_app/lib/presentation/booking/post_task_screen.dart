@@ -78,7 +78,10 @@ class _PostTaskScreenState extends ConsumerState<PostTaskScreen> {
                           children: list.map((item) => _ServiceItemTile(
                                 item: item,
                                 selected: _item?.id == item.id,
-                                onTap: () => setState(() => _item = item),
+                                onTap: () => setState(() {
+                                  _item = item;
+                                  _budgetController.text = _hasFixedPrice(item) ? item.basePayout!.round().toString() : '';
+                                }),
                               )).toList(),
                         ),
                 );
@@ -96,17 +99,19 @@ class _PostTaskScreenState extends ConsumerState<PostTaskScreen> {
               border: OutlineInputBorder(),
             ),
           ),
-          if (_item != null && !_item!.allowsInstantBooking) ...[
+          if (_item != null) ...[
             const SizedBox(height: 16),
             Text('Your budget', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             TextField(
               controller: _budgetController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
                 prefixText: '₹ ',
                 hintText: 'What are you willing to pay?',
-                border: OutlineInputBorder(),
+                helperText: _budgetNote(),
+                helperMaxLines: 3,
               ),
             ),
           ],
@@ -172,6 +177,18 @@ class _PostTaskScreenState extends ConsumerState<PostTaskScreen> {
     );
   }
 
+  bool _hasFixedPrice(ServiceItem item) => item.allowsInstantBooking && (item.basePayout ?? 0) > 0;
+
+  String _budgetNote() {
+    final item = _item!;
+    if (!_hasFixedPrice(item)) return 'Partners bid against this.';
+
+    final typed = double.tryParse(_budgetController.text.trim()) ?? 0;
+    return typed == item.basePayout!.roundToDouble() || typed == item.basePayout
+        ? 'Fixed price for this service. The nearest partner is offered the job. Change the amount to ask for quotes instead.'
+        : 'You changed the price, so partners will bid on this task at your amount.';
+  }
+
   Future<void> _submit() async {
     if (_category == null) {
       setState(() => _error = 'Choose a category.');
@@ -189,9 +206,8 @@ class _PostTaskScreenState extends ConsumerState<PostTaskScreen> {
       setState(() => _error = 'Choose where the work is needed.');
       return;
     }
-    final budget =
-        _item!.allowsInstantBooking ? (_item!.basePayout ?? 0) : (double.tryParse(_budgetController.text.trim()) ?? 0);
-    if (!_item!.allowsInstantBooking && budget <= 0) {
+    final budget = double.tryParse(_budgetController.text.trim()) ?? 0;
+    if (budget <= 0) {
       setState(() => _error = 'Enter what you are willing to pay.');
       return;
     }

@@ -400,25 +400,39 @@
         });
     }
 
+    function showPriceNote($picker, $field, $note) {
+        if (!$note.length) return;
+
+        var fixedPrice = $field.data('fixed-price');
+        if (fixedPrice === null || fixedPrice === undefined) {
+            $note.text($note.data('default'));
+            return;
+        }
+
+        var changed = parseFloat($field.val()) !== parseFloat(fixedPrice);
+        $note.text(changed ? $picker.data('price-changed-note') : $picker.data('price-fixed-note'));
+    }
+
     function applyFixedPrice($picker, price) {
         var $field = $('#' + $picker.data('price-field'));
         if (!$field.length) return;
 
-        var $note = $('#' + $picker.data('price-note'));
         var fixed = price !== null && price !== undefined && price !== '';
 
-        $field.prop('readonly', fixed).toggleClass('bg-body-secondary', fixed);
+        $field.data('fixed-price', fixed ? price : null);
         if (fixed) $field.val(price);
 
-        if ($note.length) {
-            $note.text(fixed ? $picker.data('price-fixed-note') : $note.data('default'));
-        }
+        showPriceNote($picker, $field, $('#' + $picker.data('price-note')));
     }
 
     function wireFixedPrice() {
         $('input[data-price-field]').each(function () {
-            var $note = $('#' + $(this).data('price-note'));
+            var $picker = $(this);
+            var $field = $('#' + $picker.data('price-field'));
+            var $note = $('#' + $picker.data('price-note'));
+
             if ($note.length) $note.data('default', $note.text());
+            $field.on('input', function () { showPriceNote($picker, $field, $note); });
         });
 
         $(document).on('master:selected', 'input[data-price-field]', function (event, item) {

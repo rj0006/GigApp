@@ -56,6 +56,9 @@ How the user wants help delivered on this project. These override default respon
     [docs/REUSABLE.md](docs/REUSABLE.md). No one-off styles, no hard-coded colours. A new look-and-feel
     need becomes a token or a class in `theme.css`, documented in REUSABLE.md. Flutter screens use the
     same palette and spacing.
+11. **A requested change applies to web and mobile together.** Unless told otherwise, every behaviour or rule
+    change goes to the Razor portals and to the Flutter apps (`customer_app`, `provider_app`) in the same piece
+    of work, shared API first. Say so in the reply when one side genuinely cannot take it.
 
 ## Structure
 
@@ -195,7 +198,9 @@ Both the API and the Razor portals call it. A DB check constraint backs the allo
 
 **How a partner is chosen depends on `GigTask.BookingMode`, and the service item decides it.**
 A `ServiceItem` with `AllowsInstantBooking` and a `BasePayout` above zero books as `instant`;
-everything else books as `bidding`. Nothing else sets the mode, and the customer cannot choose it.
+everything else books as `bidding`. The one exception is Post a task: if the customer changes the pre-filled
+amount of a fixed-price service, `POST api/gigtasks` books it as `bidding` at their amount. The cart and
+checkout never allow that, and nothing else sets the mode.
 
 - **Instant** is a fixed price. Both `Budget` and `AgreedAmount` are set from `BasePayout` at
   booking, the posted amount is ignored, bidding is refused, and the first approved, **on-duty**

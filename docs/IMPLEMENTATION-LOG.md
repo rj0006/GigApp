@@ -67,6 +67,23 @@ them as UTC. A banner set to start now in India therefore stayed hidden for abou
 
 ---
 
+## 2026-10-11 — A fixed price on Post a task can be changed by the customer
+
+**Asked:** when a customer posts a task for a fixed-price service, the amount must not be locked. It applies to
+the web and to the customer app alike.
+
+- Choosing a fixed-price service pre-fills the budget with the listed price. The field stays editable.
+- **Unchanged (or left empty):** the task books as `instant` at the listed price, exactly as before, and the
+  nearest available partner is offered it.
+- **Changed to any other amount:** the task books as `bidding` at the customer's amount. There is no automatic
+  offer; partners in that category see it and bid or accept.
+- The server decides: `POST api/gigtasks` compares the posted `Budget` with the service's fixed price. The
+  forms only show a note that updates as the amount is edited ("Fixed price…" or "You changed the price, so
+  partners will bid…").
+- The storefront cart and checkout are not affected: they always book at the catalogue price.
+
+---
+
 ## 2026-10-11 — The name is asked only when the number has no account
 
 **Asked:** signing in with a code must not ask for a name every time. A known number goes straight in once

@@ -117,3 +117,16 @@ in `docs/REUSABLE.md` and reuse what exists. A new look-and-feel need becomes a 
 `theme.css`, documented in REUSABLE.md. Flutter screens use `AppColors` and the shared widgets (see
 "Flutter — the design system" in REUSABLE.md), never a raw colour. The apps are named "Gig Customer" and
 "Gig Partner" as placeholders until the company name is decided. Also `CLAUDE.md` working-agreement rule 10.
+
+---
+
+## Changes apply to web and mobile
+
+When the user asks for a behaviour or rule change, apply it to both the web (Razor portals and storefront) and the
+mobile apps (`customer_app`, `provider_app`) in the same piece of work, without waiting to be told.
+
+**Why:** The user asked for this on 2026-10-11 after earlier requests had to be re-aimed at mobile afterwards.
+
+**How to apply:** Shared API first, then the web view or script and the matching Flutter screen. Record the rule once
+in `docs/IMPLEMENTATION-LOG.md`. If one side cannot take the change, say so in the reply. Also `CLAUDE.md`
+working-agreement rule 11.

@@ -86,6 +86,8 @@ namespace GigApp.Api.Controllers
 
             var customerId = User.GetRequiredUserId();
 
+            var isInstant = service.IsInstant && (request.Budget <= 0 || request.Budget == service.FixedPrice);
+
             // Ownership is checked here, not taken on trust from the payload.
             var address = await _addresses.FindOwnedAsync(customerId, request.AddressId, ct);
             if (address is null)
@@ -107,9 +109,9 @@ namespace GigApp.Api.Controllers
                 Latitude = address.Latitude,
                 Longitude = address.Longitude,
                 Location = GeoPoint.From(address.Latitude, address.Longitude),
-                Budget = service.IsInstant ? service.FixedPrice : request.Budget,
-                AgreedAmount = service.IsInstant ? service.FixedPrice : null,
-                BookingMode = service.IsInstant ? TaskBookingMode.Instant : TaskBookingMode.Bidding,
+                Budget = isInstant ? service.FixedPrice : request.Budget,
+                AgreedAmount = isInstant ? service.FixedPrice : null,
+                BookingMode = isInstant ? TaskBookingMode.Instant : TaskBookingMode.Bidding,
                 PreferredDateTime = request.PreferredDateTime.ToUtc(),
                 Status = GigTaskStatus.Pending,
                 CreatedAt = DateTime.UtcNow,
@@ -118,12 +120,12 @@ namespace GigApp.Api.Controllers
             _context.GigTasks.Add(task);
             await _context.SaveChangesAsync(ct);
 
-            if (service.IsInstant) await _offers.StartAsync(task.Id, ct);
+            if (isInstant) await _offers.StartAsync(task.Id, ct);
 
             // A bidding task appears on every matching partner's board the
             // moment it exists; an instant one already went into the offer
             // chain above, but the admin task list still wants to know either way.
-            if (!service.IsInstant)
+            if (!isInstant)
                 await _realtime.NotifyCategoryPartnersAsync(task.CategoryId, "tasks", ct);
             await _realtime.NotifyAdminsAsync("tasks", ct);
 
